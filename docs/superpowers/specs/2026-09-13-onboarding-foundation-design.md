@@ -49,4 +49,3 @@ Reduced-motion users receive an immediate, non-animated transition. The button r
 3. Pointer, keyboard, and reduced-motion paths remain functional.
 4. The repository contains source-backed Sber500 facts and recovered Steza decisions, clearly distinguishing official facts, team decisions, and open questions.
 5. CI executes install, lint, typecheck, tests, and build on Node 20.
-

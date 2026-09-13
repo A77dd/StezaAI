@@ -125,7 +125,6 @@
     background-position: -115% 50%;
   }
 }
-
 @media (max-width: 480px) {
   .tag {
     font-size: 11px;
@@ -150,4 +149,3 @@
     animation: none;
   }
 }
-

@@ -13,4 +13,3 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ru",
   };
 }
-

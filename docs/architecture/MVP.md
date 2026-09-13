@@ -62,4 +62,3 @@ Agent loop определяет состояние и next best action. Gateway 
 - идемпотентность фоновых задач и наблюдаемая обработка ошибок;
 - отдельные adapters/services для blockchain parsing;
 - mainnet и testnet никогда не используют общие адреса или окружение.
-

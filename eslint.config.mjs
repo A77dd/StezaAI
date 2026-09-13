@@ -7,4 +7,3 @@ export default defineConfig([
   ...nextTypeScript,
   globalIgnores([".next/**", "coverage/**", "out/**"]),
 ]);
-

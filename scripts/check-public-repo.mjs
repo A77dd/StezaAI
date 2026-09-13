@@ -66,4 +66,3 @@ if (findings.length > 0) {
 } else {
   console.log(`Public-repository safety scan passed (${fileNames.length} files).`);
 }
-

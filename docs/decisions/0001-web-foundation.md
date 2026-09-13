@@ -19,4 +19,3 @@ Do not create a workspace/monorepo, backend directory, shared package, or Tauri 
 - The first public test can deploy as a web application quickly.
 - The prototype becomes maintained, tested product code.
 - Introducing the desktop app later will require an explicit workspace decision and likely a second ADR.
-
