@@ -20,12 +20,12 @@
 - Create: `docs/architecture/MVP.md`
 - Create: `docs/decisions/0001-web-foundation.md`
 
-- [ ] Consolidate the supplied engineering rules and recovered product decisions without inventing scope.
-- [ ] Record official Sber500 x DISRUPT facts with retrieval date and direct source URLs; label application/onboarding details originating only from team chats.
-- [ ] Document target boundaries: web/PWA, local desktop Context Node, backend, memory, model gateway, analytics, and privacy.
-- [ ] Document exact local workflow and required checks.
-- [ ] Verify Markdown links and scan for `TBD`, `TODO`, and contradictory scope.
-- [ ] Commit as `docs: establish StezaAI product and engineering context`.
+- [x] Consolidate the supplied engineering rules and recovered product decisions without inventing scope.
+- [x] Record official Sber500 x DISRUPT facts with retrieval date and direct source URLs; label application/onboarding details originating only from team chats.
+- [x] Document target boundaries: web/PWA, local desktop Context Node, backend, memory, model gateway, analytics, and privacy.
+- [x] Document exact local workflow and required checks.
+- [x] Verify Markdown links and scan for placeholders and contradictory scope.
+- [x] Commit as `docs: establish StezaAI product and engineering context`.
 
 ### Task 2: Tested web foundation and onboarding intro
 
@@ -40,22 +40,22 @@
 - Create: `src/features/onboarding/components/OnboardingIntro.test.tsx`
 - Create: `.github/workflows/ci.yml`
 
-- [ ] Create the package manifest and test configuration with Node 20-compatible package versions.
-- [ ] Write failing component tests for the ten approved terms, accessible "Начать" control, one-shot completion, and reduced-motion path; run them and confirm expected failures.
-- [ ] Implement the layout and intro composition with responsive, safe-area-aware global styles.
-- [ ] Port the dependency-free Fibonacci sphere and transition behavior from the project owner's local v4 prototype, removing unused refs/variables and preserving visibility/performance guards. Do not commit its local path or metadata.
-- [ ] Run the focused tests and confirm they pass.
-- [ ] Add lint, typecheck, test, and build scripts plus CI.
-- [ ] Run `npm run lint`, `npm run typecheck`, `npm test -- --run`, and `npm run build`.
-- [ ] Commit as `feat: add onboarding intro and web foundation`.
+- [x] Create the package manifest and test configuration with Node 20-compatible package versions.
+- [x] Write failing component tests for the ten approved terms, accessible "Начать" control, one-shot completion, and reduced-motion path; run them and confirm expected failures.
+- [x] Implement the layout and intro composition with responsive, safe-area-aware global styles.
+- [x] Port the dependency-free Fibonacci sphere and transition behavior from the project owner's local v4 prototype, removing unused refs/variables and preserving visibility/performance guards. Do not commit its local path or metadata.
+- [x] Run the focused tests and confirm they pass.
+- [x] Add lint, typecheck, test, and build scripts plus CI.
+- [x] Run `npm run lint`, `npm run typecheck`, `npm test -- --run`, and `npm run build`.
+- [x] Commit as `feat: add onboarding intro and web foundation`.
 
 ### Task 3: Browser verification and final documentation pass
 
 **Files:**
 - Modify only files required to fix verified issues.
 
-- [ ] Start the production build locally and verify the page at desktop and mobile widths.
-- [ ] Verify mouse/touch interaction, keyboard activation, focus visibility, transition, and reduced-motion emulation.
-- [ ] Check browser console and network errors.
-- [ ] Re-run the complete quality-gate command set after any fix.
-- [ ] Commit verified fixes, if any, as `fix: harden onboarding intro`.
+- [x] Start the production build locally and verify the page at desktop and mobile widths.
+- [x] Verify pointer interaction, keyboard activation, focus visibility, transition, and the automated reduced-motion path.
+- [x] Check browser console and server output for errors.
+- [x] Re-run the complete quality-gate command set after any fix.
+- [x] Commit verified fixes as `fix: harden onboarding intro`.

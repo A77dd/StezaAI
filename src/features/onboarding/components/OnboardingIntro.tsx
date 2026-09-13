@@ -10,16 +10,20 @@ type OnboardingIntroProps = {
 };
 
 export default function OnboardingIntro({ onComplete }: OnboardingIntroProps) {
-  const [transitioning, setTransitioning] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "transitioning" | "complete">(
+    "idle",
+  );
 
   const handleComplete = () => {
-    setTransitioning(false);
+    setPhase("complete");
     onComplete?.();
   };
 
+  const hasStarted = phase !== "idle";
+
   return (
     <main
-      className={`${styles.intro} ${transitioning ? styles.isTransitioning : ""}`}
+      className={`${styles.intro} ${hasStarted ? styles.hasStarted : ""}`}
       aria-label="Первый экран онбординга Стези"
     >
       <h1 className={styles.visuallyHidden}>Стезя</h1>
@@ -28,14 +32,13 @@ export default function OnboardingIntro({ onComplete }: OnboardingIntroProps) {
         <CareerTagSphere
           size="min(82vw, 360px)"
           speed={0.68}
-          onStart={() => setTransitioning(true)}
+          onStart={() => setPhase("transitioning")}
           onComplete={handleComplete}
         />
       </div>
       <p className={styles.visuallyHidden} role="status" aria-live="polite">
-        {transitioning ? "Переходим к знакомству" : ""}
+        {phase === "transitioning" ? "Переходим к знакомству" : ""}
       </p>
     </main>
   );
 }
-

@@ -74,5 +74,45 @@ describe("CareerTagSphere", () => {
 
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
-});
 
+  it("cancels animation work while outside the viewport and resumes on return", () => {
+    let intersectionCallback: IntersectionObserverCallback | undefined;
+
+    class ControlledIntersectionObserver implements IntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = "100px";
+      readonly thresholds = [0];
+
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+      takeRecords = vi.fn(() => []);
+
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallback = callback;
+      }
+    }
+
+    vi.stubGlobal("IntersectionObserver", ControlledIntersectionObserver);
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame");
+    const cancelFrame = vi.spyOn(window, "cancelAnimationFrame");
+    render(<CareerTagSphere />);
+    const requestsAfterRender = requestFrame.mock.calls.length;
+
+    act(() => {
+      intersectionCallback?.(
+        [{ isIntersecting: false } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+    expect(cancelFrame).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      intersectionCallback?.(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        {} as IntersectionObserver,
+      );
+    });
+    expect(requestFrame.mock.calls.length).toBeGreaterThan(requestsAfterRender);
+  });
+});

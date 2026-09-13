@@ -45,7 +45,7 @@
   will-change: left, top, width, height, transform, opacity, filter;
 }
 
-.isTransitioning .transitionGlow {
+.hasStarted .transitionGlow {
   top: -28%;
   bottom: auto;
   left: 100%;
@@ -79,7 +79,7 @@
     height: 62vw;
   }
 
-  .isTransitioning .transitionGlow {
+  .hasStarted .transitionGlow {
     top: -18%;
     left: 104%;
     width: 138vmax;
@@ -93,4 +93,3 @@
     transition-duration: 1ms;
   }
 }
-

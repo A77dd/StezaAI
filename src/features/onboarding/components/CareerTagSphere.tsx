@@ -95,7 +95,7 @@ export default function CareerTagSphere({
       "(prefers-reduced-motion: reduce)",
     ).matches;
 
-    let animationFrame = 0;
+    let animationFrame: number | null = null;
     let lastFrame = performance.now();
     let sphereRadius = root.clientWidth * 0.34;
 
@@ -103,19 +103,6 @@ export default function CareerTagSphere({
       sphereRadius = root.clientWidth * 0.34;
     });
     resizeObserver.observe(root);
-
-    const intersectionObserver = new IntersectionObserver(
-      ([entry]) => {
-        state.inViewport = entry.isIntersecting;
-      },
-      { rootMargin: "100px" },
-    );
-    intersectionObserver.observe(root);
-
-    const handleVisibility = () => {
-      state.visible = !document.hidden;
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
 
     const rotate = (point: Point) => {
       const cosY = Math.cos(state.rotY);
@@ -133,7 +120,7 @@ export default function CareerTagSphere({
     };
 
     const renderFrame = (now: number) => {
-      animationFrame = requestAnimationFrame(renderFrame);
+      animationFrame = null;
 
       if (!state.visible || !state.inViewport || state.started) {
         lastFrame = now;
@@ -174,12 +161,43 @@ export default function CareerTagSphere({
         element.style.opacity = opacity.toFixed(3);
         element.style.zIndex = String(Math.trunc(depth * 1_000));
       });
+
+      animationFrame = requestAnimationFrame(renderFrame);
     };
 
-    animationFrame = requestAnimationFrame(renderFrame);
+    const syncAnimation = () => {
+      const shouldAnimate = state.visible && state.inViewport && !state.started;
+
+      if (shouldAnimate && animationFrame === null) {
+        lastFrame = performance.now();
+        animationFrame = requestAnimationFrame(renderFrame);
+      } else if (!shouldAnimate && animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+    };
+
+    const intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        state.inViewport = entry.isIntersecting;
+        syncAnimation();
+      },
+      { rootMargin: "100px" },
+    );
+    intersectionObserver.observe(root);
+
+    const handleVisibility = () => {
+      state.visible = !document.hidden;
+      syncAnimation();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    syncAnimation();
 
     return () => {
-      cancelAnimationFrame(animationFrame);
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -379,4 +397,3 @@ export default function CareerTagSphere({
     </div>
   );
 }
-

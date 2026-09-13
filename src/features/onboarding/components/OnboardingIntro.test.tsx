@@ -1,9 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import OnboardingIntro from "./OnboardingIntro";
 
 describe("OnboardingIntro", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("presents a focused onboarding entry point", () => {
     render(<OnboardingIntro />);
 
@@ -26,5 +30,18 @@ describe("OnboardingIntro", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Переходим к знакомству",
     );
+  });
+
+  it("keeps the completed visual state after the transition finishes", () => {
+    vi.useFakeTimers();
+    const { container } = render(<OnboardingIntro />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Начать знакомство со Стезей" }),
+    );
+    act(() => vi.advanceTimersByTime(1_100));
+
+    expect(container.querySelector("main")?.className).toContain("hasStarted");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 });
