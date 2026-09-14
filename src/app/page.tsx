@@ -1,5 +1,5 @@
-import OnboardingIntro from "@/features/onboarding/components/OnboardingIntro";
+import OnboardingFlow from "@/features/onboarding/components/OnboardingFlow";
 
 export default function HomePage() {
-  return <OnboardingIntro />;
+  return <OnboardingFlow />;
 }
