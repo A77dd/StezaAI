@@ -104,7 +104,6 @@ export default function ProfileSourcesScreen({
           </header>
 
           <section className={styles.introduction} aria-labelledby="profile-sources-title">
-            <p className={styles.stepLabel}>Шаг 1 · контекст</p>
             <h1 className={styles.title} id="profile-sources-title">
               Начнем с того, что уже есть
             </h1>

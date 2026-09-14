@@ -100,4 +100,94 @@ describe("SourceProfileCard", () => {
       "Не удалось найти профиль.",
     );
   });
+
+  it("animates measured height changes without a layout jump", () => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function measuredCard(this: Element) {
+        const status = (this as HTMLElement).dataset.status;
+        return DOMRect.fromRect({
+          width: 340,
+          height: status === "confirmed" ? 76 : 140,
+        });
+      },
+    );
+    const animate = vi.spyOn(Element.prototype, "animate");
+    animate.mockClear();
+    const handlers = {
+      onQueryChange: vi.fn(),
+      onSubmit: vi.fn(),
+      onReject: vi.fn(),
+      onConfirm: vi.fn(),
+      onInputFocus: vi.fn(),
+    };
+    const { rerender } = render(
+      <SourceProfileCard
+        source={source}
+        state={{ status: "idle", query: "@demo" }}
+        index={0}
+        {...handlers}
+      />,
+    );
+
+    rerender(
+      <SourceProfileCard
+        source={source}
+        state={{ status: "confirmed", query: "@demo", profile }}
+        index={0}
+        {...handlers}
+      />,
+    );
+
+    expect(animate).toHaveBeenCalledWith(
+      [{ height: "140px" }, { height: "76px" }],
+      expect.objectContaining({ duration: 240 }),
+    );
+  });
+
+  it("does not animate height when reduced motion is requested", () => {
+    vi.mocked(window.matchMedia).mockReturnValue({
+      matches: true,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    });
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function measuredCard(this: Element) {
+        const status = (this as HTMLElement).dataset.status;
+        return DOMRect.fromRect({ height: status === "confirmed" ? 76 : 140 });
+      },
+    );
+    const animate = vi.spyOn(Element.prototype, "animate");
+    animate.mockClear();
+    const handlers = {
+      onQueryChange: vi.fn(),
+      onSubmit: vi.fn(),
+      onReject: vi.fn(),
+      onConfirm: vi.fn(),
+      onInputFocus: vi.fn(),
+    };
+    const { rerender } = render(
+      <SourceProfileCard
+        source={source}
+        state={{ status: "idle", query: "@demo" }}
+        index={0}
+        {...handlers}
+      />,
+    );
+
+    rerender(
+      <SourceProfileCard
+        source={source}
+        state={{ status: "confirmed", query: "@demo", profile }}
+        index={0}
+        {...handlers}
+      />,
+    );
+
+    expect(animate).not.toHaveBeenCalled();
+  });
 });

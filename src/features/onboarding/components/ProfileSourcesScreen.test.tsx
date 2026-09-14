@@ -60,6 +60,7 @@ describe("ProfileSourcesScreen", () => {
       "Telegram",
       "Сетка",
     ]);
+    expect(screen.queryByText("Шаг 1 · контекст")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Далее" })).toBeDisabled();
   });
 

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties, FormEvent } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 import type {
   ProfileSource,
@@ -30,6 +31,8 @@ export default function SourceProfileCard({
   onConfirm,
   onInputFocus,
 }: SourceProfileCardProps) {
+  const cardRef = useRef<HTMLElement>(null);
+  const previousHeight = useRef<number | null>(null);
   const titleId = `source-${source.id}-title`;
   const errorId = `source-${source.id}-error`;
   const isInputState = state.status === "idle" || state.status === "error";
@@ -44,8 +47,36 @@ export default function SourceProfileCard({
     if (state.query.trim()) onSubmit(state.query);
   };
 
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+
+    const nextHeight = card.getBoundingClientRect().height;
+    const fromHeight = previousHeight.current;
+    previousHeight.current = nextHeight;
+
+    if (
+      fromHeight === null ||
+      Math.abs(fromHeight - nextHeight) < 1 ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    const animation = card.animate(
+      [{ height: `${fromHeight}px` }, { height: `${nextHeight}px` }],
+      {
+        duration: 240,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+    );
+
+    return () => animation.cancel();
+  }, [state.status]);
+
   return (
     <article
+      ref={cardRef}
       className={`${styles.card} ${styles[state.status]}`}
       style={{ "--card-index": index } as StaggerStyle}
       aria-labelledby={cardLabel ? undefined : titleId}
