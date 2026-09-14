@@ -15,7 +15,7 @@ type SourceProfileCardProps = {
   onSubmit: (query: string) => void;
   onReject: () => void;
   onConfirm: () => void;
-  onInputFocus: () => void;
+  onInputFocus: (input: HTMLInputElement) => void;
 };
 
 type StaggerStyle = CSSProperties & { "--card-index": number };
@@ -117,7 +117,7 @@ export default function SourceProfileCard({
             aria-label={`Профиль ${source.name}`}
             aria-describedby={state.status === "error" ? errorId : undefined}
             onChange={(event) => onQueryChange(event.target.value)}
-            onFocus={onInputFocus}
+            onFocus={(event) => onInputFocus(event.currentTarget)}
           />
           <button
             className={styles.submitButton}

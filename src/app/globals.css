@@ -1,6 +1,21 @@
 :root {
   --steza-background: #020304;
   --steza-foreground: #f5f7f7;
+  --steza-surface: #090c0f;
+  --steza-surface-raised: #0b0f13;
+  --steza-input: #06090c;
+  --steza-border: rgb(255 255 255 / 7%);
+  --steza-border-strong: rgb(255 255 255 / 11%);
+  --steza-muted: #929ba3;
+  --steza-muted-strong: #bac1c6;
+  --steza-muted-quiet: #687179;
+  --steza-cyan: #6ce3e2;
+  --steza-blue: #75cfff;
+  --steza-violet: #a995ff;
+  --steza-mint: #7ce8b6;
+  --steza-indigo: #98a8ff;
+  --steza-error: #ef9b9b;
+  --steza-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
 }
 

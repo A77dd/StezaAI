@@ -1,0 +1,206 @@
+.screen {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(75% 45% at 95% -10%, rgb(91 95 229 / 8%), transparent 72%),
+    radial-gradient(55% 35% at -10% 35%, rgb(59 197 206 / 4%), transparent 75%),
+    var(--steza-background);
+}
+
+.ambientGlow {
+  position: absolute;
+  top: -120px;
+  right: -150px;
+  z-index: -1;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: rgb(104 71 217 / 10%);
+  filter: blur(90px);
+}
+
+.scroller {
+  width: 100%;
+  height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 88px 120px;
+  scrollbar-color: rgb(255 255 255 / 16%) transparent;
+}
+
+.content,
+.actionInner {
+  width: min(100%, 480px);
+  margin-inline: auto;
+}
+
+.content {
+  min-height: calc(100dvh - 82px);
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(18px, env(safe-area-inset-right))
+    26px
+    max(18px, env(safe-area-inset-left));
+}
+
+.header {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  color: var(--steza-foreground);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.skipButton {
+  min-height: 44px;
+  margin-right: -10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--steza-muted-strong);
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.skipButton:hover {
+  color: var(--steza-foreground);
+  background: rgb(255 255 255 / 4%);
+}
+
+.introduction {
+  margin-top: clamp(24px, 5.4dvh, 48px);
+}
+
+.stepLabel,
+.title,
+.subtitle {
+  margin: 0;
+}
+
+.stepLabel {
+  color: color-mix(in srgb, var(--steza-cyan) 78%, white);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.title {
+  max-width: 330px;
+  margin-top: 10px;
+  color: var(--steza-foreground);
+  font-size: clamp(28px, 8vw, 36px);
+  font-weight: 590;
+  line-height: 1.06;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.subtitle {
+  max-width: 390px;
+  margin-top: 14px;
+  color: var(--steza-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cards {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.actionBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding:
+    14px
+    max(18px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(18px, env(safe-area-inset-left));
+  background: linear-gradient(
+    to bottom,
+    rgb(2 3 4 / 0%),
+    rgb(2 3 4 / 90%) 20%,
+    var(--steza-background) 54%
+  );
+}
+
+.nextButton {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgb(108 226 228 / 32%);
+  border-radius: 16px;
+  color: #041113;
+  background: linear-gradient(110deg, #8cebdd, #75cfff 58%, #a89dfb);
+  box-shadow: 0 12px 34px rgb(64 169 194 / 10%);
+  font-size: 15px;
+  font-weight: 680;
+  cursor: pointer;
+  transition:
+    opacity 180ms ease,
+    transform 160ms ease,
+    filter 180ms ease;
+}
+
+.nextButton span {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nextButton:disabled {
+  border-color: rgb(255 255 255 / 7%);
+  color: var(--steza-muted-quiet);
+  background: #0b0e11;
+  box-shadow: none;
+  cursor: default;
+  opacity: 0.76;
+}
+
+.nextButton:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.skipButton:focus-visible,
+.nextButton:focus-visible {
+  outline: 2px solid var(--steza-cyan);
+  outline-offset: 2px;
+}
+
+@media (max-height: 720px) {
+  .introduction {
+    margin-top: 18px;
+  }
+
+  .cards {
+    margin-top: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skipButton,
+  .nextButton {
+    transition-duration: 1ms;
+  }
+}
