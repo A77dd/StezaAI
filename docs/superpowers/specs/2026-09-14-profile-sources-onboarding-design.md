@@ -1,6 +1,6 @@
 # Profile sources onboarding — design
 
-**Date:** 2026-09-14  
+**Date:** 2026-09-14
 **Status:** Approved design, awaiting written-spec review
 
 ## Goal

@@ -44,7 +44,7 @@ expect(searching.linkedin.status).toBe("idle");
 
 - [ ] **Step 2: Run reducer tests and verify RED**
 
-Run: `npm test -- --run src/features/onboarding/profile-sources/profileSources.reducer.test.ts`  
+Run: `npm test -- --run src/features/onboarding/profile-sources/profileSources.reducer.test.ts`
 Expected: FAIL because the modules do not exist.
 
 - [ ] **Step 3: Implement typed state and reducer**
@@ -64,7 +64,7 @@ export type SourceCardState =
 
 Test that each configured source returns its own synthetic result, whitespace is rejected, and the reserved query `error` throws `ProfileLookupError`.
 
-Run: `npm test -- --run src/features/onboarding/profile-sources/mockProfileLookup.test.ts`  
+Run: `npm test -- --run src/features/onboarding/profile-sources/mockProfileLookup.test.ts`
 Expected: FAIL because the adapter is missing.
 
 - [ ] **Step 5: Implement the lookup contract, config, mock, and local assets**
@@ -79,10 +79,10 @@ Use immutable source metadata for LinkedIn, hh.ru, GitHub, Telegram, and Сет�
 
 - [ ] **Step 6: Run the focused tests and project check**
 
-Run: `npm test -- --run src/features/onboarding/profile-sources`  
+Run: `npm test -- --run src/features/onboarding/profile-sources`
 Expected: all new tests PASS.
 
-Run: `npm run check`  
+Run: `npm run check`
 Expected: security scan, lint, typecheck, and all tests PASS.
 
 - [ ] **Step 7: Commit**
@@ -123,7 +123,7 @@ expect(onSubmit).toHaveBeenCalledWith("@demo");
 
 - [ ] **Step 2: Run the card tests and verify RED**
 
-Run: `npm test -- --run src/features/onboarding/components/SourceProfileCard.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/SourceProfileCard.test.tsx`
 Expected: FAIL because the component is missing.
 
 - [ ] **Step 3: Implement the semantic card markup**
@@ -136,10 +136,10 @@ Use shared CSS variables, a 44 px circular media frame, restrained surface/borde
 
 - [ ] **Step 5: Run the focused tests and project check**
 
-Run: `npm test -- --run src/features/onboarding/components/SourceProfileCard.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/SourceProfileCard.test.tsx`
 Expected: PASS.
 
-Run: `npm run check`  
+Run: `npm run check`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -170,7 +170,7 @@ expect(screen.getByRole("button", { name: "Далее" })).toBeEnabled();
 
 - [ ] **Step 2: Run screen tests and verify RED**
 
-Run: `npm test -- --run src/features/onboarding/components/ProfileSourcesScreen.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/ProfileSourcesScreen.test.tsx`
 Expected: FAIL because the screen is missing.
 
 - [ ] **Step 3: Implement reducer orchestration**
@@ -187,10 +187,10 @@ Add only reusable Steza colors and timing tokens to `:root`; keep page styles in
 
 - [ ] **Step 6: Run the focused tests and project check**
 
-Run: `npm test -- --run src/features/onboarding/components/ProfileSourcesScreen.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/ProfileSourcesScreen.test.tsx`
 Expected: PASS.
 
-Run: `npm run check`  
+Run: `npm run check`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -217,7 +217,7 @@ Use fake timers to click the intro CTA, advance through its existing duration, v
 
 - [ ] **Step 2: Run flow tests and verify RED**
 
-Run: `npm test -- --run src/features/onboarding/components/OnboardingFlow.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/OnboardingFlow.test.tsx`
 Expected: FAIL because the flow component is missing.
 
 - [ ] **Step 3: Implement the flow and placeholder**
@@ -230,10 +230,10 @@ Replace direct `OnboardingIntro` rendering with `OnboardingFlow`. Document the i
 
 - [ ] **Step 5: Run the focused tests and project check**
 
-Run: `npm test -- --run src/features/onboarding/components/OnboardingFlow.test.tsx`  
+Run: `npm test -- --run src/features/onboarding/components/OnboardingFlow.test.tsx`
 Expected: PASS.
 
-Run: `npm run check`  
+Run: `npm run check`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -252,10 +252,10 @@ git commit -m "feat: connect profile sources onboarding flow"
 
 - [ ] **Step 1: Run full automated verification**
 
-Run: `npm run verify`  
+Run: `npm run verify`
 Expected: public scan, lint, typecheck, all tests, and production build PASS.
 
-Run: `npm audit --audit-level=moderate`  
+Run: `npm audit --audit-level=moderate`
 Expected: no moderate-or-higher vulnerabilities.
 
 - [ ] **Step 2: Start a production preview**
@@ -272,10 +272,10 @@ For every behavior defect, add a failing regression test, observe failure, imple
 
 - [ ] **Step 5: Run final verification and security checks**
 
-Run: `npm run verify`  
+Run: `npm run verify`
 Expected: PASS with zero test failures.
 
-Run: `npm run security:scan && git diff --check && git status --short`  
+Run: `npm run security:scan && git diff --check && git status --short`
 Expected: scan PASS, no whitespace errors, only intentional tracked changes before the final commit.
 
 - [ ] **Step 6: Commit final corrections**
