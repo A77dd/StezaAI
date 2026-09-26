@@ -10,6 +10,20 @@
 
 **Global rules for every task (from `AGENTS.md`):** TDD (failing test first), no silent fallbacks or broad `try/catch`, no secrets/PII/local paths in tracked files, run `npm run check` before each commit, Conventional Commits, one focused commit per task. `domain/` and `render/` never import `grammy` or `@grammyjs/*`. Primary references: `docs/research/TELEGRAM_BOT_API.md` and `docs/research/TELEGRAM_BOT_PATTERNS.md`.
 
+## Status (2026-09-26)
+
+Done and reviewed: Task 1 (foundation), Task 2 (domain, ports, adapters, contract suites in `testing/contracts/`), Task 3 (callback codec and store). Remaining: Tasks 4–16.
+
+Carry-over notes from reviews (must be handled by later tasks):
+
+- **Task 7:** single-use is per button, not per card, so `confirmSlot` must be idempotent on task state (two `slot.pick` buttons could both resolve). A token is consumed before the action runs; on a transient calendar failure re-render the card with fresh tokens (or add `release(token)` to `CallbackStore`).
+- **Tasks 6–7:** user-facing copy for callback errors maps from the error `code` only, never from `CallbackNotFoundError.reason` (it reveals owner mismatch). Add a test.
+- **Task 11/12:** wire `CallbackStore.purgeExpired` and reminder lease/backoff into the worker (`ReminderQueue.claimDue(now, limit, leaseMs)`).
+- **Callbacks minor debt:** validators should require plain objects and bound `settings.toggle.value` and id charset; add a contract test that a consumed token still answers "replayed" after `purgeExpired`; use a distinct code for corrupted stored payloads.
+- **Contract suites** live in `src/features/telegram/testing/contracts/` (not `adapters/ports.contract.ts` as written in Task 2).
+- **Parser:** `ruleBasedIntentParser.ts` (~480 lines) is a candidate for splitting; branded ids, error-code unions, and a busy-interval sweep in the scheduler are deferred.
+- **Platform:** research flags Node 20 as end-of-life (2026-04-30); decide on a Node LTS upgrade in a separate ADR.
+
 ---
 
 ### Task 1: Foundation — dependencies, config, layering guard
