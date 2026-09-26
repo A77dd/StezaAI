@@ -27,7 +27,15 @@ export function createDefaultSettings(userId: UserId, locale: Locale): UserSetti
 
 /** Throws a typed error if the settings break an invariant the scheduler relies on. */
 export function assertValidSettings(settings: UserSettings): void {
-  assertValidTimezone(settings.timezone);
+  normalizeSettings(settings);
+}
+
+/**
+ * Validates the settings and returns a deep copy with the canonical timezone
+ * name. Repositories store the result, never the raw input.
+ */
+export function normalizeSettings(settings: UserSettings): UserSettings {
+  const timezone = assertValidTimezone(settings.timezone);
 
   const { isoDays, start, end } = settings.workingHours;
   if (parseClockTime(start) >= parseClockTime(end)) {
@@ -42,4 +50,9 @@ export function assertValidSettings(settings: UserSettings): void {
   if (!Number.isInteger(minutes) || minutes <= 0 || minutes > MINUTES_PER_DAY) {
     throw new InvalidSettingsError("Default block length must be a whole number of minutes in 1..1440");
   }
+  return {
+    ...settings,
+    timezone,
+    workingHours: { ...settings.workingHours, isoDays: [...isoDays] },
+  };
 }

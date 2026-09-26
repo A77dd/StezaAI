@@ -1,4 +1,11 @@
-import { assertValidTimezone, fromZoned, InvalidIntentError, toZonedParts } from "../domain";
+import {
+  assertValidTimezone,
+  fromZoned,
+  InvalidIntentError,
+  MAX_INTENT_TEXT_LENGTH,
+  rangesOverlap,
+  toZonedParts,
+} from "../domain";
 import type { Instant, Intent, IntentKind, IntentParser, Priority } from "../domain";
 
 /**
@@ -37,6 +44,9 @@ import type { Instant, Intent, IntentKind, IntentParser, Priority } from "../dom
  * - Task verbs are matched only in infinitive or imperative form; past tense
  *   ("сделал") is treated as information.
  * - The source (forward, group, hidden origin) is not consulted.
+ * - Text longer than `MAX_INTENT_TEXT_LENGTH` (8000) characters is rejected
+ *   with `InvalidIntentError`; the caller must cap voice transcripts. All
+ *   matching and title cleanup is linear in the input length.
  */
 
 const LETTER = String.raw`\p{L}\p{N}_`;
@@ -167,7 +177,7 @@ function findRelativeOffsets(text: string): Span[] {
 }
 
 function overlapsAny(span: Span, others: readonly Span[]): boolean {
-  return others.some((other) => span.start < other.end && other.start < span.end);
+  return others.some((other) => rangesOverlap(span.start, span.end, other.start, other.end));
 }
 
 function findDuration(text: string, relativeOffsets: readonly Span[]): Found<number> | undefined {
@@ -310,9 +320,9 @@ function classify(text: string): IntentKind {
 // --- Priority and filler --------------------------------------------------------
 
 const PRIORITY_PATTERN = regex(
-  String.raw`${START}(?:не\s+срочно|срочн(?:о|ый|ая|ое|ые)|как\s+можно\s+скорее|asap|urgent|важно|когда\s+будет\s+время|без\s+спешки)${END}`,
+  String.raw`${START}(?:не\s+срочно|не\s+важно|неважно|срочн(?:о|ый|ая|ое|ые)|как\s+можно\s+скорее|asap|urgent|важно|когда\s+будет\s+время|без\s+спешки)${END}`,
 );
-const LOW_PRIORITY_PATTERN = regex(String.raw`^(?:не\s+срочно|когда\s+будет\s+время|без\s+спешки)$`, "iu");
+const LOW_PRIORITY_PATTERN = regex(String.raw`^(?:не\s+срочно|не\s+важно|неважно|когда\s+будет\s+время|без\s+спешки)$`, "iu");
 const FILLER_PATTERN = regex(String.raw`${START}(?:позже|потом|как-нибудь)${END}`);
 
 function findPriority(text: string): { priority: Priority; spans: Span[] } {
@@ -375,11 +385,13 @@ function findParticipants(text: string): string[] {
 
 // --- Title ----------------------------------------------------------------------
 
+// Applied with the sticky flag at a moving position, so stripping is linear.
 const LEADING_NOISE = regex(
-  String.raw`^(?:пожалуйста[\s,]*|(?:нам|мне|тебе|вам|мы)\s+|надо\s+бы\s+|не\s+забуд(?:ь|ьте)[\s,:]*|нужно\s+будет\s+|надо\s+будет\s+|нужно\s+|надо\s+|необходимо\s+|напомни(?:ть|те)?(?:\s+мне)?\s*(?:что\s+|про\s+|о\s+)?|давай\s+)`,
-  "iu",
+  String.raw`(?:пожалуйста[\s,]*|(?:нам|мне|тебе|вам|мы)\s+|надо\s+бы\s+|не\s+забуд(?:ь|ьте)[\s,:]*|нужно\s+будет\s+|надо\s+будет\s+|нужно\s+|надо\s+|необходимо\s+|напомни(?:ть|те)?(?:\s+мне)?\s*(?:что\s+|про\s+|о\s+)?|давай\s+)`,
+  "iuy",
 );
-const EDGE_PUNCTUATION = /^[\s,.;:!?…—–-]+|[\s,.;:!?…—–-]+$/gu;
+// Whitespace is collapsed to single spaces before trimming, so " " is enough.
+const EDGE_CHARACTERS: ReadonlySet<string> = new Set([" ", ",", ".", ";", ":", "!", "?", "…", "—", "–", "-"]);
 
 /** Widens a span to swallow a comma or semicolon that directly precedes it. */
 function withLeadingSeparator(text: string, span: Span): Span {
@@ -401,8 +413,30 @@ function removeSpans(text: string, spans: readonly Span[]): string {
   return result + text.slice(cursor);
 }
 
+/** Trims edge punctuation and spaces by index: one pass, no backtracking. */
+function trimEdges(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && EDGE_CHARACTERS.has(text.charAt(start))) start += 1;
+  while (end > start && EDGE_CHARACTERS.has(text.charAt(end - 1))) end -= 1;
+  return text.slice(start, end);
+}
+
 function tidy(text: string): string {
-  return text.replace(/\s+/gu, " ").replace(EDGE_PUNCTUATION, "");
+  return trimEdges(text.replace(/\s+/gu, " "));
+}
+
+/** Drops leading filler ("нам нужно будет", "напомни мне") in one left-to-right pass. */
+function stripLeadingNoise(text: string): string {
+  let position = 0;
+  for (;;) {
+    LEADING_NOISE.lastIndex = position;
+    const match = LEADING_NOISE.exec(text);
+    if (match === null || match[0] === "") break;
+    position += match[0].length;
+    while (position < text.length && EDGE_CHARACTERS.has(text.charAt(position))) position += 1;
+  }
+  return text.slice(position);
 }
 
 /** Never empty: falls back to the message itself (`original` is trimmed and non-empty). */
@@ -421,11 +455,7 @@ function finishTitle(text: string): string {
 }
 
 function buildTitle(original: string, spans: readonly Span[]): string {
-  let title = tidy(removeSpans(original, spans));
-  for (let previous = ""; previous !== title; ) {
-    previous = title;
-    title = tidy(title.replace(LEADING_NOISE, ""));
-  }
+  const title = tidy(stripLeadingNoise(tidy(removeSpans(original, spans))));
   // Nothing useful left ("нужно"): fall back to the message itself, explicitly.
   return finishTitle(titleOrOriginal(title, original));
 }
@@ -435,6 +465,12 @@ function buildTitle(original: string, spans: readonly Span[]): string {
 export function createRuleBasedIntentParser(): IntentParser {
   return {
     async parse({ text, now, timezone }): Promise<Intent> {
+      // Checked before trimming so padding cannot smuggle in a huge message.
+      if (text.length > MAX_INTENT_TEXT_LENGTH) {
+        throw new InvalidIntentError(
+          `Message text is longer than ${MAX_INTENT_TEXT_LENGTH} characters`,
+        );
+      }
       const original = text.trim();
       if (original === "") {
         throw new InvalidIntentError("Message text is empty");

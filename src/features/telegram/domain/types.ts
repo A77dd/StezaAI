@@ -88,6 +88,12 @@ export type Task = {
 
 export type Slot = Interval;
 
+/**
+ * Longest message text an `IntentParser` accepts. Telegram text is at most
+ * 4096 characters; the caller must cap voice transcripts to this length.
+ */
+export const MAX_INTENT_TEXT_LENGTH = 8000;
+
 /** Without a deadline the scheduler searches this many days ahead of `now`. */
 export const DEFAULT_SEARCH_HORIZON_DAYS = 7;
 /** Upper bound of the search, also for a distant deadline. */
@@ -104,7 +110,7 @@ export type SlotSearchExhaustion = "found" | "none_before_deadline" | "horizon_r
 
 export type SlotSearchResult = {
   /** 0-3 slots, earliest first. */
-  readonly slots: Slot[];
+  readonly slots: readonly Slot[];
   /** End of the searched range: the deadline or the horizon, whichever came first. */
   readonly searchedUntil: Instant;
   readonly exhausted: SlotSearchExhaustion;
@@ -205,9 +211,11 @@ type MemoryRecordBase = {
   readonly recordedAt: Instant;
   /**
    * AGENTS.md: a meaningful inferred memory item needs user confirmation
-   * before durable storage. Repositories reject records where this is false.
+   * before durable storage. The literal type makes unconfirmed records
+   * impossible to construct in typed code; repositories still check at
+   * runtime for untyped callers.
    */
-  readonly confirmedByUser: boolean;
+  readonly confirmedByUser: true;
 };
 
 /** Typed memory records; one variant per product-doc memory field. */
@@ -248,9 +256,19 @@ export type Reminder = {
   readonly dueAt: Instant;
   readonly status: ReminderStatus;
   readonly attempts: number;
-  /** Last delivery error message; never message text or user content. */
+  /**
+   * Last delivery error, sanitized by `sanitizeDeliveryError` (whitespace
+   * collapsed, at most 200 characters). Never message text or user content.
+   */
   readonly lastError: string | null;
+  /** While set and in the future, a worker holds the reminder; nobody else may claim it. */
+  readonly leasedUntil: Instant | null;
+  /** After a failed attempt: the earliest time of the next attempt (backoff). */
+  readonly nextAttemptAt: Instant | null;
 };
 
 /** What callers provide to schedule a reminder; the queue owns the rest. */
-export type NewReminder = Omit<Reminder, "status" | "attempts" | "lastError">;
+export type NewReminder = Omit<
+  Reminder,
+  "status" | "attempts" | "lastError" | "leasedUntil" | "nextAttemptAt"
+>;

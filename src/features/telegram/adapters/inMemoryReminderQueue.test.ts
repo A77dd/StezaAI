@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { InvalidTimeError } from "../domain";
 import { createInMemoryReminderQueue } from "./inMemoryReminderQueue";
-import { describeReminderQueueContract } from "./ports.contract";
+import { describeReminderQueueContract } from "../testing/contracts";
 
-describeReminderQueueContract("inMemoryReminderQueue", createInMemoryReminderQueue);
+describeReminderQueueContract("inMemoryReminderQueue", () => ({
+  port: createInMemoryReminderQueue(),
+}));
 
 describe("inMemoryReminderQueue", () => {
   it("rejects a malformed dueAt when scheduling", async () => {
@@ -20,6 +22,6 @@ describe("inMemoryReminderQueue", () => {
   });
 
   it("rejects a malformed now when claiming", async () => {
-    await expect(createInMemoryReminderQueue().claimDue("soon", 1)).rejects.toThrow(InvalidTimeError);
+    await expect(createInMemoryReminderQueue().claimDue("soon", 1, 1000)).rejects.toThrow(InvalidTimeError);
   });
 });

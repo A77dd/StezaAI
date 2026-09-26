@@ -53,6 +53,8 @@ export function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
     status: "pending",
     attempts: 0,
     lastError: null,
+    leasedUntil: null,
+    nextAttemptAt: null,
     ...overrides,
   };
 }

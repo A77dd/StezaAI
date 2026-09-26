@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { InvalidIntentError, InvalidTimeError, InvalidTimezoneError } from "../domain";
+import {
+  InvalidIntentError,
+  InvalidTimeError,
+  InvalidTimezoneError,
+  MAX_INTENT_TEXT_LENGTH,
+} from "../domain";
 import type { Intent } from "../domain";
+import { describeIntentParserContract } from "../testing/contracts";
 import { makeSource } from "../testing/domainFixtures";
 import { createRuleBasedIntentParser } from "./ruleBasedIntentParser";
 
 // Wednesday 2026-09-23, 11:30 in Moscow (UTC+3, no DST).
 const NOW = "2026-09-23T08:30:00.000Z";
 const MOSCOW = "Europe/Moscow";
+
+describeIntentParserContract("ruleBasedIntentParser", () => ({
+  port: createRuleBasedIntentParser(),
+}));
 
 function parse(text: string, overrides: { now?: string; timezone?: string } = {}): Promise<Intent> {
   return createRuleBasedIntentParser().parse({
@@ -335,6 +345,66 @@ describe("ruleBasedIntentParser: priority", () => {
     expect(intent.priority).toBe("low");
     expect(intent.title).toBe("Подготовить презентацию");
     expect((await parse("Подготовить презентацию когда будет время")).priority).toBe("low");
+  });
+});
+
+describe("ruleBasedIntentParser: priority negation", () => {
+  it.each(["Не важно, посмотреть договор", "не важно посмотреть договор", "Неважно, посмотреть договор"])(
+    "%j is low priority with a clean title",
+    async (text) => {
+      const intent = await parse(text);
+      expect(intent.priority).toBe("low");
+      expect(intent.title).toBe("Посмотреть договор");
+    },
+  );
+
+  it("still reads plain 'важно' as high priority", async () => {
+    const intent = await parse("Важно посмотреть договор");
+    expect(intent.priority).toBe("high");
+    expect(intent.title).toBe("Посмотреть договор");
+  });
+});
+
+describe("ruleBasedIntentParser: input size", () => {
+  it("accepts text at the limit and rejects anything longer", async () => {
+    await expect(parse("а".repeat(MAX_INTENT_TEXT_LENGTH))).resolves.toBeDefined();
+    await expect(parse("а".repeat(MAX_INTENT_TEXT_LENGTH + 1))).rejects.toThrow(InvalidIntentError);
+  });
+
+  it("checks the length before trimming, so padding cannot smuggle in a huge message", async () => {
+    await expect(parse(`${" ".repeat(MAX_INTENT_TEXT_LENGTH)}нужно`)).rejects.toThrow(
+      InvalidIntentError,
+    );
+  });
+
+  // Regression guard against quadratic behaviour: each 8000-character input
+  // must finish quickly. The budget is generous; a quadratic regex or strip
+  // loop would take seconds.
+  const ADVERSARIAL: readonly [string, string][] = [
+    ["spaces then a letter", `${" ".repeat(MAX_INTENT_TEXT_LENGTH - 1)}а`],
+    ["repeated leading noise", "нам нужно будет ".repeat(500)],
+    ["repeated 'пожалуйста,'", "пожалуйста, ".repeat(660)],
+    ["repeated 'нужно'", "нужно ".repeat(1333)],
+    ["punctuation only", ",".repeat(MAX_INTENT_TEXT_LENGTH)],
+    ["mixed edge punctuation", ",.;: !?".repeat(1142)],
+    ["one long word", "встреч".repeat(1333)],
+    ["one long letter run", "а".repeat(MAX_INTENT_TEXT_LENGTH)],
+    ["long digit run", "9".repeat(MAX_INTENT_TEXT_LENGTH)],
+    ["digit and space pairs", "1 ".repeat(4000)],
+    ["repeated 'часа на'", "часа на ".repeat(1000)],
+    ["repeated 'через 1 час'", "через 1 час ".repeat(660)],
+    ["repeated compound duration", "1 час 1 час 1 час ".repeat(440)],
+    ["repeated deadlines", "завтра ".repeat(1142)],
+    ["repeated priority words", "срочно не важно ".repeat(500)],
+    ["repeated participants", "встреча с Иваном и ".repeat(420)],
+    ["repeated 'на'", "на ".repeat(2666)],
+  ];
+
+  it.each(ADVERSARIAL)("parses %s within the time budget", async (_label, text) => {
+    expect(text.length).toBeLessThanOrEqual(MAX_INTENT_TEXT_LENGTH);
+    const started = performance.now();
+    await parse(text);
+    expect(performance.now() - started).toBeLessThan(200);
   });
 });
 

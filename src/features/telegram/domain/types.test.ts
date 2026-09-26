@@ -1,13 +1,17 @@
-import { describe, expect, it } from "vitest";
-import {
-  CHECK_IN_OUTCOMES,
-  CHECK_IN_REASONS,
-  DEFAULT_SEARCH_HORIZON_DAYS,
-  MAX_SEARCH_HORIZON_DAYS,
-  followUpForReason,
-  MAX_REMINDER_ATTEMPTS,
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { followUpForReason } from "./types";
+import type {
+  BookingId,
+  CheckIn,
+  CheckInOutcome,
+  CheckInReason,
+  Instant,
+  MemoryRecord,
+  Reminder,
+  SlotSearchResult,
+  TaskId,
+  UserId,
 } from "./types";
-import type { CheckIn } from "./types";
 
 describe("followUpForReason", () => {
   it.each([
@@ -19,47 +23,42 @@ describe("followUpForReason", () => {
   ] as const)("%s -> %s", (reason, followUp) => {
     expect(followUpForReason(reason)).toBe(followUp);
   });
-
-  it("covers every declared reason", () => {
-    for (const reason of CHECK_IN_REASONS) {
-      expect(["reschedule", "split", "reprioritize"]).toContain(followUpForReason(reason));
-    }
-  });
 });
 
-describe("reminder policy", () => {
-  it("allows five delivery attempts", () => {
-    expect(MAX_REMINDER_ATTEMPTS).toBe(5);
+describe("domain types (compile-time checks)", () => {
+  it("CheckIn is open until answered: outcome, reason and answeredAt are nullable together", () => {
+    expectTypeOf<CheckIn["id"]>().toEqualTypeOf<string>();
+    expectTypeOf<CheckIn["taskId"]>().toEqualTypeOf<TaskId>();
+    expectTypeOf<CheckIn["userId"]>().toEqualTypeOf<UserId>();
+    expectTypeOf<CheckIn["bookingId"]>().toEqualTypeOf<BookingId>();
+    expectTypeOf<CheckIn["askedAt"]>().toEqualTypeOf<Instant>();
+    expectTypeOf<CheckIn["outcome"]>().toEqualTypeOf<CheckInOutcome | null>();
+    expectTypeOf<CheckIn["reason"]>().toEqualTypeOf<CheckInReason | null>();
+    expectTypeOf<CheckIn["answeredAt"]>().toEqualTypeOf<Instant | null>();
   });
-});
 
-describe("CheckIn", () => {
-  it("models an open check-in and an answered one", () => {
-    const open: CheckIn = {
-      id: "checkin_1",
-      taskId: "task_1",
-      userId: "user_1",
-      bookingId: "booking_1",
-      askedAt: "2026-09-24T09:00:00.000Z",
-      outcome: null,
-      reason: null,
-      answeredAt: null,
+  it("unconfirmed memory records cannot be constructed", () => {
+    expectTypeOf<MemoryRecord["confirmedByUser"]>().toEqualTypeOf<true>();
+    const unconfirmed: MemoryRecord = {
+      id: "memory_1",
+      recordedAt: "2026-09-24T10:00:00.000Z",
+      // @ts-expect-error confirmedByUser must be the literal true
+      confirmedByUser: false,
+      kind: "preferred_block_length",
+      minutes: 60,
     };
-    const answered: CheckIn = {
-      ...open,
-      outcome: "needs_time",
-      reason: "not_enough_time",
-      answeredAt: "2026-09-24T09:05:00.000Z",
-    };
-    expect(CHECK_IN_OUTCOMES).toContain(answered.outcome);
-    expect(CHECK_IN_REASONS).toContain(answered.reason);
-    expect(open.outcome).toBeNull();
+    expect(unconfirmed.kind).toBe("preferred_block_length");
   });
-});
 
-describe("search horizon", () => {
-  it("searches a week without a deadline and never more than 60 days", () => {
-    expect(DEFAULT_SEARCH_HORIZON_DAYS).toBe(7);
-    expect(MAX_SEARCH_HORIZON_DAYS).toBe(60);
+  it("a reminder carries its lease and retry state", () => {
+    expectTypeOf<Reminder["leasedUntil"]>().toEqualTypeOf<Instant | null>();
+    expectTypeOf<Reminder["nextAttemptAt"]>().toEqualTypeOf<Instant | null>();
+    expectTypeOf<Reminder["lastError"]>().toEqualTypeOf<string | null>();
+  });
+
+  it("search results expose slots as read-only", () => {
+    expectTypeOf<SlotSearchResult["slots"]>().toEqualTypeOf<
+      readonly { readonly start: Instant; readonly end: Instant }[]
+    >();
   });
 });

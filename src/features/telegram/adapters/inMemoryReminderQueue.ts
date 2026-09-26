@@ -1,23 +1,31 @@
 import {
   AlreadyExistsError,
+  compareByTimeThenId,
+  formatInstant,
+  InvalidArgumentError,
   MAX_REMINDER_ATTEMPTS,
   NotFoundError,
   parseInstant,
   ReminderStateError,
+  retryDelayMs,
+  sanitizeDeliveryError,
 } from "../domain";
 import type { Reminder, ReminderQueue } from "../domain";
 
-function compareReminders(a: Reminder, b: Reminder): number {
-  const byDue = parseInstant(a.dueAt) - parseInstant(b.dueAt);
-  if (byDue !== 0) return byDue;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+const byDueTime = compareByTimeThenId<Reminder>((reminder) => reminder.dueAt);
+
+function assertPositiveInteger(value: number, name: string): void {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new InvalidArgumentError(`${name} must be a positive integer`);
+  }
 }
 
 /**
- * In-memory reminder outbox. `claimDue` is a read: it neither locks nor marks,
- * so two workers could see the same reminder; delivery must be idempotent
- * (at-least-once). Retry policy: `markFailed` keeps the reminder `pending`
- * until `MAX_REMINDER_ATTEMPTS` failures, then sets `failed`.
+ * In-memory reminder outbox with leases and retry backoff (at-least-once).
+ * `claimDue` leases what it returns, so concurrent workers do not both get a
+ * reminder until the lease expires. `markFailed` keeps the reminder `pending`
+ * with an exponential `nextAttemptAt` until `MAX_REMINDER_ATTEMPTS` failures,
+ * then sets `failed`. Cancelling is always scoped to the owning user.
  */
 export function createInMemoryReminderQueue(): ReminderQueue {
   const reminders = new Map<string, Reminder>();
@@ -31,6 +39,17 @@ export function createInMemoryReminderQueue(): ReminderQueue {
       throw new ReminderStateError(`Reminder ${id} is ${reminder.status}, not pending`);
     }
     return reminder;
+  };
+
+  const cancelWhere = (matches: (reminder: Reminder) => boolean): number => {
+    let cancelled = 0;
+    for (const [id, reminder] of reminders) {
+      if (reminder.status === "pending" && matches(reminder)) {
+        reminders.set(id, { ...reminder, status: "cancelled", leasedUntil: null });
+        cancelled += 1;
+      }
+    }
+    return cancelled;
   };
 
   return {
@@ -49,51 +68,64 @@ export function createInMemoryReminderQueue(): ReminderQueue {
         status: "pending",
         attempts: 0,
         lastError: null,
+        leasedUntil: null,
+        nextAttemptAt: null,
       };
       reminders.set(reminder.id, reminder);
       return { ...reminder };
     },
 
-    async claimDue(now, limit) {
-      if (!Number.isInteger(limit) || limit < 1) {
-        throw new RangeError("limit must be a positive integer");
-      }
+    async claimDue(now, limit, leaseMs) {
+      assertPositiveInteger(limit, "limit");
+      assertPositiveInteger(leaseMs, "leaseMs");
       const nowMs = parseInstant(now);
+      const leasedUntil = formatInstant(nowMs + leaseMs);
+      const isAvailable = (reminder: Reminder): boolean =>
+        reminder.status === "pending" &&
+        parseInstant(reminder.dueAt) <= nowMs &&
+        (reminder.nextAttemptAt === null || parseInstant(reminder.nextAttemptAt) <= nowMs) &&
+        (reminder.leasedUntil === null || parseInstant(reminder.leasedUntil) <= nowMs);
+
       return [...reminders.values()]
-        .filter((reminder) => reminder.status === "pending" && parseInstant(reminder.dueAt) <= nowMs)
-        .sort(compareReminders)
+        .filter(isAvailable)
+        .sort(byDueTime)
         .slice(0, limit)
-        .map((reminder) => ({ ...reminder }));
+        .map((reminder) => {
+          const leased: Reminder = { ...reminder, leasedUntil };
+          reminders.set(leased.id, leased);
+          return { ...leased };
+        });
     },
 
     async markSent(id) {
-      const updated: Reminder = { ...requirePending(id), status: "sent" };
+      const updated: Reminder = { ...requirePending(id), status: "sent", leasedUntil: null };
       reminders.set(id, updated);
       return { ...updated };
     },
 
-    async markFailed(id, error) {
+    async markFailed(id, error, now) {
       const reminder = requirePending(id);
+      const nowMs = parseInstant(now);
       const attempts = reminder.attempts + 1;
+      const isFinal = attempts >= MAX_REMINDER_ATTEMPTS;
       const updated: Reminder = {
         ...reminder,
         attempts,
-        lastError: error,
-        status: attempts >= MAX_REMINDER_ATTEMPTS ? "failed" : "pending",
+        lastError: sanitizeDeliveryError(error),
+        leasedUntil: null,
+        status: isFinal ? "failed" : "pending",
+        nextAttemptAt: isFinal ? null : formatInstant(nowMs + retryDelayMs(attempts)),
       };
       reminders.set(id, updated);
       return { ...updated };
     },
 
     async cancelForUser(userId) {
-      let cancelled = 0;
-      for (const [id, reminder] of reminders) {
-        if (reminder.userId === userId && reminder.status === "pending") {
-          reminders.set(id, { ...reminder, status: "cancelled" });
-          cancelled += 1;
-        }
-      }
-      return cancelled;
+      return cancelWhere((reminder) => reminder.userId === userId);
+    },
+
+    async cancelForTask(userId, taskId) {
+      return cancelWhere((reminder) => reminder.userId === userId && reminder.taskId === taskId);
     },
   };
 }

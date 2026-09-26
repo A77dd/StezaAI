@@ -6,8 +6,11 @@ import {
   fromZoned,
   InvalidIntentError,
   MAX_SEARCH_HORIZON_DAYS,
+  MS_PER_DAY,
+  MS_PER_MINUTE,
   parseClockTime,
   parseInstant,
+  rangesOverlap,
   toZonedParts,
 } from "../domain";
 import type { Priority, SlotScheduler, SlotSearchResult, UserSettings } from "../domain";
@@ -46,8 +49,6 @@ import type { Priority, SlotScheduler, SlotSearchResult, UserSettings } from "..
 
 const GRID_MINUTES = 30;
 const MAX_SLOTS = 3;
-const MS_PER_MINUTE = 60_000;
-const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 
 type Candidate = {
   readonly startMs: number;
@@ -114,7 +115,7 @@ function collectCandidates(input: {
       startMs += GRID_MINUTES * MS_PER_MINUTE
     ) {
       const endMs = startMs + durationMs;
-      if (busy.some((interval) => startMs < interval.endMs && interval.startMs < endMs)) continue;
+      if (busy.some((interval) => rangesOverlap(startMs, endMs, interval.startMs, interval.endMs))) continue;
       const { hour } = toZonedParts(formatInstant(startMs), timezone);
       candidates.push({ startMs, endMs, day, partOfDay: partOfDay(hour) });
     }
@@ -123,7 +124,7 @@ function collectCandidates(input: {
 }
 
 function overlaps(a: Candidate, b: Candidate): boolean {
-  return a.startMs < b.endMs && b.startMs < a.endMs;
+  return rangesOverlap(a.startMs, a.endMs, b.startMs, b.endMs);
 }
 
 /** Picks up to MAX_SLOTS candidates from `pool` (already sorted by start). */

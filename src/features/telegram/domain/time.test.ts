@@ -75,8 +75,32 @@ describe("assertValidTimezone", () => {
     },
   );
 
-  it.each(["", "Foo/Bar", "+03:00", "Moscow time"])("rejects %j", (tz) => {
+  it.each(["", "Foo/Bar", "Moscow time"])("rejects the unknown identifier %j", (tz) => {
     expect(() => assertValidTimezone(tz)).toThrow(InvalidTimezoneError);
+  });
+
+  // These are rejected by an explicit rule, not by whatever the runtime's Intl accepts.
+  it.each(["+03:00", "-05:00", "+0300", "Etc/GMT+3", "Etc/GMT-14", "Etc/UTC"])(
+    "rejects the offset or fixed-offset form %j",
+    (tz) => {
+      expect(() => assertValidTimezone(tz)).toThrow(/offset|fixed/i);
+      expect(() => assertValidTimezone(tz)).toThrow(InvalidTimezoneError);
+    },
+  );
+
+  it("returns the canonical name, whatever the input casing", () => {
+    expect(assertValidTimezone("europe/moscow")).toBe("Europe/Moscow");
+    expect(assertValidTimezone("AMERICA/NEW_YORK")).toBe("America/New_York");
+    expect(assertValidTimezone("Europe/Berlin")).toBe("Europe/Berlin");
+  });
+
+  it("works with a non-canonical name everywhere a timezone is taken", () => {
+    expect(toZonedParts("2026-09-25T20:59:00.000Z", "europe/moscow")).toEqual(
+      toZonedParts("2026-09-25T20:59:00.000Z", "Europe/Moscow"),
+    );
+    expect(fromZoned({ year: 2026, month: 9, day: 25, hour: 23, minute: 59 }, "EUROPE/MOSCOW")).toBe(
+      "2026-09-25T20:59:00.000Z",
+    );
   });
 });
 

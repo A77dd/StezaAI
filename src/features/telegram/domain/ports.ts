@@ -22,7 +22,14 @@ import type {
 /**
  * Ports of the Telegram interaction layer (ADR 0002). The domain depends only
  * on these interfaces; adapters implement them and never the other way round.
- * Every value returned by a port is a copy the caller may keep or mutate.
+ * Returned values are independent copies: adapters never share references
+ * with their internal state, so mutating a result (types are `readonly`, but
+ * callers can cast) never changes what is stored.
+ *
+ * Ownership: callback data and inline payloads are client-controlled and can
+ * be forged, so every operation that addresses a record by id also takes the
+ * acting `userId`. A record owned by someone else behaves exactly like a
+ * missing one (`NotFoundError`, or `null` for reads) so existence never leaks.
  */
 
 /** Understanding: turns free text into a structured Intent. Never schedules. */
@@ -67,20 +74,32 @@ export interface CalendarPort {
     title: string;
     slot: Slot;
   }): Promise<BlockBooking>;
-  /** Throws `NotFoundError` for an unknown booking, `SlotConflictError` on overlap. */
-  updateBlock(bookingId: BookingId, slot: Slot): Promise<BlockBooking>;
-  /** Throws `NotFoundError` for an unknown booking (also on a second delete). */
-  deleteBlock(bookingId: BookingId): Promise<void>;
+  /**
+   * Throws `NotFoundError` for an unknown booking or one owned by another
+   * user, `SlotConflictError` on overlap.
+   */
+  updateBlock(userId: UserId, bookingId: BookingId, slot: Slot): Promise<BlockBooking>;
+  /**
+   * Throws `NotFoundError` for an unknown booking, one owned by another user,
+   * and on a second delete.
+   */
+  deleteBlock(userId: UserId, bookingId: BookingId): Promise<void>;
 }
 
+/**
+ * Fields to change. A key whose value is `undefined` means "not provided" and
+ * is skipped; clearing a nullable field is an explicit `null`
+ * (`{ deadline: null }`), so a patch can never turn `deadline` into `undefined`.
+ */
 export type TaskPatch = Partial<Omit<Task, "id" | "userId" | "createdAt">>;
 
 export interface TaskRepository {
   /** Throws `AlreadyExistsError` if the id is taken. */
   create(task: Task): Promise<Task>;
-  get(id: TaskId): Promise<Task | null>;
-  /** Throws `NotFoundError` for an unknown task. */
-  update(id: TaskId, patch: TaskPatch): Promise<Task>;
+  /** `null` for an unknown task and for one owned by another user. */
+  get(userId: UserId, id: TaskId): Promise<Task | null>;
+  /** Throws `NotFoundError` for an unknown task or one owned by another user. */
+  update(userId: UserId, id: TaskId, patch: TaskPatch): Promise<Task>;
   /** Ordered by `createdAt`, then `id`. */
   listByUser(userId: UserId, filter?: { status?: TaskStatus }): Promise<Task[]>;
   /** Returns how many tasks were removed. */
@@ -120,29 +139,45 @@ export interface IdGenerator {
 }
 
 /**
- * Reminder outbox. Delivery is at-least-once: `claimDue` does not lock or
- * mark anything, so a worker must deliver idempotently and then call
- * `markSent` or `markFailed`.
+ * Reminder outbox with leases and retry backoff. Delivery is at-least-once: a
+ * worker claims due reminders for a lease, delivers, then calls `markSent` or
+ * `markFailed`. A claimed reminder is invisible to other claims until its
+ * lease expires; a worker that dies mid-delivery is retried after the lease.
+ * Deliver idempotently.
  */
 export interface ReminderQueue {
   /** Stores a `pending` reminder. Throws `AlreadyExistsError` if the id is taken. */
   schedule(reminder: NewReminder): Promise<Reminder>;
-  /** Pending reminders with `dueAt <= now`, ordered by `dueAt` then `id`, at most `limit`. */
-  claimDue(now: Instant, limit: number): Promise<Reminder[]>;
-  /** Only a `pending` reminder can be sent; otherwise `ReminderStateError`. */
+  /**
+   * Leases up to `limit` pending reminders that are due (`dueAt <= now`),
+   * past their retry time (`nextAttemptAt`) and not currently leased, ordered
+   * by `dueAt` then `id`. Sets `leasedUntil = now + leaseMs` on each and
+   * returns them. Throws `InvalidArgumentError` unless `limit` and `leaseMs`
+   * are positive integers.
+   */
+  claimDue(now: Instant, limit: number, leaseMs: number): Promise<Reminder[]>;
+  /** Only a `pending` reminder can be sent; otherwise `ReminderStateError`. Clears the lease. */
   markSent(id: ReminderId): Promise<Reminder>;
   /**
-   * Increments `attempts` and stores `error`. The reminder returns to
-   * `pending` until `MAX_REMINDER_ATTEMPTS` failures, then becomes `failed`.
-   * Only a `pending` reminder can fail; otherwise `ReminderStateError`.
+   * Increments `attempts`, stores `error` sanitized (`sanitizeDeliveryError`,
+   * at most 200 characters; pass API error descriptions, never message text),
+   * clears the lease and sets `nextAttemptAt = now + backoff`
+   * (`REMINDER_RETRY_BACKOFF_SECONDS`). The reminder stays `pending` until
+   * `MAX_REMINDER_ATTEMPTS` failures, then becomes `failed`. Only a `pending`
+   * reminder can fail; otherwise `ReminderStateError`.
    */
-  markFailed(id: ReminderId, error: string): Promise<Reminder>;
+  markFailed(id: ReminderId, error: string, now: Instant): Promise<Reminder>;
   /** Cancels the user's `pending` reminders; returns how many were cancelled. */
   cancelForUser(userId: UserId): Promise<number>;
+  /**
+   * Cancels the user's `pending` reminders for one task. Other users'
+   * reminders for the same task id are untouched (returns 0 for them).
+   */
+  cancelForTask(userId: UserId, taskId: TaskId): Promise<number>;
 }
 
 export interface MemoryRepository {
-  /** Throws `MemoryNotConfirmedError` unless `record.confirmedByUser` is true. */
+  /** Throws `MemoryNotConfirmedError` unless `record.confirmedByUser` is true (also checked at runtime). */
   record(userId: UserId, record: MemoryRecord): Promise<void>;
   /** In insertion order. */
   listByUser(userId: UserId): Promise<MemoryRecord[]>;

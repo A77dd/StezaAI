@@ -30,7 +30,10 @@ function compareIntervals(a: Interval, b: Interval): number {
  *   overlaps another block of the same user (a block never conflicts with its
  *   own previous position);
  * - `deleteBlock` is NOT idempotent: an unknown or already deleted id throws
- *   `NotFoundError`, so a double "cancel" tap is visible to the caller.
+ *   `NotFoundError`, so a double "cancel" tap is visible to the caller;
+ * - `updateBlock` / `deleteBlock` are scoped to the owner: another user's
+ *   booking fails exactly like a missing one, before anything about the new
+ *   slot is examined (no existence or conflict probing).
  */
 export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryCalendar {
   const blocks = new Map<string, BlockBooking>();
@@ -42,6 +45,14 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
         throw new SlotConflictError("The slot overlaps an existing calendar block");
       }
     }
+  };
+
+  const ownedBlock = (userId: UserId, bookingId: string): BlockBooking => {
+    const block = blocks.get(bookingId);
+    if (block === undefined || block.userId !== userId) {
+      throw new NotFoundError(`Booking ${bookingId} does not exist`);
+    }
+    return block;
   };
 
   return {
@@ -76,11 +87,8 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
       return structuredClone(booking);
     },
 
-    async updateBlock(bookingId, slot) {
-      const existing = blocks.get(bookingId);
-      if (existing === undefined) {
-        throw new NotFoundError(`Booking ${bookingId} does not exist`);
-      }
+    async updateBlock(userId, bookingId, slot) {
+      const existing = ownedBlock(userId, bookingId);
       assertValidInterval(slot);
       assertNoConflict(existing.userId, slot, bookingId);
       const updated: BlockBooking = { ...existing, slot: { ...slot } };
@@ -88,10 +96,8 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
       return structuredClone(updated);
     },
 
-    async deleteBlock(bookingId) {
-      if (!blocks.delete(bookingId)) {
-        throw new NotFoundError(`Booking ${bookingId} does not exist`);
-      }
+    async deleteBlock(userId, bookingId) {
+      blocks.delete(ownedBlock(userId, bookingId).id);
     },
   };
 }

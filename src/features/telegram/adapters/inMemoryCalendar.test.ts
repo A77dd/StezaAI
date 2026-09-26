@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createInMemoryCalendar } from "./inMemoryCalendar";
 import { createSequentialIdGenerator } from "./idGenerator";
-import { describeCalendarPortContract } from "./ports.contract";
+import { describeCalendarPortContract } from "../testing/contracts";
 import { InvalidTimeError } from "../domain";
 
 const createCalendar = () => createInMemoryCalendar({ ids: createSequentialIdGenerator() });
 
-describeCalendarPortContract("inMemoryCalendar", createCalendar);
+describeCalendarPortContract("inMemoryCalendar", () => ({ port: createCalendar() }));
 
 describe("inMemoryCalendar", () => {
   const day = {

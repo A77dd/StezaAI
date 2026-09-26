@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AlreadyExistsError,
+  IntentParserUnavailableError,
+  InvalidArgumentError,
   InvalidIntentError,
   InvalidSettingsError,
   InvalidTimeError,
@@ -24,6 +26,8 @@ const cases = [
   [new InvalidSettingsError("m"), "invalid_settings"],
   [new ReminderStateError("m"), "reminder_state"],
   [new MemoryNotConfirmedError("m"), "memory_not_confirmed"],
+  [new InvalidArgumentError("m"), "invalid_argument"],
+  [new IntentParserUnavailableError("m"), "intent_parser_unavailable"],
 ] as const;
 
 describe("telegram layer errors", () => {

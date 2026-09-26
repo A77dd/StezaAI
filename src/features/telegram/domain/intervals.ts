@@ -9,10 +9,20 @@ export function assertValidInterval(interval: Interval): void {
   }
 }
 
+/** Half-open numeric overlap `[aStart, aEnd)` vs `[bStart, bEnd)`; the one overlap rule of the layer. */
+export function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
 /**
  * Intervals are half-open `[start, end)`: two intervals that merely touch (one
  * ends exactly when the other starts) do not overlap.
  */
 export function intervalsOverlap(a: Interval, b: Interval): boolean {
-  return parseInstant(a.start) < parseInstant(b.end) && parseInstant(b.start) < parseInstant(a.end);
+  return rangesOverlap(
+    parseInstant(a.start),
+    parseInstant(a.end),
+    parseInstant(b.start),
+    parseInstant(b.end),
+  );
 }

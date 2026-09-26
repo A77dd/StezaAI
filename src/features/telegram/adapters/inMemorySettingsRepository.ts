@@ -1,4 +1,4 @@
-import { assertValidSettings } from "../domain";
+import { normalizeSettings } from "../domain";
 import type { SettingsRepository, UserSettings } from "../domain";
 
 /**
@@ -13,9 +13,10 @@ export function createInMemorySettingsRepository(): SettingsRepository {
       return settings === undefined ? null : structuredClone(settings);
     },
     async upsert(settings) {
-      assertValidSettings(settings);
-      settingsByUser.set(settings.userId, structuredClone(settings));
-      return structuredClone(settings);
+      // The canonical timezone name is stored, not the caller's spelling.
+      const normalized = normalizeSettings(settings);
+      settingsByUser.set(normalized.userId, normalized);
+      return structuredClone(normalized);
     },
     async delete(userId) {
       settingsByUser.delete(userId);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InvalidSettingsError, InvalidTimezoneError } from "./errors";
-import { assertValidSettings, createDefaultSettings } from "./settings";
+import { assertValidSettings, createDefaultSettings, normalizeSettings } from "./settings";
 
 describe("createDefaultSettings", () => {
   it("returns explicit, documented defaults for a user", () => {
@@ -56,5 +56,22 @@ describe("assertValidSettings", () => {
     expect(() => assertValidSettings({ ...valid(), defaultBlockMinutes: minutes })).toThrow(
       InvalidSettingsError,
     );
+  });
+});
+
+describe("normalizeSettings", () => {
+  it("returns a copy with the canonical timezone name", () => {
+    const input = { ...createDefaultSettings("user_1", "ru"), timezone: "europe/moscow" };
+    const normalized = normalizeSettings(input);
+    expect(normalized.timezone).toBe("Europe/Moscow");
+    expect(input.timezone).toBe("europe/moscow");
+    expect(normalized.workingHours).not.toBe(input.workingHours);
+    expect(normalized.workingHours.isoDays).not.toBe(input.workingHours.isoDays);
+  });
+
+  it("validates like assertValidSettings", () => {
+    const valid = createDefaultSettings("user_1", "ru");
+    expect(() => normalizeSettings({ ...valid, timezone: "+03:00" })).toThrow(InvalidTimezoneError);
+    expect(() => normalizeSettings({ ...valid, defaultBlockMinutes: 0 })).toThrow(InvalidSettingsError);
   });
 });

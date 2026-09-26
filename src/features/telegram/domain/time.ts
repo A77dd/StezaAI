@@ -26,8 +26,8 @@ export type LocalDateTime = {
   readonly minute: number;
 };
 
-const MS_PER_MINUTE = 60_000;
-const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
+export const MS_PER_MINUTE = 60_000;
+export const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
 const INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/;
 /** Years this module supports: always four digits in ISO-8601 and never ambiguous with 2-digit years. */
 const MIN_YEAR = 1000;
@@ -83,13 +83,15 @@ export function parseClockTime(value: string): number {
 }
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
+const canonicalNames = new Map<string, string>();
+// "+03:00", "-0500": offsets carry no DST rules.
+const OFFSET_FORM = /^[+-]/;
+// "Etc/GMT+3" and friends are fixed offsets with inverted signs, never a user's home zone.
+const FIXED_OFFSET_ZONE = /^Etc\//i;
 
-function formatterFor(timezone: string): Intl.DateTimeFormat {
-  const cached = formatters.get(timezone);
-  if (cached !== undefined) return cached;
-  let formatter: Intl.DateTimeFormat;
+function createFormatter(timezone: string): Intl.DateTimeFormat {
   try {
-    formatter = new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       hourCycle: "h23",
       year: "numeric",
@@ -108,17 +110,41 @@ function formatterFor(timezone: string): Intl.DateTimeFormat {
     }
     throw error;
   }
-  formatters.set(timezone, formatter);
+}
+
+/** Resolves any accepted spelling to the canonical name; the formatter cache is keyed by it. */
+function canonicalTimezone(timezone: string): string {
+  const known = canonicalNames.get(timezone);
+  if (known !== undefined) return known;
+  if (OFFSET_FORM.test(timezone) || FIXED_OFFSET_ZONE.test(timezone)) {
+    throw new InvalidTimezoneError(
+      "Timezone must be a named IANA zone; UTC offsets and fixed-offset Etc/ zones are not supported",
+    );
+  }
+  const formatter = createFormatter(timezone);
+  const canonical = formatter.resolvedOptions().timeZone;
+  if (!formatters.has(canonical)) formatters.set(canonical, formatter);
+  canonicalNames.set(timezone, canonical);
+  return canonical;
+}
+
+function formatterFor(timezone: string): Intl.DateTimeFormat {
+  const formatter = formatters.get(canonicalTimezone(timezone));
+  if (formatter === undefined) {
+    throw new InvalidTimezoneError("Timezone formatter is unavailable");
+  }
   return formatter;
 }
 
 /**
- * Throws `InvalidTimezoneError` unless `timezone` is an IANA identifier the
- * runtime knows. Offset forms such as `+03:00` are rejected because they carry
- * no DST rules.
+ * Throws `InvalidTimezoneError` unless `timezone` is a named IANA zone the
+ * runtime knows, and returns its canonical name (`europe/moscow` becomes
+ * `Europe/Moscow`). Offset forms (`+03:00`) and fixed-offset `Etc/` zones are
+ * rejected by explicit rules: they carry no DST rules and no user lives in
+ * them. Store the returned name, not the input.
  */
-export function assertValidTimezone(timezone: string): void {
-  formatterFor(timezone);
+export function assertValidTimezone(timezone: string): string {
+  return canonicalTimezone(timezone);
 }
 
 function partsOf(ms: number, timezone: string) {

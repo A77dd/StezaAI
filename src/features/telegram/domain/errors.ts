@@ -83,3 +83,17 @@ export class MemoryNotConfirmedError extends TelegramLayerError {
     super("memory_not_confirmed", message, options);
   }
 }
+
+/** A programmer-supplied argument is out of range (limits, lease lengths, prefixes). */
+export class InvalidArgumentError extends TelegramLayerError {
+  constructor(message: string, options?: ErrorOptions) {
+    super("invalid_argument", message, options);
+  }
+}
+
+/** The intent parser (LLM provider) cannot be used right now; the caller must tell the user. */
+export class IntentParserUnavailableError extends TelegramLayerError {
+  constructor(message: string, options?: ErrorOptions) {
+    super("intent_parser_unavailable", message, options);
+  }
+}

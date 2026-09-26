@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { InvalidArgumentError } from "../domain";
 import { createSequentialIdGenerator, createUuidIdGenerator } from "./idGenerator";
 
 describe("createSequentialIdGenerator", () => {
@@ -18,7 +19,7 @@ describe("createSequentialIdGenerator", () => {
   });
 
   it.each(["", "Task", "a-b", "1abc", "a b"])("rejects prefix %j", (prefix) => {
-    expect(() => createSequentialIdGenerator().next(prefix)).toThrow(RangeError);
+    expect(() => createSequentialIdGenerator().next(prefix)).toThrow(InvalidArgumentError);
   });
 });
 
@@ -32,6 +33,6 @@ describe("createUuidIdGenerator", () => {
   });
 
   it("rejects an invalid prefix", () => {
-    expect(() => createUuidIdGenerator().next("Bad Prefix")).toThrow(RangeError);
+    expect(() => createUuidIdGenerator().next("Bad Prefix")).toThrow(InvalidArgumentError);
   });
 });

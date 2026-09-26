@@ -1,10 +1,11 @@
+import { InvalidArgumentError } from "../domain";
 import type { IdGenerator } from "../domain";
 
 const PREFIX_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 function assertPrefix(prefix: string): void {
   if (!PREFIX_PATTERN.test(prefix)) {
-    throw new RangeError("Id prefix must be lowercase letters, digits or '_' and start with a letter");
+    throw new InvalidArgumentError("Id prefix must be lowercase letters, digits or '_' and start with a letter");
   }
 }
 

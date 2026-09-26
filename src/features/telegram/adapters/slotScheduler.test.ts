@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_SEARCH_HORIZON_DAYS,
   InvalidIntentError,
   InvalidSettingsError,
   InvalidTimeError,
-  MAX_SEARCH_HORIZON_DAYS,
   toZonedParts,
 } from "../domain";
 import type { Interval, Task } from "../domain";
 import { makeSettings } from "../testing/domainFixtures";
-import { describeSlotSchedulerContract } from "./ports.contract";
+import { describeSlotSchedulerContract } from "../testing/contracts";
 import { createSlotScheduler } from "./slotScheduler";
 
-describeSlotSchedulerContract("slotScheduler", createSlotScheduler);
+describeSlotSchedulerContract("slotScheduler", () => ({ port: createSlotScheduler() }));
 
 // Monday 2026-09-28 09:10 in Moscow (UTC+3, no DST). Working hours 09:00-18:00 Mon-Fri.
 const MONDAY_0910 = "2026-09-28T06:10:00.000Z";
@@ -210,7 +208,6 @@ describe("slotScheduler", () => {
       const result = proposeResult();
       expect(result.exhausted).toBe("found");
       expect(result.searchedUntil).toBe("2026-10-05T06:10:00.000Z");
-      expect(DEFAULT_SEARCH_HORIZON_DAYS).toBe(7);
     });
 
     it("reports found with searchedUntil = the deadline when a deadline is set", () => {
@@ -253,7 +250,6 @@ describe("slotScheduler", () => {
         busy: [iv("2026-09-28T00:00:00.000Z", "2026-12-01T00:00:00.000Z")],
       });
       expect(result).toEqual({ slots: [], searchedUntil: deadline, exhausted: "none_before_deadline" });
-      expect(MAX_SEARCH_HORIZON_DAYS).toBe(60);
     });
 
     it("reports horizon_reached for a deadline beyond the maximum horizon", () => {

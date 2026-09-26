@@ -1,5 +1,5 @@
-// Deterministic adapters for the domain ports. `ports.contract.ts` (Vitest
-// contract suites) is intentionally not exported here: it is test-only code.
+// Deterministic adapters for the domain ports. The reusable contract suites
+// live in `../testing/contracts` and are test-only code.
 export * from "./fixedClock";
 export * from "./idGenerator";
 export * from "./inMemoryCalendar";

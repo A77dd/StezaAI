@@ -9,7 +9,8 @@ export function createInMemoryMemoryRepository(): MemoryRepository {
   const recordsByUser = new Map<string, MemoryRecord[]>();
   return {
     async record(userId, record) {
-      if (!record.confirmedByUser) {
+      // The type says `true`; this guards untyped callers (JSON, casts).
+      if (record.confirmedByUser !== true) {
         throw new MemoryNotConfirmedError("Memory records must be confirmed by the user before storage");
       }
       recordsByUser.set(userId, [...(recordsByUser.get(userId) ?? []), structuredClone(record)]);
