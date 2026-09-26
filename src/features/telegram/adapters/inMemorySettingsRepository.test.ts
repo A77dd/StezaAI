@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidSettingsError, InvalidTimezoneError } from "../domain/errors";
-import { createDefaultSettings } from "../domain/settings";
+import { createDefaultSettings, InvalidSettingsError, InvalidTimezoneError } from "../domain";
 import { makeSettings } from "../testing/domainFixtures";
 import { createInMemorySettingsRepository } from "./inMemorySettingsRepository";
 

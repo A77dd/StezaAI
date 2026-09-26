@@ -1,8 +1,11 @@
-import { NotFoundError, SlotConflictError } from "../domain/errors";
-import { assertValidInterval, intervalsOverlap } from "../domain/intervals";
-import type { CalendarPort, IdGenerator } from "../domain/ports";
-import { parseInstant } from "../domain/time";
-import type { BlockBooking, Interval, UserId } from "../domain/types";
+import {
+  assertValidInterval,
+  intervalsOverlap,
+  NotFoundError,
+  parseInstant,
+  SlotConflictError,
+} from "../domain";
+import type { BlockBooking, CalendarPort, IdGenerator, Interval, UserId } from "../domain";
 
 export type InMemoryCalendar = CalendarPort & {
   /**

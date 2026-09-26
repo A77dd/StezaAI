@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TranscriptionUnavailableError } from "../domain/errors";
+import { TranscriptionUnavailableError } from "../domain";
 import { createStubTranscription } from "./stubTranscription";
 
 const audio = new Uint8Array([1, 2, 3]);

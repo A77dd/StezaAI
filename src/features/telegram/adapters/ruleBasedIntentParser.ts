@@ -1,7 +1,5 @@
-import { InvalidIntentError } from "../domain/errors";
-import type { IntentParser } from "../domain/ports";
-import { assertValidTimezone, fromZoned, toZonedParts } from "../domain/time";
-import type { Instant, Intent, IntentKind, Priority } from "../domain/types";
+import { assertValidTimezone, fromZoned, InvalidIntentError, toZonedParts } from "../domain";
+import type { Instant, Intent, IntentKind, IntentParser, Priority } from "../domain";
 
 /**
  * STAND-IN for the LLM intent parser. It implements the same `IntentParser`
@@ -13,7 +11,8 @@ import type { Instant, Intent, IntentKind, Priority } from "../domain/types";
  * What it does
  * - Finds a deadline ("сегодня", "завтра", "послезавтра", weekday names after
  *   "до"/"к"/"в"/"во"/"на" in the matching case, "на этой неделе"), a duration
- *   ("на час", "полчаса", "часа на два", "45 минут", "2 часа", "1.5 часа"), a
+ *   ("на час", "полчаса", "часа на два", "45 минут", "2 часа", "1.5 часа",
+ *   compound "2 часа 30 минут"), a
  *   priority ("срочно", "не срочно"), meeting participants and the kind
  *   (reminder > meeting > follow_up > task > info).
  * - Deadlines are the END of the local day (23:59:00 in the user's timezone).
@@ -30,8 +29,10 @@ import type { Instant, Intent, IntentKind, Priority } from "../domain/types";
  *   instrumental case to the nominative with a few suffix rules ("Сергеем" ->
  *   "Сергей", "Ольгой" -> "Ольга"); unknown forms and names with dropped
  *   letters ("Петром" -> "Петр") are approximate.
- * - No clock times ("в 15:00"), no relative offsets ("через 2 часа"), no
- *   calendar dates ("до 5 октября"), no "на следующей неделе".
+ * - No clock times ("в 15:00"), no calendar dates ("до 5 октября"), no "на
+ *   следующей неделе". Relative offsets ("через 2 часа", "на 5 минут позже")
+ *   are recognised ONLY to avoid mis-parsing them as durations: they yield no
+ *   deadline and no duration and stay in the title.
  * - Only the first deadline phrase and the first duration are used.
  * - Task verbs are matched only in infinitive or imperative form; past tense
  *   ("сделал") is treated as information.
@@ -107,6 +108,17 @@ const DURATION_PATTERNS: readonly {
   readonly minutes: (match: RegExpMatchArray) => number | undefined;
 }[] = [
   {
+    // "2 часа 30 минут": the longer match at the same start beats "2 часа".
+    pattern: regex(
+      String.raw`${START}(?:на\s+)?${NUMBER}\s*(?:часа|часов|час|ч)\s+${NUMBER}\s*мин(?:ут[аыу]?)?${END}`,
+    ),
+    minutes: (match) => {
+      const hours = hoursToMinutes(match[1]);
+      const minutes = match[2] === undefined ? undefined : parseNumber(match[2]);
+      return hours === undefined || minutes === undefined ? undefined : hours + Math.round(minutes);
+    },
+  },
+  {
     pattern: regex(String.raw`${START}(?:на\s+)?полчаса${END}`),
     minutes: () => 30,
   },
@@ -141,7 +153,24 @@ function hoursToMinutes(token: string | undefined): number | undefined {
   return value === undefined ? undefined : Math.round(value * 60);
 }
 
-function findDuration(text: string): Found<number> | undefined {
+const UNIT_PHRASE = String.raw`(?:${NUMBER}\s*(?:часа|часов|час|ч)(?:\s+${NUMBER}\s*мин(?:ут[аыу]?)?)?|${NUMBER}\s*мин(?:ут[аыу]?)?|полтора\s+часа|полчаса|час)`;
+const RELATIVE_OFFSET_PATTERN = regex(
+  String.raw`${START}(?:через\s+${UNIT_PHRASE}|(?:на\s+)?${UNIT_PHRASE}\s+(?:позже|раньше|назад))${END}`,
+);
+
+/** "через 2 часа", "на 5 минут позже": a point in time, not a length of work. */
+function findRelativeOffsets(text: string): Span[] {
+  return [...text.matchAll(RELATIVE_OFFSET_PATTERN)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
+}
+
+function overlapsAny(span: Span, others: readonly Span[]): boolean {
+  return others.some((other) => span.start < other.end && other.start < span.end);
+}
+
+function findDuration(text: string, relativeOffsets: readonly Span[]): Found<number> | undefined {
   let best: Found<number> | undefined;
   for (const { pattern, minutes } of DURATION_PATTERNS) {
     for (const match of text.matchAll(pattern)) {
@@ -151,6 +180,7 @@ function findDuration(text: string): Found<number> | undefined {
         continue;
       }
       const span = { start: match.index, end: match.index + match[0].length };
+      if (overlapsAny(span, relativeOffsets)) continue;
       if (best === undefined || isBetterSpan(span, best.span)) best = { span, value };
     }
   }
@@ -318,7 +348,16 @@ const NAME_SUFFIX_RULES: readonly (readonly [string, string])[] = [
   ["ем", "ь"],
 ];
 
+// Forms the suffix rules get wrong (dropped or moved letters).
+const NAME_EXCEPTIONS: Readonly<Record<string, string>> = {
+  павлом: "Павел",
+  львом: "Лев",
+  ильей: "Илья",
+};
+
 function toNominative(name: string): string {
+  const exception = NAME_EXCEPTIONS[normalizeWords(name)];
+  if (exception !== undefined) return exception;
   for (const [suffix, replacement] of NAME_SUFFIX_RULES) {
     if (name.length > suffix.length + 1 && name.endsWith(suffix)) {
       return name.slice(0, -suffix.length) + replacement;
@@ -366,6 +405,13 @@ function tidy(text: string): string {
   return text.replace(/\s+/gu, " ").replace(EDGE_PUNCTUATION, "");
 }
 
+/** Never empty: falls back to the message itself (`original` is trimmed and non-empty). */
+function titleOrOriginal(cleaned: string, original: string): string {
+  if (cleaned !== "") return cleaned;
+  const tidied = tidy(original);
+  return tidied !== "" ? tidied : original;
+}
+
 function finishTitle(text: string): string {
   const capitalized = text.replace(/^\p{L}/u, (letter) => letter.toLocaleUpperCase("ru"));
   const characters = Array.from(capitalized);
@@ -381,7 +427,7 @@ function buildTitle(original: string, spans: readonly Span[]): string {
     title = tidy(title.replace(LEADING_NOISE, ""));
   }
   // Nothing useful left ("нужно"): fall back to the message itself, explicitly.
-  return finishTitle(title === "" ? tidy(original) : title);
+  return finishTitle(titleOrOriginal(title, original));
 }
 
 // --- Parser ---------------------------------------------------------------------
@@ -399,7 +445,7 @@ export function createRuleBasedIntentParser(): IntentParser {
       if (kind === "info") {
         return {
           kind,
-          title: finishTitle(tidy(original)),
+          title: finishTitle(titleOrOriginal(tidy(original), original)),
           deadline: null,
           durationMinutes: null,
           priority: "normal",
@@ -409,12 +455,13 @@ export function createRuleBasedIntentParser(): IntentParser {
       }
 
       const deadline = findDeadline(original, now, timezone);
-      const duration = findDuration(original);
+      const relativeOffsets = findRelativeOffsets(original);
+      const duration = findDuration(original, relativeOffsets);
       const { priority, spans: prioritySpans } = findPriority(original);
-      const fillerSpans = [...original.matchAll(FILLER_PATTERN)].map((match) => ({
-        start: match.index,
-        end: match.index + match[0].length,
-      }));
+      // "позже" inside "на 5 минут позже" belongs to the offset and stays in the title.
+      const fillerSpans = [...original.matchAll(FILLER_PATTERN)]
+        .map((match) => ({ start: match.index, end: match.index + match[0].length }))
+        .filter((span) => !overlapsAny(span, relativeOffsets));
 
       const removable: Span[] = [...prioritySpans, ...fillerSpans];
       for (const found of [deadline, duration]) {

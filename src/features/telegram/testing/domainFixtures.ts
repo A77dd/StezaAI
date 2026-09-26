@@ -1,5 +1,5 @@
-import { createDefaultSettings } from "../domain/settings";
-import type { Reminder, SourceRef, Task, UserSettings } from "../domain/types";
+import { createDefaultSettings } from "../domain";
+import type { MemoryRecord, Reminder, SourceRef, Task, UserSettings } from "../domain";
 
 // Fake data only: builders for domain values used across telegram tests.
 
@@ -53,6 +53,37 @@ export function makeReminder(overrides: Partial<Reminder> = {}): Reminder {
     status: "pending",
     attempts: 0,
     lastError: null,
+    ...overrides,
+  };
+}
+
+export type ActualDurationRecord = Extract<MemoryRecord, { kind: "actual_duration" }>;
+export type RescheduleCountRecord = Extract<MemoryRecord, { kind: "reschedule_count" }>;
+
+export function makeActualDurationRecord(
+  overrides: Partial<ActualDurationRecord> = {},
+): ActualDurationRecord {
+  return {
+    id: "memory_1",
+    recordedAt: "2026-09-24T10:00:00.000Z",
+    confirmedByUser: true,
+    kind: "actual_duration",
+    taskId: "task_1",
+    minutes: 45,
+    ...overrides,
+  };
+}
+
+export function makeRescheduleCountRecord(
+  overrides: Partial<RescheduleCountRecord> = {},
+): RescheduleCountRecord {
+  return {
+    id: "memory_1",
+    recordedAt: "2026-09-24T10:00:00.000Z",
+    confirmedByUser: true,
+    kind: "reschedule_count",
+    taskId: "task_1",
+    count: 2,
     ...overrides,
   };
 }

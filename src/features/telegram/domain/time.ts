@@ -28,24 +28,36 @@ export type LocalDateTime = {
 
 const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
-const INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/;
+/** Years this module supports: always four digits in ISO-8601 and never ambiguous with 2-digit years. */
+const MIN_YEAR = 1000;
+const MAX_YEAR = 9999;
 const CLOCK_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-/** Parses a strict ISO-8601 UTC instant into epoch milliseconds. */
+/**
+ * Parses a strict ISO-8601 UTC instant into epoch milliseconds. Impossible
+ * dates and times (`2026-02-30`, hour 24, minute 60) are rejected: `Date.parse`
+ * would silently roll some of them over, so the value must round-trip.
+ */
 export function parseInstant(instant: Instant): number {
-  const ms = INSTANT_PATTERN.test(instant) ? Date.parse(instant) : Number.NaN;
-  if (Number.isNaN(ms)) {
-    throw new InvalidTimeError(
-      "Instant must be an ISO-8601 UTC string like 2026-09-25T20:59:00.000Z",
-    );
+  const match = INSTANT_PATTERN.exec(instant);
+  const ms = match === null ? Number.NaN : Date.parse(instant);
+  if (match !== null && !Number.isNaN(ms)) {
+    const canonical = `${match[1]}.${(match[2] ?? "").padEnd(3, "0")}Z`;
+    if (new Date(ms).toISOString() === canonical) return ms;
   }
-  return ms;
+  throw new InvalidTimeError(
+    "Instant must be a valid ISO-8601 UTC string like 2026-09-25T20:59:00.000Z",
+  );
 }
 
-/** Formats epoch milliseconds as a canonical Instant. */
+/** Formats epoch milliseconds as a canonical Instant (years 1000-9999 only). */
 export function formatInstant(ms: number): Instant {
-  if (!Number.isFinite(ms) || Number.isNaN(new Date(ms).getTime())) {
-    throw new InvalidTimeError("Epoch milliseconds must be a finite, in-range number");
+  const year = Number.isFinite(ms) ? new Date(ms).getUTCFullYear() : Number.NaN;
+  if (!(year >= MIN_YEAR && year <= MAX_YEAR)) {
+    throw new InvalidTimeError(
+      `Epoch milliseconds must be finite and fall in the years ${MIN_YEAR}-${MAX_YEAR}`,
+    );
   }
   return new Date(ms).toISOString();
 }
@@ -158,13 +170,18 @@ function offsetAt(ms: number, timezone: string): number {
  *   instant, i.e. the one before the clocks are turned back.
  *
  * Out-of-range fields roll over like `Date.UTC` (day 32, hour 24, ...), which
- * lets callers step local dates with `day + n`. Fields must be integers.
+ * lets callers step local dates with `day + n`. Fields must be integers, the
+ * year must be 1000-9999, and a roll-over may not leave that range.
  */
 export function fromZoned(local: LocalDateTime, timezone: string): Instant {
   for (const value of [local.year, local.month, local.day, local.hour, local.minute]) {
     if (!Number.isInteger(value)) {
       throw new InvalidTimeError("Local date and time fields must be integers");
     }
+  }
+  // Date.UTC would silently map years 0-99 to 1900-1999.
+  if (local.year < MIN_YEAR || local.year > MAX_YEAR) {
+    throw new InvalidTimeError(`Year must be between ${MIN_YEAR} and ${MAX_YEAR}`);
   }
   const wall = wallAsUtc(local);
   // Offsets before and after any transition near this wall time.

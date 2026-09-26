@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { InvalidIntentError, InvalidSettingsError, InvalidTimeError } from "../domain/errors";
-import type { Interval, Task } from "../domain/types";
+import {
+  DEFAULT_SEARCH_HORIZON_DAYS,
+  InvalidIntentError,
+  InvalidSettingsError,
+  InvalidTimeError,
+  MAX_SEARCH_HORIZON_DAYS,
+  toZonedParts,
+} from "../domain";
+import type { Interval, Task } from "../domain";
 import { makeSettings } from "../testing/domainFixtures";
 import { describeSlotSchedulerContract } from "./ports.contract";
 import { createSlotScheduler } from "./slotScheduler";
@@ -13,7 +20,7 @@ const MONDAY_0910 = "2026-09-28T06:10:00.000Z";
 type Input = Parameters<ReturnType<typeof createSlotScheduler>["propose"]>[0];
 type Overrides = Partial<Omit<Input, "task">> & { task?: Partial<Input["task"]> };
 
-function propose(overrides: Overrides = {}) {
+function proposeResult(overrides: Overrides = {}) {
   const { task, ...rest } = overrides;
   return createSlotScheduler().propose({
     task: { id: "task_1", deadline: null, durationMinutes: 60, priority: "normal", ...task },
@@ -22,6 +29,10 @@ function propose(overrides: Overrides = {}) {
     now: MONDAY_0910,
     ...rest,
   });
+}
+
+function propose(overrides: Overrides = {}) {
+  return proposeResult(overrides).slots;
 }
 
 const starts = (slots: readonly Interval[]) => slots.map((slot) => slot.start);
@@ -136,12 +147,22 @@ describe("slotScheduler", () => {
   });
 
   describe("weekend skipping", () => {
-    it("proposes weekdays only", () => {
-      const slots = propose({ now: "2026-10-02T06:10:00.000Z", task: { durationMinutes: 120 } });
+    it("proposes weekdays only, judged in the user's timezone", () => {
+      const settings = makeSettings({
+        timezone: "Asia/Vladivostok", // UTC+10
+        workingHours: { isoDays: [1, 2, 3, 4, 5], start: "06:00", end: "15:00" },
+      });
+      const slots = propose({
+        settings,
+        now: "2026-10-02T20:00:00.000Z", // Saturday 06:00 local
+        task: { durationMinutes: 120 },
+      });
+      expect(slots.length).toBeGreaterThan(0);
       for (const slot of slots) {
-        const day = new Date(slot.start).getUTCDay();
-        expect([0, 6]).not.toContain(day);
+        expect(toZonedParts(slot.start, settings.timezone).isoWeekday).toBeLessThanOrEqual(5);
       }
+      // 06:00 on Monday local is still Sunday 20:00 in UTC: a UTC weekday check would be wrong.
+      expect(slots[0]?.start).toBe("2026-10-04T20:00:00.000Z");
     });
   });
 
@@ -181,6 +202,70 @@ describe("slotScheduler", () => {
       expect(slots.length).toBeGreaterThan(0);
       const last = slots[slots.length - 1];
       expect(new Date(last?.start ?? "").getTime()).toBeLessThan(Date.parse(MONDAY_0910) + 61 * 86_400_000);
+    });
+  });
+
+  describe("search result", () => {
+    it("reports found and where the search ended (the default horizon)", () => {
+      const result = proposeResult();
+      expect(result.exhausted).toBe("found");
+      expect(result.searchedUntil).toBe("2026-10-05T06:10:00.000Z");
+      expect(DEFAULT_SEARCH_HORIZON_DAYS).toBe(7);
+    });
+
+    it("reports found with searchedUntil = the deadline when a deadline is set", () => {
+      const result = proposeResult({ task: { deadline: "2026-09-30T20:59:00.000Z" } });
+      expect(result).toMatchObject({ exhausted: "found", searchedUntil: "2026-09-30T20:59:00.000Z" });
+    });
+
+    it("reports none_before_deadline when the deadline has passed", () => {
+      expect(proposeResult({ task: { deadline: "2026-09-28T06:00:00.000Z" } })).toEqual({
+        slots: [],
+        searchedUntil: MONDAY_0910,
+        exhausted: "none_before_deadline",
+      });
+    });
+
+    it("reports none_before_deadline when the block does not fit before the deadline", () => {
+      const result = proposeResult({ task: { deadline: "2026-09-28T07:00:00.000Z" } });
+      expect(result).toEqual({
+        slots: [],
+        searchedUntil: "2026-09-28T07:00:00.000Z",
+        exhausted: "none_before_deadline",
+      });
+    });
+
+    it("reports horizon_reached, not none_before_deadline, when free time may exist past the horizon", () => {
+      const result = proposeResult({
+        busy: [iv("2026-09-28T00:00:00.000Z", "2026-10-06T00:00:00.000Z")],
+      });
+      expect(result).toEqual({
+        slots: [],
+        searchedUntil: "2026-10-05T06:10:00.000Z",
+        exhausted: "horizon_reached",
+      });
+    });
+
+    it("reports a deadline exactly at the maximum horizon as the deadline being reached", () => {
+      const deadline = "2026-11-27T06:10:00.000Z"; // now + 60 days
+      const result = proposeResult({
+        task: { deadline },
+        busy: [iv("2026-09-28T00:00:00.000Z", "2026-12-01T00:00:00.000Z")],
+      });
+      expect(result).toEqual({ slots: [], searchedUntil: deadline, exhausted: "none_before_deadline" });
+      expect(MAX_SEARCH_HORIZON_DAYS).toBe(60);
+    });
+
+    it("reports horizon_reached for a deadline beyond the maximum horizon", () => {
+      const result = proposeResult({
+        task: { deadline: "2027-06-01T00:00:00.000Z" },
+        busy: [iv("2026-09-28T00:00:00.000Z", "2027-01-01T00:00:00.000Z")],
+      });
+      expect(result).toEqual({
+        slots: [],
+        searchedUntil: "2026-11-27T06:10:00.000Z",
+        exhausted: "horizon_reached",
+      });
     });
   });
 
@@ -338,7 +423,8 @@ describe("slotScheduler", () => {
       const a = scheduler.propose(input);
       const b = scheduler.propose(input);
       expect(a).not.toBe(b);
-      expect(a[0]).not.toBe(b[0]);
+      expect(a.slots).not.toBe(b.slots);
+      expect(a.slots[0]).not.toBe(b.slots[0]);
     });
   });
 

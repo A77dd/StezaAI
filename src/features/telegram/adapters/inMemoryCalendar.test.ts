@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInMemoryCalendar } from "./inMemoryCalendar";
 import { createSequentialIdGenerator } from "./idGenerator";
 import { describeCalendarPortContract } from "./ports.contract";
-import { InvalidTimeError } from "../domain/errors";
+import { InvalidTimeError } from "../domain";
 
 const createCalendar = () => createInMemoryCalendar({ ids: createSequentialIdGenerator() });
 

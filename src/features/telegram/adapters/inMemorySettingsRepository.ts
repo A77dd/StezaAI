@@ -1,6 +1,5 @@
-import type { SettingsRepository } from "../domain/ports";
-import { assertValidSettings } from "../domain/settings";
-import type { UserSettings } from "../domain/types";
+import { assertValidSettings } from "../domain";
+import type { SettingsRepository, UserSettings } from "../domain";
 
 /**
  * In-memory settings store. `get` returns `null` for unknown users: defaults

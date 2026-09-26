@@ -88,6 +88,28 @@ export type Task = {
 
 export type Slot = Interval;
 
+/** Without a deadline the scheduler searches this many days ahead of `now`. */
+export const DEFAULT_SEARCH_HORIZON_DAYS = 7;
+/** Upper bound of the search, also for a distant deadline. */
+export const MAX_SEARCH_HORIZON_DAYS = 60;
+
+/**
+ * Why a slot search returned what it did:
+ * - `found`: at least one slot was found;
+ * - `none_before_deadline`: the search reached the task's deadline with no free slot;
+ * - `horizon_reached`: the search stopped at the horizon (no deadline, or a
+ *   deadline farther away than the horizon), so free time may exist later.
+ */
+export type SlotSearchExhaustion = "found" | "none_before_deadline" | "horizon_reached";
+
+export type SlotSearchResult = {
+  /** 0-3 slots, earliest first. */
+  readonly slots: Slot[];
+  /** End of the searched range: the deadline or the horizon, whichever came first. */
+  readonly searchedUntil: Instant;
+  readonly exhausted: SlotSearchExhaustion;
+};
+
 export type SlotProposal = {
   readonly taskId: TaskId;
   /** 0-3 slots, earliest first. */
@@ -163,6 +185,18 @@ const FOLLOW_UP_BY_REASON: Readonly<Record<CheckInReason, CheckInFollowUp>> = {
 export function followUpForReason(reason: CheckInReason): CheckInFollowUp {
   return FOLLOW_UP_BY_REASON[reason];
 }
+
+/** A scheduled check-in ("Как прошло?") for a booked block and the user's answer. */
+export type CheckIn = {
+  readonly id: string;
+  readonly taskId: TaskId;
+  readonly userId: UserId;
+  readonly bookingId: BookingId;
+  readonly askedAt: Instant;
+  readonly outcome: CheckInOutcome | null;
+  readonly reason: CheckInReason | null;
+  readonly answeredAt: Instant | null;
+};
 
 // --- Memory -----------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidTimeError } from "../domain/errors";
+import { InvalidTimeError } from "../domain";
 import { createFixedClock } from "./fixedClock";
 
 describe("createFixedClock", () => {

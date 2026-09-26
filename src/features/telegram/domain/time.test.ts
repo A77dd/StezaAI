@@ -23,6 +23,30 @@ describe("parseInstant / formatInstant", () => {
   });
 
   it.each([
+    "2026-02-30T00:00:00.000Z",
+    "2026-02-29T00:00:00.000Z", // 2026 is not a leap year
+    "2026-04-31T12:00:00Z",
+    "2026-06-31T12:00:00Z",
+    "2026-01-01T24:00:00Z",
+    "2026-01-01T24:00:00.000Z",
+    "2026-01-01T00:60:00Z",
+    "2026-01-01T00:00:60Z",
+    "2026-00-10T00:00:00Z",
+    "2026-01-00T00:00:00Z",
+  ])("rejects the impossible date or time %j instead of normalising it", (value) => {
+    expect(() => parseInstant(value)).toThrow(InvalidTimeError);
+  });
+
+  it("accepts real leap days and the last instant of a day", () => {
+    expect(parseInstant("2028-02-29T00:00:00Z")).toBe(Date.UTC(2028, 1, 29));
+    expect(parseInstant("2026-12-31T23:59:59.999Z")).toBe(Date.UTC(2026, 11, 31, 23, 59, 59, 999));
+  });
+
+  it("accepts short fractions and reads them as milliseconds", () => {
+    expect(parseInstant("2026-09-25T20:59:00.5Z")).toBe(Date.UTC(2026, 8, 25, 20, 59, 0, 500));
+  });
+
+  it.each([
     "2026-09-25",
     "2026-09-25T20:59:00+03:00",
     "2026-09-25 20:59:00Z",
@@ -35,6 +59,11 @@ describe("parseInstant / formatInstant", () => {
 
   it("rejects non-finite milliseconds when formatting", () => {
     expect(() => formatInstant(Number.NaN)).toThrow(InvalidTimeError);
+  });
+
+  it("rejects years that would not format as a four-digit ISO year", () => {
+    expect(() => formatInstant(Date.UTC(10000, 0, 1))).toThrow(InvalidTimeError);
+    expect(() => formatInstant(Date.UTC(999, 11, 31))).toThrow(InvalidTimeError);
   });
 });
 
@@ -181,6 +210,24 @@ describe("fromZoned", () => {
   it("rolls out-of-range fields over like Date.UTC (day 32, hour 24)", () => {
     expect(fromZoned(local(2026, 9, 31, 0, 0), "UTC")).toBe("2026-10-01T00:00:00.000Z");
     expect(fromZoned(local(2026, 9, 25, 24, 0), "UTC")).toBe("2026-09-26T00:00:00.000Z");
+  });
+
+  it.each([0, 50, 99, 999, 10000, 12345])(
+    "rejects year %s instead of mapping it (Date.UTC maps 0-99 to 1900-1999)",
+    (year) => {
+      expect(() =>
+        fromZoned({ year, month: 1, day: 1, hour: 0, minute: 0 }, "UTC"),
+      ).toThrow(InvalidTimeError);
+    },
+  );
+
+  it("accepts the boundary years 1000 and 9999", () => {
+    expect(fromZoned(local(1000, 1, 1, 0, 0), "UTC")).toBe("1000-01-01T00:00:00.000Z");
+    expect(fromZoned(local(9999, 6, 1, 12, 0), "UTC")).toBe("9999-06-01T12:00:00.000Z");
+  });
+
+  it("rejects a roll-over that leaves the supported year range", () => {
+    expect(() => fromZoned(local(9999, 12, 32, 0, 0), "UTC")).toThrow(InvalidTimeError);
   });
 
   it("rejects non-integer fields", () => {

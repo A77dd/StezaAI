@@ -1,8 +1,11 @@
-import { AlreadyExistsError, NotFoundError, ReminderStateError } from "../domain/errors";
-import type { ReminderQueue } from "../domain/ports";
-import { parseInstant } from "../domain/time";
-import { MAX_REMINDER_ATTEMPTS } from "../domain/types";
-import type { Reminder } from "../domain/types";
+import {
+  AlreadyExistsError,
+  MAX_REMINDER_ATTEMPTS,
+  NotFoundError,
+  parseInstant,
+  ReminderStateError,
+} from "../domain";
+import type { Reminder, ReminderQueue } from "../domain";
 
 function compareReminders(a: Reminder, b: Reminder): number {
   const byDue = parseInstant(a.dueAt) - parseInstant(b.dueAt);

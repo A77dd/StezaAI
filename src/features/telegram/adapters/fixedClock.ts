@@ -1,7 +1,5 @@
-import { InvalidTimeError } from "../domain/errors";
-import type { Clock } from "../domain/ports";
-import { addMinutes, parseInstant } from "../domain/time";
-import type { Instant } from "../domain/types";
+import { addMinutes, InvalidTimeError, parseInstant } from "../domain";
+import type { Clock, Instant } from "../domain";
 
 export type FixedClock = Clock & {
   /** Moves time forward; negative or non-finite values are rejected. */

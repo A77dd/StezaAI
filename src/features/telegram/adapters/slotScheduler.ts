@@ -1,15 +1,16 @@
-import { InvalidIntentError } from "../domain/errors";
-import { assertValidInterval } from "../domain/intervals";
-import type { SlotScheduler } from "../domain/ports";
-import { assertValidSettings } from "../domain/settings";
 import {
+  assertValidInterval,
+  assertValidSettings,
+  DEFAULT_SEARCH_HORIZON_DAYS,
   formatInstant,
   fromZoned,
+  InvalidIntentError,
+  MAX_SEARCH_HORIZON_DAYS,
   parseClockTime,
   parseInstant,
   toZonedParts,
-} from "../domain/time";
-import type { Priority, Slot, UserSettings } from "../domain/types";
+} from "../domain";
+import type { Priority, SlotScheduler, SlotSearchResult, UserSettings } from "../domain";
 
 /**
  * Deterministic slot search (the scheduler of the product loop; it never
@@ -24,8 +25,10 @@ import type { Priority, Slot, UserSettings } from "../domain/types";
  *   DST day the window has its real length (a 01:00-04:00 window is two hours
  *   long on a spring-forward day and three on a fall-back day).
  * - A block must not overlap any busy interval (half-open) and must end at or
- *   before the deadline. Without a deadline the search covers 7 days; with a
- *   distant deadline it is capped at `MAX_SEARCH_DAYS` days.
+ *   before the deadline. Without a deadline the search covers
+ *   `DEFAULT_SEARCH_HORIZON_DAYS` (7) days; a distant deadline is capped at
+ *   `MAX_SEARCH_HORIZON_DAYS` (60). The result's `exhausted` field says whether
+ *   an empty result means "nothing before the deadline" or "horizon reached".
  * - Block length is `task.durationMinutes`. `settings.defaultBlockMinutes` is
  *   used only when the task has no duration (`null`), never to override one.
  *
@@ -42,8 +45,6 @@ import type { Priority, Slot, UserSettings } from "../domain/types";
  */
 
 const GRID_MINUTES = 30;
-const DEFAULT_SEARCH_DAYS = 7;
-const MAX_SEARCH_DAYS = 60;
 const MAX_SLOTS = 3;
 const MS_PER_MINUTE = 60_000;
 const MS_PER_DAY = 24 * 60 * MS_PER_MINUTE;
@@ -168,7 +169,7 @@ function compareScores(a: readonly number[], b: readonly number[]): number {
 
 export function createSlotScheduler(): SlotScheduler {
   return {
-    propose({ task, busy, settings, now }): Slot[] {
+    propose({ task, busy, settings, now }): SlotSearchResult {
       assertValidSettings(settings);
       const nowMs = parseInstant(now);
 
@@ -185,9 +186,17 @@ export function createSlotScheduler(): SlotScheduler {
       const deadlineMs = task.deadline === null ? null : parseInstant(task.deadline);
       const horizonMs =
         deadlineMs === null
-          ? nowMs + DEFAULT_SEARCH_DAYS * MS_PER_DAY
-          : Math.min(deadlineMs, nowMs + MAX_SEARCH_DAYS * MS_PER_DAY);
-      if (horizonMs <= nowMs) return [];
+          ? nowMs + DEFAULT_SEARCH_HORIZON_DAYS * MS_PER_DAY
+          : Math.min(deadlineMs, nowMs + MAX_SEARCH_HORIZON_DAYS * MS_PER_DAY);
+      // The deadline ended the search only if it came before (or at) the cap.
+      const deadlineReached = deadlineMs !== null && horizonMs === deadlineMs;
+      const empty = (): SlotSearchResult => ({
+        slots: [],
+        // A deadline that already passed searched nothing; never report a time before `now`.
+        searchedUntil: formatInstant(Math.max(horizonMs, nowMs)),
+        exhausted: deadlineReached ? "none_before_deadline" : "horizon_reached",
+      });
+      if (horizonMs <= nowMs) return empty();
 
       const candidates = collectCandidates({
         timezone: settings.timezone,
@@ -205,10 +214,13 @@ export function createSlotScheduler(): SlotScheduler {
         if (laterDays.length > 0) pool = laterDays;
       }
 
-      return select(pool, task.priority).map((candidate) => ({
+      const slots = select(pool, task.priority).map((candidate) => ({
         start: formatInstant(candidate.startMs),
         end: formatInstant(candidate.endMs),
       }));
+      return slots.length === 0
+        ? empty()
+        : { slots, searchedUntil: formatInstant(horizonMs), exhausted: "found" };
     },
   };
 }

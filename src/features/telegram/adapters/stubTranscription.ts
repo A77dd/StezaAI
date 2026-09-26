@@ -1,5 +1,5 @@
-import { TranscriptionUnavailableError } from "../domain/errors";
-import type { TranscriptionPort } from "../domain/ports";
+import { TranscriptionUnavailableError } from "../domain";
+import type { TranscriptionPort } from "../domain";
 
 export type StubTranscriptionResponse =
   | { readonly text: string }

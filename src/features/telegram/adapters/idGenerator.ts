@@ -1,4 +1,4 @@
-import type { IdGenerator } from "../domain/ports";
+import type { IdGenerator } from "../domain";
 
 const PREFIX_PATTERN = /^[a-z][a-z0-9_]*$/;
 

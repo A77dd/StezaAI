@@ -9,6 +9,7 @@ import type {
   Reminder,
   ReminderId,
   Slot,
+  SlotSearchResult,
   SourceRef,
   Task,
   TaskId,
@@ -36,8 +37,15 @@ export interface IntentParser {
 
 /**
  * Time: deterministic and independent of the LLM. Synchronous and pure: the
- * same input always gives the same output. Returns 0-3 slots, earliest first;
- * an empty array means there is no free time before the deadline.
+ * same input always gives the same output. Returns 0-3 slots, earliest first.
+ *
+ * Search horizon: without a deadline the search covers
+ * `DEFAULT_SEARCH_HORIZON_DAYS` (7) days from `now`; a deadline farther away
+ * is capped at `MAX_SEARCH_HORIZON_DAYS` (60) days. An empty `slots` array is
+ * therefore ambiguous on its own, so the result says why the search ended:
+ * `none_before_deadline` means the deadline was reached (tell the user there
+ * is no time before it), `horizon_reached` means free time may exist later
+ * (offer to search further). `searchedUntil` is where the search stopped.
  */
 export interface SlotScheduler {
   propose(input: {
@@ -45,7 +53,7 @@ export interface SlotScheduler {
     busy: readonly Interval[];
     settings: UserSettings;
     now: Instant;
-  }): Slot[];
+  }): SlotSearchResult;
 }
 
 /** Calendar. A block is only created after explicit user confirmation. */

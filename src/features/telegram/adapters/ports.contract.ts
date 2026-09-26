@@ -1,21 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   AlreadyExistsError,
+  intervalsOverlap,
   InvalidTimeError,
+  MAX_REMINDER_ATTEMPTS,
   NotFoundError,
+  parseClockTime,
+  parseInstant,
   ReminderStateError,
   SlotConflictError,
-} from "../domain/errors";
-import { intervalsOverlap } from "../domain/intervals";
+  toZonedParts,
+} from "../domain";
 import type {
   CalendarPort,
+  Interval,
+  NewReminder,
   ReminderQueue,
   SlotScheduler,
+  Task,
   TaskRepository,
-} from "../domain/ports";
-import { parseClockTime, parseInstant, toZonedParts } from "../domain/time";
-import { MAX_REMINDER_ATTEMPTS } from "../domain/types";
-import type { Interval, NewReminder, Task, UserSettings } from "../domain/types";
+  UserSettings,
+} from "../domain";
 import { makeReminder, makeSettings, makeSource, makeTask } from "../testing/domainFixtures";
 
 /**
@@ -127,13 +132,20 @@ export function describeSlotSchedulerContract(
 ): void {
   describe(`${name} satisfies the SlotScheduler contract`, () => {
     describe.each(schedulerScenarios)("$name", (scenario) => {
-      const propose = () =>
+      const proposeResult = () =>
         createScheduler().propose({
           task: scenario.task,
           busy: scenario.busy,
           settings: scenario.settings,
           now: scenario.now,
         });
+      const propose = () => proposeResult().slots;
+
+      it("reports why it stopped: found, with a searchedUntil after now", () => {
+        const result = proposeResult();
+        expect(result.exhausted).toBe("found");
+        expect(parseInstant(result.searchedUntil)).toBeGreaterThan(parseInstant(scenario.now));
+      });
 
       it("returns 1-3 slots when free time exists", () => {
         const slots = propose();
@@ -182,14 +194,54 @@ export function describeSlotSchedulerContract(
       });
     });
 
-    it("returns an empty array when there is no free time", () => {
-      const slots = createScheduler().propose({
+    it("returns no slots and horizon_reached when the default 7-day horizon is full", () => {
+      const result = createScheduler().propose({
         task: { id: "task_1", deadline: null, durationMinutes: 60, priority: "normal" },
         busy: [iv("2026-09-28T00:00:00.000Z", "2026-10-30T00:00:00.000Z")],
         settings: makeSettings(),
         now: MONDAY_MORNING,
       });
-      expect(slots).toEqual([]);
+      expect(result).toEqual({
+        slots: [],
+        searchedUntil: "2026-10-05T06:10:00.000Z", // now + DEFAULT_SEARCH_HORIZON_DAYS
+        exhausted: "horizon_reached",
+      });
+    });
+
+    it("returns none_before_deadline when the deadline is reached without a free slot", () => {
+      const result = createScheduler().propose({
+        task: {
+          id: "task_1",
+          deadline: "2026-09-30T20:59:00.000Z",
+          durationMinutes: 60,
+          priority: "normal",
+        },
+        busy: [iv("2026-09-28T00:00:00.000Z", "2026-10-30T00:00:00.000Z")],
+        settings: makeSettings(),
+        now: MONDAY_MORNING,
+      });
+      expect(result).toEqual({
+        slots: [],
+        searchedUntil: "2026-09-30T20:59:00.000Z",
+        exhausted: "none_before_deadline",
+      });
+    });
+
+    it("caps a distant deadline at the maximum horizon and reports horizon_reached", () => {
+      const result = createScheduler().propose({
+        task: {
+          id: "task_1",
+          deadline: "2027-06-01T00:00:00.000Z",
+          durationMinutes: 60,
+          priority: "normal",
+        },
+        busy: [iv("2026-09-28T00:00:00.000Z", "2027-01-01T00:00:00.000Z")],
+        settings: makeSettings(),
+        now: MONDAY_MORNING,
+      });
+      expect(result.slots).toEqual([]);
+      expect(result.exhausted).toBe("horizon_reached");
+      expect(result.searchedUntil).toBe("2026-11-27T06:10:00.000Z"); // now + MAX_SEARCH_HORIZON_DAYS
     });
   });
 }

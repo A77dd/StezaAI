@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { InvalidIntentError, InvalidTimeError, InvalidTimezoneError } from "../domain/errors";
-import type { Intent } from "../domain/types";
+import { InvalidIntentError, InvalidTimeError, InvalidTimezoneError } from "../domain";
+import type { Intent } from "../domain";
 import { makeSource } from "../testing/domainFixtures";
 import { createRuleBasedIntentParser } from "./ruleBasedIntentParser";
 
@@ -111,6 +111,49 @@ describe("ruleBasedIntentParser: durations", () => {
     const intent = await parse(text);
     expect(intent.durationMinutes).toBe(minutes);
     expect(intent.title).toBe("Подготовить отчет");
+  });
+
+  it.each([
+    ["Подготовить отчет 2 часа 30 минут", 150],
+    ["Подготовить отчет на 1 час 15 минут", 75],
+    ["Подготовить отчет 1 час 15 минут", 75],
+    ["Подготовить отчет, 2 часа 30 мин", 150],
+  ])("adds up the compound duration in %j -> %s minutes", async (text, minutes) => {
+    const intent = await parse(text);
+    expect(intent.durationMinutes).toBe(minutes);
+    expect(intent.title).toBe("Подготовить отчет");
+    expect(intent.confidence).toBe(0.9);
+  });
+
+  describe("relative offsets are not durations", () => {
+    it.each([
+      ["Позвонить клиенту через 2 часа", "Позвонить клиенту через 2 часа"],
+      ["Позвонить клиенту через 30 минут", "Позвонить клиенту через 30 минут"],
+      ["Позвонить клиенту через 1 час 15 минут", "Позвонить клиенту через 1 час 15 минут"],
+      ["Позвонить клиенту через час", "Позвонить клиенту через час"],
+      ["Позвонить клиенту через полчаса", "Позвонить клиенту через полчаса"],
+    ])("%j keeps the phrase in the title and finds no duration", async (text, title) => {
+      const intent = await parse(text);
+      expect(intent.durationMinutes).toBeNull();
+      expect(intent.title).toBe(title);
+      expect(intent.confidence).toBe(0.6);
+    });
+
+    it("keeps 'на 5 минут позже' in the title and does not use the default as if it were found", async () => {
+      const intent = await parse("Перенести встречу на 5 минут позже");
+      expect(intent).toMatchObject({
+        kind: "meeting",
+        title: "Перенести встречу на 5 минут позже",
+        durationMinutes: 30, // the meeting default, not 5
+        confidence: 0.6,
+      });
+    });
+
+    it("still reads a real duration next to a relative offset", async () => {
+      const intent = await parse("Позвонить клиенту через 2 часа, на полчаса");
+      expect(intent.durationMinutes).toBe(30);
+      expect(intent.title).toBe("Позвонить клиенту через 2 часа");
+    });
   });
 
   it("leaves the duration null for a task without one", async () => {
@@ -265,6 +308,15 @@ describe("ruleBasedIntentParser: titles", () => {
     expect((await parse("нужно")).title).toBe("Нужно");
   });
 
+  it.each(["?", "👍", "...", "!!!", " — "])(
+    "never returns an empty title, even for info like %j",
+    async (text) => {
+      const intent = await parse(text);
+      expect(intent.kind).toBe("info");
+      expect(intent.title).toBe(text.trim());
+    },
+  );
+
   it("truncates very long titles", async () => {
     const intent = await parse(`Подготовить ${"очень ".repeat(60)}длинный отчет`);
     expect(Array.from(intent.title).length).toBeLessThanOrEqual(120);
@@ -293,6 +345,11 @@ describe("ruleBasedIntentParser: participants", () => {
     ["Встреча с Дмитрием", ["Дмитрий"]],
     ["Встреча с Марией", ["Мария"]],
     ["Встреча с Ольгой", ["Ольга"]],
+    ["Встреча с Павлом", ["Павел"]],
+    ["Созвон со Львом", ["Лев"]],
+    ["Встреча с Ильёй", ["Илья"]],
+    ["Встреча с Ильей", ["Илья"]],
+    ["Встреча с Сергеем", ["Сергей"]],
     ["Созвон с Анной и Иваном завтра", ["Анна", "Иван"]],
     ["Созвон со Светой", ["Света"]],
     ["С Сергеем нужно созвониться", ["Сергей"]],

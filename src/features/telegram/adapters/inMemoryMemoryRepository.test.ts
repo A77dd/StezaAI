@@ -1,32 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { MemoryNotConfirmedError } from "../domain/errors";
-import type { MemoryRecord } from "../domain/types";
+import { MemoryNotConfirmedError } from "../domain";
+import type { MemoryRecord } from "../domain";
+import type { ActualDurationRecord } from "../testing/domainFixtures";
+import { makeActualDurationRecord, makeRescheduleCountRecord } from "../testing/domainFixtures";
 import { createInMemoryMemoryRepository } from "./inMemoryMemoryRepository";
 
-const record = (overrides: Partial<MemoryRecord> = {}): MemoryRecord =>
-  ({
-    id: "memory_1",
-    recordedAt: "2026-09-24T10:00:00.000Z",
-    confirmedByUser: true,
-    kind: "actual_duration",
-    taskId: "task_1",
-    minutes: 45,
-    ...overrides,
-  }) as MemoryRecord;
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
 describe("inMemoryMemoryRepository", () => {
   it("lists records per user in insertion order", async () => {
     const repo = createInMemoryMemoryRepository();
-    await repo.record("user_1", record({ id: "memory_2" }));
-    await repo.record("user_1", record({ id: "memory_1", kind: "reschedule_count", count: 2 } as never));
-    await repo.record("user_2", record({ id: "memory_3" }));
+    await repo.record("user_1", makeActualDurationRecord({ id: "memory_2" }));
+    await repo.record("user_1", makeRescheduleCountRecord({ id: "memory_1" }));
+    await repo.record("user_2", makeActualDurationRecord({ id: "memory_3" }));
 
     const listed = await repo.listByUser("user_1");
     expect(listed.map((item) => item.id)).toEqual(["memory_2", "memory_1"]);
     await expect(repo.listByUser("user_3")).resolves.toEqual([]);
   });
 
-  it("stores every memory kind from the product doc", async () => {
+  it("stores every memory kind in the plan's Task 11 field list (working_hours ... notification_response)", async () => {
     const repo = createInMemoryMemoryRepository();
     const base = { recordedAt: "2026-09-24T10:00:00.000Z", confirmedByUser: true };
     const records: MemoryRecord[] = [
@@ -44,7 +37,7 @@ describe("inMemoryMemoryRepository", () => {
 
   it("refuses records the user has not confirmed", async () => {
     const repo = createInMemoryMemoryRepository();
-    await expect(repo.record("user_1", record({ confirmedByUser: false }))).rejects.toThrow(
+    await expect(repo.record("user_1", makeActualDurationRecord({ confirmedByUser: false }))).rejects.toThrow(
       MemoryNotConfirmedError,
     );
     await expect(repo.listByUser("user_1")).resolves.toEqual([]);
@@ -52,9 +45,9 @@ describe("inMemoryMemoryRepository", () => {
 
   it("deletes all records of one user and reports the count", async () => {
     const repo = createInMemoryMemoryRepository();
-    await repo.record("user_1", record({ id: "memory_1" }));
-    await repo.record("user_1", record({ id: "memory_2" }));
-    await repo.record("user_2", record({ id: "memory_3" }));
+    await repo.record("user_1", makeActualDurationRecord({ id: "memory_1" }));
+    await repo.record("user_1", makeActualDurationRecord({ id: "memory_2" }));
+    await repo.record("user_2", makeActualDurationRecord({ id: "memory_3" }));
 
     await expect(repo.deleteAllForUser("user_1")).resolves.toBe(2);
     await expect(repo.listByUser("user_1")).resolves.toEqual([]);
@@ -64,13 +57,13 @@ describe("inMemoryMemoryRepository", () => {
 
   it("returns copies: mutating results or inputs never changes stored state", async () => {
     const repo = createInMemoryMemoryRepository();
-    const input = record();
+    const input = makeActualDurationRecord();
     await repo.record("user_1", input);
-    (input as { minutes: number }).minutes = 1;
+    (input as Mutable<typeof input>).minutes = 1;
     const listed = await repo.listByUser("user_1");
-    (listed[0] as { minutes: number }).minutes = 2;
+    (listed[0] as Mutable<ActualDurationRecord>).minutes = 2;
     listed.length = 0;
 
-    await expect(repo.listByUser("user_1")).resolves.toEqual([record()]);
+    await expect(repo.listByUser("user_1")).resolves.toEqual([makeActualDurationRecord()]);
   });
 });

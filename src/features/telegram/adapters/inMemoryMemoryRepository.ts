@@ -1,6 +1,5 @@
-import { MemoryNotConfirmedError } from "../domain/errors";
-import type { MemoryRepository } from "../domain/ports";
-import type { MemoryRecord } from "../domain/types";
+import { MemoryNotConfirmedError } from "../domain";
+import type { MemoryRecord, MemoryRepository } from "../domain";
 
 /**
  * In-memory store for user-confirmed memory records (AGENTS.md: meaningful

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidTimeError } from "../domain/errors";
+import { InvalidTimeError } from "../domain";
 import { createInMemoryReminderQueue } from "./inMemoryReminderQueue";
 import { describeReminderQueueContract } from "./ports.contract";
 

@@ -1,7 +1,5 @@
-import { AlreadyExistsError, NotFoundError } from "../domain/errors";
-import type { TaskPatch, TaskRepository } from "../domain/ports";
-import { parseInstant } from "../domain/time";
-import type { Task } from "../domain/types";
+import { AlreadyExistsError, NotFoundError, parseInstant } from "../domain";
+import type { Task, TaskPatch, TaskRepository } from "../domain";
 
 function compareTasks(a: Task, b: Task): number {
   const byTime = parseInstant(a.createdAt) - parseInstant(b.createdAt);
