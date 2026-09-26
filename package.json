@@ -18,9 +18,16 @@
     "verify": "npm run check && npm run build"
   },
   "dependencies": {
+    "@grammyjs/auto-retry": "2.0.2",
+    "@grammyjs/hydrate": "1.7.0",
+    "@grammyjs/parse-mode": "2.3.0",
+    "@grammyjs/runner": "2.0.3",
+    "@grammyjs/transformer-throttler": "1.2.1",
+    "grammy": "1.46.0",
     "next": "16.3.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "6.9.1",
