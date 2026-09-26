@@ -48,14 +48,15 @@ async function listSourceFiles(directory: string): Promise<string[]> {
 }
 
 /**
- * Returns every import of `grammy` or `@grammyjs/*` (static, type-only,
- * re-export, dynamic `import()` and `require()`) found in `.ts`/`.tsx` files
- * under the given directories. Comments and strings are ignored because the
+ * Returns every import (static, type-only, re-export, dynamic `import()` and
+ * `require()`) in `.ts`/`.tsx` files under the given directories whose module
+ * specifier satisfies `matches`. Comments and strings are ignored because the
  * TypeScript scanner is used instead of a regular expression.
  * Missing directories are treated as empty.
  */
-export async function findForbiddenGrammyImports(
+export async function findImports(
   directories: readonly string[],
+  matches: (specifier: string) => boolean,
 ): Promise<LayeringViolation[]> {
   const violations: LayeringViolation[] = [];
 
@@ -64,7 +65,7 @@ export async function findForbiddenGrammyImports(
       const source = await readFile(file, "utf8");
       const { importedFiles } = ts.preProcessFile(source, true, true);
       for (const { fileName } of importedFiles) {
-        if (isGrammyModule(fileName)) {
+        if (matches(fileName)) {
           violations.push({ file, specifier: fileName });
         }
       }
@@ -72,4 +73,11 @@ export async function findForbiddenGrammyImports(
   }
 
   return violations;
+}
+
+/** Every import of `grammy` or `@grammyjs/*` under the given directories (see `findImports`). */
+export function findForbiddenGrammyImports(
+  directories: readonly string[],
+): Promise<LayeringViolation[]> {
+  return findImports(directories, isGrammyModule);
 }

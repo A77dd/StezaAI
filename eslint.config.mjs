@@ -30,6 +30,26 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // ADR 0002: handlers depend on the bot layer (context, presenter), never the
+    // other way round. `createTelegramBot.ts` joins the two. Also asserted by
+    // src/features/telegram/bot/architecture.test.ts.
+    files: ["src/features/telegram/bot/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/handlers", "**/handlers/**"],
+              message:
+                "bot/ must not import handlers/ (ADR 0002). Handlers depend on bot/; pass composers into createBot instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   globalIgnores([
     ".next/**",
     "**/.next/**",
