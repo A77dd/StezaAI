@@ -2,6 +2,7 @@
 // returns `{ port, cleanup? }` for a FRESH subject, so real adapters
 // (databases, HTTP fakes) can run the same suites as the in-memory ones.
 export * from "./calendar.contract";
+export * from "./callbackStore.contract";
 export * from "./harness";
 export * from "./intentParser.contract";
 export * from "./memoryRepository.contract";

@@ -6,11 +6,12 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
   {
-    // ADR 0002: domain and rendering code stays independent of the Bot API
-    // framework so it can be tested and reused without grammY.
+    // ADR 0002: domain, rendering and callback code stays independent of the
+    // Bot API framework so it can be tested and reused without grammY.
     // Keep the module list in sync with isGrammyModule() in
     // src/features/telegram/testing/layering.ts.
     files: [
+      "src/features/telegram/callbacks/**/*.{ts,tsx}",
       "src/features/telegram/domain/**/*.{ts,tsx}",
       "src/features/telegram/render/**/*.{ts,tsx}",
     ],
@@ -22,7 +23,7 @@ export default defineConfig([
             {
               group: ["grammy", "grammy/*", "@grammyjs/*"],
               message:
-                "domain/ and render/ must not import grammY or @grammyjs/* packages (ADR 0002). Keep Bot API types in bot/ and handlers/.",
+                "domain/, render/ and callbacks/ must not import grammY or @grammyjs/* packages (ADR 0002). Keep Bot API types in bot/ and handlers/.",
             },
           ],
         },

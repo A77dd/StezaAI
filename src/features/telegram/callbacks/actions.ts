@@ -1,0 +1,140 @@
+import { CHECK_IN_OUTCOMES, CHECK_IN_REASONS } from "../domain";
+import type { CheckInOutcome, CheckInReason } from "../domain";
+
+/**
+ * Registry of button actions. Payloads live server-side (`CallbackStore`);
+ * `callback_data` only carries `v1:<action>:<token>`. Each action declares who
+ * may press it (`scope`), for how long (`ttlMs`), whether one press consumes it
+ * (`singleUse`) and a handwritten type guard used whenever a payload is issued
+ * or read back, so a corrupted store row can never reach a handler.
+ */
+
+const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+const MAX_ID_LENGTH = 200;
+const INTENT_KINDS = ["task", "meeting", "reminder", "follow_up", "info"] as const;
+const CONTEXT_CHOICES = ["personal", "group", "remember"] as const;
+const SETTINGS_KEYS = ["notification_intensity", "working_hours", "block_length", "calendar"] as const;
+
+export type CallbackPayloads = {
+  "slot.pick": { readonly taskId: string; readonly slotIndex: 0 | 1 | 2 };
+  "slot.other": { readonly taskId: string };
+  "task.edit": { readonly taskId: string };
+  "intent.choose": { readonly draftId: string; readonly kind: (typeof INTENT_KINDS)[number] };
+  "context.choose": { readonly draftId: string; readonly choice: (typeof CONTEXT_CHOICES)[number] };
+  "checkin.answer": { readonly checkInId: string; readonly outcome: CheckInOutcome };
+  "checkin.reason": { readonly checkInId: string; readonly reason: CheckInReason };
+  "settings.toggle": { readonly key: (typeof SETTINGS_KEYS)[number]; readonly value?: string };
+  noop: Record<string, never>;
+};
+
+export type CallbackAction = keyof CallbackPayloads;
+export type CallbackPayload<A extends CallbackAction> = CallbackPayloads[A];
+
+/** `user`: only the issuing user may press. `chat`: the same user in the same chat. */
+export type CallbackScope = "user" | "chat";
+
+export type CallbackActionConfig<P> = {
+  readonly singleUse: boolean;
+  readonly ttlMs: number;
+  readonly scope: CallbackScope;
+  validate(payload: unknown): payload is P;
+};
+
+type PlainRecord = Readonly<Record<string, unknown>>;
+
+function isPlainRecord(value: unknown): value is PlainRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOnlyKeys(record: PlainRecord, allowed: readonly string[]): boolean {
+  return Object.keys(record).every((key) => allowed.includes(key));
+}
+
+function isId(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_ID_LENGTH;
+}
+
+function isOneOf<T extends string>(values: readonly T[], value: unknown): value is T {
+  return typeof value === "string" && (values as readonly string[]).includes(value);
+}
+
+function isTaskPayload(payload: unknown): payload is CallbackPayloads["slot.other"] {
+  return isPlainRecord(payload) && hasOnlyKeys(payload, ["taskId"]) && isId(payload.taskId);
+}
+
+function isSlotPick(payload: unknown): payload is CallbackPayloads["slot.pick"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["taskId", "slotIndex"]) &&
+    isId(payload.taskId) &&
+    (payload.slotIndex === 0 || payload.slotIndex === 1 || payload.slotIndex === 2)
+  );
+}
+
+function isIntentChoose(payload: unknown): payload is CallbackPayloads["intent.choose"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["draftId", "kind"]) &&
+    isId(payload.draftId) &&
+    isOneOf(INTENT_KINDS, payload.kind)
+  );
+}
+
+function isContextChoose(payload: unknown): payload is CallbackPayloads["context.choose"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["draftId", "choice"]) &&
+    isId(payload.draftId) &&
+    isOneOf(CONTEXT_CHOICES, payload.choice)
+  );
+}
+
+function isCheckInAnswer(payload: unknown): payload is CallbackPayloads["checkin.answer"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["checkInId", "outcome"]) &&
+    isId(payload.checkInId) &&
+    isOneOf(CHECK_IN_OUTCOMES, payload.outcome)
+  );
+}
+
+function isCheckInReason(payload: unknown): payload is CallbackPayloads["checkin.reason"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["checkInId", "reason"]) &&
+    isId(payload.checkInId) &&
+    isOneOf(CHECK_IN_REASONS, payload.reason)
+  );
+}
+
+function isSettingsToggle(payload: unknown): payload is CallbackPayloads["settings.toggle"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["key", "value"]) &&
+    isOneOf(SETTINGS_KEYS, payload.key) &&
+    (payload.value === undefined || typeof payload.value === "string")
+  );
+}
+
+function isNoop(payload: unknown): payload is CallbackPayloads["noop"] {
+  return isPlainRecord(payload) && Object.keys(payload).length === 0;
+}
+
+export const CALLBACK_ACTIONS = Object.freeze({
+  "slot.pick": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isSlotPick },
+  "slot.other": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "task.edit": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "intent.choose": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isIntentChoose },
+  "context.choose": { singleUse: true, ttlMs: DAY_MS, scope: "chat", validate: isContextChoose },
+  "checkin.answer": { singleUse: true, ttlMs: 7 * DAY_MS, scope: "user", validate: isCheckInAnswer },
+  "checkin.reason": { singleUse: true, ttlMs: 7 * DAY_MS, scope: "user", validate: isCheckInReason },
+  "settings.toggle": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isSettingsToggle },
+  noop: { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isNoop },
+} as const satisfies { readonly [A in CallbackAction]: CallbackActionConfig<CallbackPayload<A>> });
+
+/** True for names registered in `CALLBACK_ACTIONS` (own keys only: `toString` is not an action). */
+export function isCallbackAction(value: string): value is CallbackAction {
+  return Object.hasOwn(CALLBACK_ACTIONS, value);
+}
