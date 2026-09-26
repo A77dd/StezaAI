@@ -9,6 +9,8 @@
  */
 export * from "./buttons";
 export type * from "./buttonSpec";
+export * from "./catalog";
+export * from "./dayLabel";
 export * from "./errors";
 export * from "./escape";
 export * from "./format";
@@ -16,8 +18,11 @@ export * from "./html";
 export type { Html } from "./htmlType";
 export * from "./keyboard";
 export * from "./limits";
+export * from "./links";
+export * from "./markdown";
 export type { MessageView } from "./messageView";
 export * from "./rendered";
 export * from "./renderMessage";
 export * from "./renderRichMarkdown";
 export * from "./truncate";
+export * from "./views";

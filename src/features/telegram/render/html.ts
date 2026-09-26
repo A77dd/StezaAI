@@ -29,7 +29,7 @@ export const BLANK_LINE = asHtml("\n\n");
 const ALLOWED_LINK_PROTOCOLS = ["https:", "http:", "tg:"];
 const CODE_LANGUAGE = /^[A-Za-z0-9_+#.-]{1,32}$/;
 // Bot API "Date-time entity formatting": `r` alone, or weekday/date/time flags in this order.
-const TIME_FORMAT = /^(?:r|w?[dD]?[tT]?)$/;
+export const TIME_FORMAT = /^(?:r|w?[dD]?[tT]?)$/;
 
 const FORMATTING_FORBIDS = ["pre", "code", "blockquote"];
 const LINK_FORBIDS = ["a", "tg-time", "pre", "code", "blockquote"];

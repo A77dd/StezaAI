@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { InvalidTimeError, InvalidTimezoneError } from "../domain";
 import { RenderError } from "./errors";
-import { formatDeadline, formatDuration, formatSlotRange, slotHtml } from "./format";
+import {
+  RU_TIME_WORDS,
+  calendarDaysBetween,
+  formatClock,
+  formatDeadline,
+  formatDuration,
+  formatSlotRange,
+  slotHtml,
+} from "./format";
+import type { TimeWords } from "./format";
 
 const unix = (instant: string) => Date.parse(instant) / 1000;
 
@@ -187,5 +196,52 @@ describe("formatDeadline", () => {
     expect(() => formatDeadline(now, "Mars/Base", now)).toThrow(InvalidTimezoneError);
     expect(() => formatDeadline("soon", "UTC", now)).toThrow(InvalidTimeError);
     expect(() => formatDeadline(now, "UTC", "now")).toThrow(InvalidTimeError);
+  });
+});
+
+// A second vocabulary proves the words are a parameter, not baked into the logic.
+const EN_WORDS: TimeWords = {
+  weekdaysShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  minutes: "min",
+  hours: "h",
+  today: "today",
+  tomorrow: "tomorrow",
+  date: (day, month, year) => (year === null ? `${month} ${day}` : `${month} ${day}, ${year}`),
+  onDate: (weekday, date) => `${weekday}, ${date}`,
+};
+
+describe("time words", () => {
+  const slot = { start: "2026-09-11T12:00:00.000Z", end: "2026-09-11T13:00:00.000Z" };
+  const now = "2026-09-26T09:00:00.000Z";
+
+  it("defaults to Russian words", () => {
+    expect(formatDeadline("2026-10-01T09:00:00.000Z", "UTC", now)).toBe(
+      formatDeadline("2026-10-01T09:00:00.000Z", "UTC", now, RU_TIME_WORDS),
+    );
+  });
+
+  it("formats with another vocabulary", () => {
+    expect(formatSlotRange(slot, "Europe/Moscow", EN_WORDS)).toBe("Fri, 15:00–16:00");
+    expect(slotHtml(slot, "Europe/Moscow", EN_WORDS)).toContain(">Fri, 15:00</tg-time>");
+    expect(formatDuration(90, EN_WORDS)).toBe("1 h 30 min");
+    expect(formatDeadline("2026-10-01T09:00:00.000Z", "UTC", now, EN_WORDS)).toBe("Thu, Oct 1");
+    expect(formatDeadline("2027-01-05T09:00:00.000Z", "UTC", now, EN_WORDS)).toBe("Tue, Jan 5, 2027");
+    expect(formatDeadline("2026-09-27T09:00:00.000Z", "UTC", now, EN_WORDS)).toBe("tomorrow");
+  });
+});
+
+describe("formatClock", () => {
+  it("is the zero-padded local wall clock", () => {
+    expect(formatClock("2026-09-11T06:05:00.000Z", "UTC")).toBe("06:05");
+    expect(formatClock("2026-09-11T12:00:00.000Z", "Pacific/Auckland")).toBe("00:00");
+  });
+});
+
+describe("calendarDaysBetween", () => {
+  it("counts local calendar days, not 24-hour spans", () => {
+    expect(calendarDaysBetween("2026-09-26T21:00:00.000Z", "2026-09-27T09:00:00.000Z", "Europe/Moscow")).toBe(0);
+    expect(calendarDaysBetween("2026-09-26T21:00:00.000Z", "2026-09-27T09:00:00.000Z", "UTC")).toBe(1);
+    expect(calendarDaysBetween("2026-09-30T09:00:00.000Z", "2026-09-26T09:00:00.000Z", "UTC")).toBe(-4);
   });
 });
