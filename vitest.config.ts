@@ -6,6 +6,8 @@ import { defineConfig } from "vitest/config";
 // in jsdom with the DOM setup file, while `src/features/telegram/**` is
 // server-side code and runs in plain Node. Keep new Telegram tests under that
 // folder and they pick up the Node environment without per-file docblocks.
+// Only `*.test.ts` runs there: Mini App UI (.tsx) tests must live outside
+// src/features/telegram to keep the Mini App isolated (ADR 0002).
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -31,7 +33,7 @@ export default defineConfig({
         test: {
           name: "telegram",
           environment: "node",
-          include: ["src/features/telegram/**/*.test.{ts,tsx}"],
+          include: ["src/features/telegram/**/*.test.ts"],
         },
       },
     ],

@@ -1,21 +1,27 @@
+// Server-only: this module reads secrets. Never import it from client
+// components or code that ships to the browser.
+
 export const TELEGRAM_MODES = ["webhook", "polling"] as const;
 export const TELEGRAM_ENVIRONMENTS = ["development", "test", "production"] as const;
 
 export type TelegramMode = (typeof TELEGRAM_MODES)[number];
 export type TelegramEnvironment = (typeof TELEGRAM_ENVIRONMENTS)[number];
 
-export type TelegramConfig = {
+type TelegramConfigBase = {
   readonly token: string;
-  readonly webhookSecret?: string;
   readonly botUsername: string;
-  readonly mode: TelegramMode;
   readonly environment: TelegramEnvironment;
-  readonly isTestEnvironment: boolean;
-  readonly isProduction: boolean;
   readonly apiRoot?: string;
   readonly miniAppUrl?: string;
   readonly cronSecret?: string;
 };
+
+/** Webhook mode always carries a secret; polling mode may omit it. */
+export type TelegramConfig = TelegramConfigBase &
+  (
+    | { readonly mode: "webhook"; readonly webhookSecret: string }
+    | { readonly mode: "polling"; readonly webhookSecret?: string }
+  );
 
 /**
  * Thrown when the Telegram environment is invalid. `problems` lists every
@@ -40,8 +46,14 @@ const TOKEN_PATTERN = /^\d+:[A-Za-z0-9_-]{35,}$/;
 // Telegram allows 1-256 characters of A-Z, a-z, 0-9, "_" and "-" in secret_token.
 const WEBHOOK_SECRET_PATTERN = /^[A-Za-z0-9_-]{1,256}$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{5,32}$/;
-const MIN_CRON_SECRET_LENGTH = 16;
-const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set(["localhost", "127.0.0.1"]);
+const CRON_SECRET_PATTERN = /^[A-Za-z0-9_-]{16,}$/;
+const WHITESPACE_PROBLEM = "must not have leading or trailing whitespace";
+// URL.hostname keeps the brackets of an IPv6 literal.
+const LOCAL_HOSTNAMES: ReadonlySet<string> = new Set([
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+]);
 
 function isOneOf<T extends string>(
   allowed: readonly T[],
@@ -52,6 +64,14 @@ function isOneOf<T extends string>(
 
 function parseUrl(value: string): URL | undefined {
   return URL.canParse(value) ? new URL(value) : undefined;
+}
+
+function hasCredentials(url: URL): boolean {
+  return url.username !== "" || url.password !== "";
+}
+
+function hasWhitespaceAround(value: string): boolean {
+  return value !== value.trim();
 }
 
 /**
@@ -67,6 +87,9 @@ function parseUrl(value: string): URL | undefined {
  *   and production tokens can never reach the production API by accident.
  * - `production` requires webhook mode, a webhook secret, a cron secret and
  *   an https API root when one is set.
+ *
+ * `TELEGRAM_API_ROOT` is returned normalized (origin plus path, without
+ * trailing slashes) so the Bot API client never builds `//bot<token>` URLs.
  */
 export function parseTelegramConfig(env: Env): TelegramConfig {
   const problems: string[] = [];
@@ -119,6 +142,7 @@ export function parseTelegramConfig(env: Env): TelegramConfig {
   }
 
   const isProduction = environment === "production";
+  const isTest = environment === "test";
 
   const webhookSecret = read("TELEGRAM_WEBHOOK_SECRET");
   if (webhookSecret === undefined) {
@@ -143,32 +167,54 @@ export function parseTelegramConfig(env: Env): TelegramConfig {
   const cronSecret = read("TELEGRAM_CRON_SECRET");
   if (cronSecret === undefined) {
     if (isProduction) problems.push("TELEGRAM_CRON_SECRET is required in production");
-  } else if (cronSecret.length < MIN_CRON_SECRET_LENGTH) {
+  } else if (hasWhitespaceAround(cronSecret)) {
+    problems.push(`TELEGRAM_CRON_SECRET ${WHITESPACE_PROBLEM}`);
+  } else if (!CRON_SECRET_PATTERN.test(cronSecret)) {
     problems.push(
-      `TELEGRAM_CRON_SECRET must be at least ${MIN_CRON_SECRET_LENGTH} characters`,
+      "TELEGRAM_CRON_SECRET must be at least 16 characters of letters, digits, '_' or '-'",
     );
   }
 
-  const apiRoot = read("TELEGRAM_API_ROOT");
-  if (apiRoot !== undefined) {
-    const url = parseUrl(apiRoot);
-    if (url === undefined || (url.protocol !== "https:" && url.protocol !== "http:")) {
+  const rawApiRoot = read("TELEGRAM_API_ROOT");
+  let apiRoot: string | undefined;
+  if (rawApiRoot !== undefined) {
+    const url = parseUrl(rawApiRoot);
+    if (hasWhitespaceAround(rawApiRoot)) {
+      problems.push(`TELEGRAM_API_ROOT ${WHITESPACE_PROBLEM}`);
+    } else if (
+      url === undefined ||
+      (url.protocol !== "https:" && url.protocol !== "http:")
+    ) {
       problems.push("TELEGRAM_API_ROOT must be a valid http(s) URL");
+    } else if (hasCredentials(url) || url.search !== "" || url.hash !== "") {
+      problems.push(
+        "TELEGRAM_API_ROOT must not contain credentials, a query string or a fragment",
+      );
     } else {
       if (isProduction && url.protocol !== "https:") {
         problems.push("TELEGRAM_API_ROOT must use https in production");
       }
-      if (environment === "test" && !LOCAL_HOSTNAMES.has(url.hostname)) {
+      if (isTest && !LOCAL_HOSTNAMES.has(url.hostname)) {
         problems.push(
-          "TELEGRAM_ENV=test requires TELEGRAM_API_ROOT to be unset or a localhost / 127.0.0.1 URL",
+          "TELEGRAM_ENV=test requires TELEGRAM_API_ROOT to be unset or a localhost / 127.0.0.1 / [::1] URL",
         );
       }
+      apiRoot = `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
     }
   }
 
   const miniAppUrl = read("TELEGRAM_MINI_APP_URL");
-  if (miniAppUrl !== undefined && parseUrl(miniAppUrl)?.protocol !== "https:") {
-    problems.push("TELEGRAM_MINI_APP_URL must be an https URL");
+  if (miniAppUrl !== undefined) {
+    if (hasWhitespaceAround(miniAppUrl)) {
+      problems.push(`TELEGRAM_MINI_APP_URL ${WHITESPACE_PROBLEM}`);
+    } else {
+      const url = parseUrl(miniAppUrl);
+      if (url?.protocol !== "https:") {
+        problems.push("TELEGRAM_MINI_APP_URL must be an https URL");
+      } else if (hasCredentials(url)) {
+        problems.push("TELEGRAM_MINI_APP_URL must not contain credentials");
+      }
+    }
   }
 
   if (
@@ -181,16 +227,27 @@ export function parseTelegramConfig(env: Env): TelegramConfig {
     throw new TelegramConfigError(problems);
   }
 
-  return Object.freeze({
+  const shared = {
     token,
     botUsername,
-    mode,
     environment,
-    isTestEnvironment: environment === "test",
-    isProduction,
-    ...(webhookSecret !== undefined && { webhookSecret }),
     ...(apiRoot !== undefined && { apiRoot }),
     ...(miniAppUrl !== undefined && { miniAppUrl }),
     ...(cronSecret !== undefined && { cronSecret }),
+  };
+
+  if (mode === "webhook") {
+    if (webhookSecret === undefined) {
+      // Unreachable: the checks above already report a missing secret.
+      throw new TelegramConfigError([
+        "TELEGRAM_WEBHOOK_SECRET is required in webhook mode",
+      ]);
+    }
+    return Object.freeze({ ...shared, mode, webhookSecret });
+  }
+  return Object.freeze({
+    ...shared,
+    mode,
+    ...(webhookSecret !== undefined && { webhookSecret }),
   });
 }

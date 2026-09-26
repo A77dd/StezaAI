@@ -59,8 +59,6 @@ describe("parseTelegramConfig", () => {
       botUsername: "steza_test_bot",
       mode: "webhook",
       environment: "development",
-      isTestEnvironment: false,
-      isProduction: false,
       miniAppUrl: "https://app.example.test/mini",
       cronSecret: CRON_SECRET,
     });
@@ -93,8 +91,8 @@ describe("parseTelegramConfig", () => {
     const config = parseTelegramConfig(productionEnv);
 
     expect(config.environment).toBe("production");
-    expect(config.isProduction).toBe(true);
-    expect(config.isTestEnvironment).toBe(false);
+    expect(config.mode).toBe("webhook");
+    expect(config.webhookSecret).toBe(WEBHOOK_SECRET);
   });
 
   it("reports a missing token", () => {
@@ -156,6 +154,28 @@ describe("parseTelegramConfig", () => {
     ]);
   });
 
+  it.each([
+    ["leading whitespace", ` ${CRON_SECRET}`],
+    ["trailing whitespace", `${CRON_SECRET} `],
+  ])("rejects a cron secret with %s", (_label, value) => {
+    expect(
+      problemsOf({ ...webhookEnv, TELEGRAM_CRON_SECRET: value }),
+    ).toEqual([
+      expect.stringContaining(
+        "TELEGRAM_CRON_SECRET must not have leading or trailing whitespace",
+      ),
+    ]);
+  });
+
+  it("rejects a cron secret with characters outside letters, digits, _ and -", () => {
+    expect(
+      problemsOf({
+        ...webhookEnv,
+        TELEGRAM_CRON_SECRET: "cron secret with spaces!",
+      }),
+    ).toEqual([expect.stringContaining("TELEGRAM_CRON_SECRET must be at least 16")]);
+  });
+
   it("rejects a webhook secret equal to the bot token", () => {
     const problems = problemsOf({ ...webhookEnv, TELEGRAM_WEBHOOK_SECRET: TOKEN });
 
@@ -192,6 +212,73 @@ describe("parseTelegramConfig", () => {
     });
 
     expect(config.botUsername).toBe("StezaTestBot");
+  });
+
+  describe("length boundaries", () => {
+    const afterColon = (length: number) => `123456789:${"a".repeat(length)}`;
+
+    it.each([
+      [34, false],
+      [35, true],
+    ])("token with %i characters after the colon: valid=%s", (length, valid) => {
+      const env = { ...webhookEnv, TELEGRAM_BOT_TOKEN: afterColon(length) };
+
+      if (valid) {
+        expect(parseTelegramConfig(env).token).toBe(afterColon(length));
+      } else {
+        expect(problemsOf(env)).toEqual([
+          expect.stringContaining("TELEGRAM_BOT_TOKEN"),
+        ]);
+      }
+    });
+
+    it.each([
+      [15, false],
+      [16, true],
+    ])("cron secret with %i characters: valid=%s", (length, valid) => {
+      const env = { ...webhookEnv, TELEGRAM_CRON_SECRET: "c".repeat(length) };
+
+      if (valid) {
+        expect(parseTelegramConfig(env).cronSecret).toHaveLength(length);
+      } else {
+        expect(problemsOf(env)).toEqual([
+          expect.stringContaining("TELEGRAM_CRON_SECRET"),
+        ]);
+      }
+    });
+
+    it.each([
+      [256, true],
+      [257, false],
+    ])("webhook secret with %i characters: valid=%s", (length, valid) => {
+      const env = { ...webhookEnv, TELEGRAM_WEBHOOK_SECRET: "w".repeat(length) };
+
+      if (valid) {
+        expect(parseTelegramConfig(env).webhookSecret).toHaveLength(length);
+      } else {
+        expect(problemsOf(env)).toEqual([
+          expect.stringContaining("TELEGRAM_WEBHOOK_SECRET"),
+        ]);
+      }
+    });
+
+    it.each([
+      [4, false],
+      [5, true],
+      [32, true],
+      [33, false],
+    ])("bot username with %i characters: valid=%s", (length, valid) => {
+      const username = `${"a".repeat(length - 3)}bot`;
+      const env = { ...webhookEnv, TELEGRAM_BOT_USERNAME: username };
+
+      if (valid) {
+        expect(parseTelegramConfig(env).botUsername).toBe(username);
+      } else {
+        expect(problemsOf(env)).toEqual([
+          expect.stringContaining("TELEGRAM_BOT_USERNAME"),
+        ]);
+      }
+    });
   });
 
   it("rejects an unknown mode and environment", () => {
@@ -237,6 +324,45 @@ describe("parseTelegramConfig", () => {
       expect(config.apiRoot).toBe("http://bot-api.example.test:8081");
     });
 
+    it.each([
+      ["a trailing slash", "https://bot-api.example.test/", "https://bot-api.example.test"],
+      ["several trailing slashes", "https://bot-api.example.test///", "https://bot-api.example.test"],
+      ["a path with a trailing slash", "https://bot-api.example.test/proxy/", "https://bot-api.example.test/proxy"],
+      ["a default port", "https://bot-api.example.test:443", "https://bot-api.example.test"],
+      ["an uppercase host", "https://BOT-API.example.test", "https://bot-api.example.test"],
+    ])("normalizes an api root with %s", (_label, value, expected) => {
+      expect(
+        parseTelegramConfig({ ...pollingEnv, TELEGRAM_API_ROOT: value }).apiRoot,
+      ).toBe(expected);
+    });
+
+    it.each([
+      ["leading whitespace", " https://bot-api.example.test"],
+      ["trailing whitespace", "https://bot-api.example.test "],
+    ])("rejects an api root with %s", (_label, value) => {
+      expect(problemsOf({ ...pollingEnv, TELEGRAM_API_ROOT: value })).toEqual([
+        expect.stringContaining(
+          "TELEGRAM_API_ROOT must not have leading or trailing whitespace",
+        ),
+      ]);
+    });
+
+    it.each([
+      ["userinfo", "https://user:pass@bot-api.example.test"],
+      ["a username only", "https://user@bot-api.example.test"],
+      ["a query string", "https://bot-api.example.test?x=1"],
+      ["a fragment", "https://bot-api.example.test#frag"],
+    ])("rejects an api root with %s", (_label, value) => {
+      const problems = problemsOf({ ...pollingEnv, TELEGRAM_API_ROOT: value });
+
+      expect(problems).toEqual([
+        expect.stringContaining(
+          "TELEGRAM_API_ROOT must not contain credentials, a query string or a fragment",
+        ),
+      ]);
+      expect(problems.join("\n")).not.toContain("pass");
+    });
+
     it("rejects values that are not http(s) URLs", () => {
       expect(
         problemsOf({ ...pollingEnv, TELEGRAM_API_ROOT: "ftp://example.test" }),
@@ -250,14 +376,15 @@ describe("parseTelegramConfig", () => {
   describe("test environment", () => {
     const testEnv = { ...pollingEnv, TELEGRAM_ENV: "test" };
 
-    it("exposes isTestEnvironment", () => {
-      const config = parseTelegramConfig(testEnv);
-
-      expect(config.environment).toBe("test");
-      expect(config.isTestEnvironment).toBe(true);
+    it("accepts the test environment without an api root", () => {
+      expect(parseTelegramConfig(testEnv).environment).toBe("test");
     });
 
-    it.each(["http://localhost:8081", "http://127.0.0.1:8081"])(
+    it.each([
+      "http://localhost:8081",
+      "http://127.0.0.1:8081",
+      "http://[::1]:8081",
+    ])(
       "allows a local api root %s",
       (apiRoot) => {
         const config = parseTelegramConfig({
@@ -288,6 +415,31 @@ describe("parseTelegramConfig", () => {
         TELEGRAM_MINI_APP_URL: "http://app.example.test",
       }),
     ).toEqual([expect.stringContaining("TELEGRAM_MINI_APP_URL must be an https")]);
+  });
+
+  it.each([
+    ["leading whitespace", " https://app.example.test"],
+    ["trailing whitespace", "https://app.example.test "],
+  ])("rejects a mini app url with %s", (_label, value) => {
+    expect(
+      problemsOf({ ...webhookEnv, TELEGRAM_MINI_APP_URL: value }),
+    ).toEqual([
+      expect.stringContaining(
+        "TELEGRAM_MINI_APP_URL must not have leading or trailing whitespace",
+      ),
+    ]);
+  });
+
+  it("rejects a mini app url with credentials", () => {
+    const problems = problemsOf({
+      ...webhookEnv,
+      TELEGRAM_MINI_APP_URL: "https://user:pass@app.example.test",
+    });
+
+    expect(problems).toEqual([
+      expect.stringContaining("TELEGRAM_MINI_APP_URL must not contain credentials"),
+    ]);
+    expect(problems.join("\n")).not.toContain("pass");
   });
 
   it("collects every problem in one error", () => {
@@ -342,6 +494,17 @@ describe("parseTelegramConfig", () => {
       "tiny",
     ]) {
       expect(joined).not.toContain(forbidden);
+    }
+  });
+
+  it("narrows webhookSecret to a string in webhook mode", () => {
+    const config = parseTelegramConfig(webhookEnv);
+
+    if (config.mode === "webhook") {
+      const secret: string = config.webhookSecret;
+      expect(secret).toBe(WEBHOOK_SECRET);
+    } else {
+      throw new Error("Expected webhook mode");
     }
   });
 

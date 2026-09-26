@@ -9,6 +9,8 @@ export type LayeringViolation = {
 
 const SOURCE_FILE_PATTERN = /\.tsx?$/;
 
+// Keep in sync with the no-restricted-imports group for domain/ and render/ in
+// eslint.config.mjs.
 function isGrammyModule(specifier: string): boolean {
   return (
     specifier === "grammy" ||

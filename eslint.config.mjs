@@ -8,6 +8,8 @@ export default defineConfig([
   {
     // ADR 0002: domain and rendering code stays independent of the Bot API
     // framework so it can be tested and reused without grammY.
+    // Keep the module list in sync with isGrammyModule() in
+    // src/features/telegram/testing/layering.ts.
     files: [
       "src/features/telegram/domain/**/*.{ts,tsx}",
       "src/features/telegram/render/**/*.{ts,tsx}",
