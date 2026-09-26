@@ -21,8 +21,8 @@ describe("checkInView: question", () => {
           { kind: "action", text: "Нужно ещё время", action: "checkin.answer", payload: { checkInId: "ci_1", outcome: "needs_time" } },
         ],
         [
-          { kind: "action", text: "Не начал", action: "checkin.answer", payload: { checkInId: "ci_1", outcome: "not_started" } },
-          { kind: "action", text: "Заблокировано", action: "checkin.answer", payload: { checkInId: "ci_1", outcome: "blocked" } },
+          { kind: "action", text: "Ещё не начато", action: "checkin.answer", payload: { checkInId: "ci_1", outcome: "not_started" } },
+          { kind: "action", text: "Что-то мешает", action: "checkin.answer", payload: { checkInId: "ci_1", outcome: "blocked" } },
         ],
       ],
     });
@@ -45,9 +45,9 @@ describe("checkInView: reason", () => {
     expect(labels(message)).toEqual([
       ["Не хватило времени"],
       ["Слишком большая задача"],
-      ["Не понял, с чего начать"],
+      ["Непонятно, с чего начать"],
       ["Появилось более важное"],
-      ["Просто отложил"],
+      ["Отложено"],
     ]);
     expect(message.keyboard?.flat().map((button) => (button.kind === "action" && button.action === "checkin.reason" ? button.payload.reason : null))).toEqual([
       ...CHECK_IN_REASONS,
@@ -73,7 +73,7 @@ describe("checkInView: answered", () => {
     const message = checkInView({ stage: "answered", outcome: "not_started", reason: "task_too_big" }, ctx);
 
     expect(message.kind === "text" && message.text).toBe(
-      "<b>Записал</b>\n\n<b>Итог</b>: Не начал\n<b>Причина</b>: Слишком большая задача",
+      "<b>Записал</b>\n\n<b>Итог</b>: Ещё не начато\n<b>Причина</b>: Слишком большая задача",
     );
   });
 });
@@ -89,6 +89,6 @@ describe("checkInView: text and English", () => {
     const message = checkInView({ stage: "question", checkInId: "c", task }, makeEnViewContext());
 
     expect(message.kind === "text" && message.text.startsWith("<b>How did it go?</b>")).toBe(true);
-    expect(labels(message)).toEqual([["Done", "Need more time"], ["Did not start", "Blocked"]]);
+    expect(labels(message)).toEqual([["Done", "Need more time"], ["Didn't start", "Something's in the way"]]);
   });
 });

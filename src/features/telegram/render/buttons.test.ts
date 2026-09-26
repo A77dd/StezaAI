@@ -6,6 +6,7 @@ import {
   disabledButton,
   switchInlineButton,
   urlButton,
+  validateButton,
   webAppButton,
 } from "./buttons";
 import type { ButtonSpec } from "./buttonSpec";
@@ -141,5 +142,25 @@ describe("disabledButton", () => {
 
   it("still validates the label", () => {
     expect(() => disabledButton("")).toThrow(RenderError);
+  });
+});
+
+describe("action payload validation", () => {
+  it("fails where the button is built when the registry rejects the payload", () => {
+    expect(() => actionButton("x", "slot.pick", { taskId: "", slotIndex: 0 })).toThrow(RenderError);
+    expect(() => actionButton("x", "slot.other", { taskId: "t", extra: 1 } as never)).toThrow(RenderError);
+    expect(() => actionButton("x", "noop", { a: 1 } as never)).toThrow(RenderError);
+  });
+
+  it("re-checks a button assembled by hand, including an unknown action", () => {
+    const bad = { kind: "action", text: "x", action: "slot.pick", payload: { taskId: "t", slotIndex: 7 } } as never;
+    const unknown = { kind: "action", text: "x", action: "no.such", payload: {} } as never;
+
+    expect(() => validateButton(bad)).toThrow(RenderError);
+    expect(() => validateButton(unknown)).toThrow(RenderError);
+  });
+
+  it("does not echo the payload in the error", () => {
+    expect(() => actionButton("x", "slot.other", { taskId: "secret-value", extra: 1 } as never)).toThrow(/^(?!.*secret)/);
   });
 });

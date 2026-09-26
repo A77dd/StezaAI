@@ -25,10 +25,9 @@ const shape = (leaf: Leaf) =>
 const PROBES: Readonly<Record<string, readonly (string | number)[]>> = {
   "time.date": [7, "⟦month⟧", 2027],
   "time.onDate": ["⟦weekday⟧", "⟦date⟧"],
-  "units.days": [7],
+  "task.noSlotsHorizon": [7],
   "units.blocks": [7],
   "inline.andMore": [7],
-  "group.add": ["⟦day⟧", "⟦time⟧"],
 };
 
 describe("message catalogs", () => {

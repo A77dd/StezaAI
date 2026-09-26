@@ -1,3 +1,4 @@
+import { CALLBACK_ACTIONS, isCallbackAction } from "../callbacks";
 import type { CallbackAction, CallbackPayload } from "../callbacks";
 import type {
   ActionButtonSpec,
@@ -71,6 +72,12 @@ export function validateButton(button: ButtonSpec): ButtonSpec {
       }
       break;
     case "action":
+      // Same check the callback layer runs when it issues a token, so a bad
+      // payload fails where the button is written, not when it is pressed.
+      if (!isCallbackAction(button.action) || !CALLBACK_ACTIONS[button.action].validate(button.payload)) {
+        throw new RenderError("Action button has an unknown action or a payload the registry rejects");
+      }
+      break;
     case "disabled":
       break;
   }

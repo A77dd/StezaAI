@@ -12,7 +12,18 @@ import { tokenizeHtml } from "./htmlTokens";
 
 export const TEXT_LIMIT = 4096;
 export const CAPTION_LIMIT = 1024;
+/**
+ * Rich messages: the Bot API says "32768 UTF-8 characters", which may mean
+ * bytes. It is enforced as BYTES (`utf8Length`): a byte count is never lower
+ * than a character count, so a message that passes cannot be rejected for
+ * either reading.
+ */
 export const RICH_LIMIT = 32768;
+
+/** Size of a string once encoded as UTF-8, the unit `RICH_LIMIT` is checked in. */
+export function utf8Length(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
 
 /** One source of truth with the codec: `callback_data` is 1-64 BYTES, not characters. */
 export const CALLBACK_DATA_LIMIT_BYTES = MAX_CALLBACK_DATA_BYTES;

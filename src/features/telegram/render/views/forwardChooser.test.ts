@@ -76,7 +76,7 @@ describe("forwardChooserView: scheduling kinds", () => {
     const message = forwardChooserView({ ...meeting, alternatives: [], proposal: { taskId: "task_9", slots: [] } }, ctx);
 
     expect(message.kind === "text" && message.text).toContain(
-      "Свободных окон пока не нашёл. Можно выбрать время самому.",
+      "Свободных окон пока не нашёл. Можно выбрать время вручную.",
     );
     expect(labels(message)).toEqual([["Другое время"]]);
   });
@@ -90,6 +90,12 @@ describe("forwardChooserView: scheduling kinds", () => {
 
   it("names no author when there is none", () => {
     const message = forwardChooserView({ ...meeting, source: { ...source, sourceAuthor: null } }, ctx);
+
+    expect(message.kind === "text" && message.text).toContain("<blockquote expandable><b>Пересланное сообщение</b>");
+  });
+
+  it.each(["", "   ", " \n\t "])("treats the blank author %j like a missing one", (sourceAuthor) => {
+    const message = forwardChooserView({ ...meeting, source: { ...source, sourceAuthor } }, ctx);
 
     expect(message.kind === "text" && message.text).toContain("<blockquote expandable><b>Пересланное сообщение</b>");
   });

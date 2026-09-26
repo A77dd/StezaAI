@@ -133,7 +133,7 @@ describe("taskProposalView: no_slots", () => {
         "<b>Подготовить презентацию</b>\n\n" +
         "<b>Срок</b>: в пт, 25 сент.\n" +
         "<b>Оценка</b>: 2 ч\n\n" +
-        "До срока свободного времени не нашлось. Выбери время сам или сдвинь срок.",
+        "До срока свободного времени не нашлось. Можно выбрать время вручную или сдвинуть срок.",
       parseMode: "HTML",
       linkPreview: "disabled",
       keyboard: [
@@ -157,23 +157,36 @@ describe("taskProposalView: no_slots", () => {
     );
 
     expect(message.kind === "text" && message.text).toContain(
-      "В ближайшие 7 дней свободного времени нет. Можно выбрать время самому.",
+      "В ближайшие 7 дней свободного времени нет. Можно выбрать время вручную.",
     );
     expect(message.kind === "text" && message.text).not.toContain("До срока");
   });
 
-  it("declines the day count in Russian", () => {
-    const oneDay = taskProposalView(
-      { state: "no_slots", task: { ...task, deadline: null }, search: { exhausted: "horizon_reached", searchedUntil: "2026-09-24T09:00:00.000Z" } },
-      ctx,
-    );
-    const twoDays = taskProposalView(
-      { state: "no_slots", task: { ...task, deadline: null }, search: { exhausted: "horizon_reached", searchedUntil: "2026-09-25T09:00:00.000Z" } },
+  it.each([
+    ["2026-09-24T09:00:00.000Z", "В ближайший день свободного времени нет."],
+    ["2026-09-25T09:00:00.000Z", "В ближайшие 2 дня свободного времени нет."],
+    ["2026-09-28T09:00:00.000Z", "В ближайшие 5 дней свободного времени нет."],
+    ["2026-10-14T09:00:00.000Z", "В ближайшие 21 день свободного времени нет."],
+    ["2026-10-15T09:00:00.000Z", "В ближайшие 22 дня свободного времени нет."],
+  ])("declines the day count in Russian: searched until %s", (searchedUntil, sentence) => {
+    const message = taskProposalView(
+      { state: "no_slots", task: { ...task, deadline: null }, search: { exhausted: "horizon_reached", searchedUntil } },
       ctx,
     );
 
-    expect(oneDay.kind === "text" && oneDay.text).toContain("В ближайшие 1 день");
-    expect(twoDays.kind === "text" && twoDays.text).toContain("В ближайшие 2 дня");
+    expect(message.kind === "text" && message.text).toContain(sentence);
+  });
+
+  it("counts days in English too", () => {
+    const en = makeEnViewContext();
+    const search = (searchedUntil: string) => ({ exhausted: "horizon_reached", searchedUntil }) as const;
+    const text = (searchedUntil: string) => {
+      const message = taskProposalView({ state: "no_slots", task: { ...task, deadline: null }, search: search(searchedUntil) }, en);
+      return message.kind === "text" ? message.text : "";
+    };
+
+    expect(text("2026-09-24T09:00:00.000Z")).toContain("There is no free time in the next day.");
+    expect(text("2026-09-30T09:00:00.000Z")).toContain("There is no free time in the next 7 days.");
   });
 
   it("rejects a search result that actually found time, or that searched no days", () => {

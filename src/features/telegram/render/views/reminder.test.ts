@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { expectValidKeyboard, labels, makeEnViewContext, makeViewContext, SLOT_HTML, TODAY_SLOT } from "../../testing/viewFixtures";
+import { RenderError } from "../errors";
 import { reminderView } from "./reminder";
 
 const task = { id: "task_1", title: "Подготовить презентацию" };
+const ctx = makeViewContext();
 
 describe("reminderView", () => {
-  it("tells how long is left, when the block is, and offers to reschedule", () => {
-    // 15:50 in Moscow, ten minutes before the 16:00 block.
-    const ctx = makeViewContext({ now: "2026-09-23T12:50:00.000Z" });
-    const message = reminderView({ task, slot: TODAY_SLOT }, ctx);
+  it("before the block: tells how long is left, when it is, and offers to reschedule", () => {
+    const message = reminderView({ task, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 10 }, ctx);
 
     expect(message).toEqual({
       kind: "text",
@@ -29,29 +29,48 @@ describe("reminderView", () => {
     expectValidKeyboard(message);
   });
 
-  it("rounds a partial minute up and speaks in hours for long waits", () => {
-    const soon = reminderView({ task, slot: TODAY_SLOT }, makeViewContext({ now: "2026-09-23T12:59:01.000Z" }));
-    const later = reminderView({ task, slot: TODAY_SLOT }, makeViewContext({ now: "2026-09-23T11:30:00.000Z" }));
+  it("speaks in hours for long waits", () => {
+    const message = reminderView({ task, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 90 }, ctx);
 
-    expect(soon.kind === "text" && soon.text).toContain("Начало через 1 мин.");
-    expect(later.kind === "text" && later.text).toContain("Начало через 1 ч 30 мин.");
+    expect(message.kind === "text" && message.text).toContain("Начало через 1 ч 30 мин.");
   });
 
-  it("says it is time when the block has started", () => {
-    const message = reminderView({ task, slot: TODAY_SLOT }, makeViewContext({ now: "2026-09-23T13:05:00.000Z" }));
+  it("started: says it is time to begin", () => {
+    const message = reminderView({ task, slot: TODAY_SLOT, phase: "started" }, ctx);
 
-    expect(message.kind === "text" && message.text).toContain("Пора начинать.");
+    expect(message.kind === "text" && message.text).toContain("\n\nПора начинать.\n\n");
     expect(message.kind === "text" && message.text).not.toContain("Начало через");
+  });
+
+  it("overdue: says the block is already going or over, never 'time to start'", () => {
+    const message = reminderView({ task, slot: TODAY_SLOT, phase: "overdue" }, ctx);
+
+    expect(message.kind === "text" && message.text).toContain("\n\nБлок уже идёт или закончился.\n\n");
+    expect(message.kind === "text" && message.text).not.toContain("Пора начинать");
+  });
+
+  it("does not read the clock: the phase comes from the caller", () => {
+    const early = reminderView({ task, slot: TODAY_SLOT, phase: "started" }, makeViewContext({ now: "2026-09-20T00:00:00.000Z" }));
+    const late = reminderView({ task, slot: TODAY_SLOT, phase: "started" }, makeViewContext({ now: "2026-09-30T00:00:00.000Z" }));
+
+    expect(early).toEqual(late);
+  });
+
+  it("rejects a countdown that is not a whole number of minutes, at least one", () => {
+    expect(() => reminderView({ task, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 0 }, ctx)).toThrow(RenderError);
+    expect(() => reminderView({ task, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 2.5 }, ctx)).toThrow(RenderError);
   });
 
   it("escapes the title and speaks English", () => {
     const message = reminderView(
-      { task: { id: "t", title: "<b>Deck</b> & co" }, slot: TODAY_SLOT },
-      makeEnViewContext({ now: "2026-09-23T12:50:00.000Z" }),
+      { task: { id: "t", title: "<b>Deck</b> & co" }, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 10 },
+      makeEnViewContext(),
     );
+    const overdue = reminderView({ task, slot: TODAY_SLOT, phase: "overdue" }, makeEnViewContext());
 
     expect(message.kind === "text" && message.text).toContain("<b>&lt;b&gt;Deck&lt;/b&gt; &amp; co</b>");
     expect(message.kind === "text" && message.text).toContain("Starts in 10 min.");
+    expect(overdue.kind === "text" && overdue.text).toContain("The block is already underway or over.");
     expect(labels(message)).toEqual([["Reschedule", "Edit"]]);
   });
 });

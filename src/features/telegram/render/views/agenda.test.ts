@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeEnViewContext, makeViewContext, slotAt, TODAY_SLOT, TOMORROW_SLOT } from "../../testing/viewFixtures";
-import { RICH_LIMIT } from "../limits";
+import { RICH_LIMIT, utf8Length } from "../limits";
 import { AGENDA_MAX_BLOCKS_PER_PAGE, paginateAgenda } from "./agenda";
 import type { AgendaBlock } from "./agenda";
 
@@ -144,6 +144,24 @@ describe("paginateAgenda: pagination", () => {
     const pages = paginateAgenda({ scope: "week", blocks }, ctx);
 
     expect(pages.length).toBeGreaterThanOrEqual(3);
-    for (const page of pages) expect(page.markdown.length).toBeLessThanOrEqual(RICH_LIMIT);
+    for (const page of pages) expect(utf8Length(page.markdown)).toBeLessThanOrEqual(RICH_LIMIT);
+  });
+
+  it.each([
+    ["emoji", "😀".repeat(200)],
+    ["CJK", "漢".repeat(200)],
+    ["escaped CJK", "漢<".repeat(100)],
+  ])("stays under the limit in BYTES with 120-character %s titles, on one crowded day", (_kind, title) => {
+    const blocks = Array.from({ length: 100 }, (_unused, index) => ({
+      title: `${index}${title}`,
+      slot: slotAt(new Date(Date.UTC(2026, 9, 1, 0, index * 10)).toISOString(), 10),
+      status: index % 2 === 0 ? ("done" as const) : ("scheduled" as const),
+    }));
+    const pages = paginateAgenda({ scope: "today", blocks }, ctx);
+
+    expect(pages.length).toBeGreaterThanOrEqual(3);
+    for (const page of pages) expect(utf8Length(page.markdown)).toBeLessThanOrEqual(RICH_LIMIT);
+    const rows = pages.reduce((sum, page) => sum + (page.markdown.match(/^\| !\[/gm) ?? []).length, 0);
+    expect(rows).toBe(100);
   });
 });

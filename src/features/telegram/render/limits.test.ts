@@ -6,6 +6,7 @@ import {
   CALLBACK_DATA_LIMIT_BYTES,
   CAPTION_LIMIT,
   RICH_LIMIT,
+  utf8Length,
   TEXT_LIMIT,
   assertWithinLimit,
   visibleLength,
@@ -85,5 +86,15 @@ describe("assertWithinLimit", () => {
 
     expect(() => assertWithinLimit(fragment, 5)).toThrow(MessageTooLongError);
     expect(assertWithinLimit(fragment, 6)).toBe(fragment);
+  });
+});
+
+describe("utf8Length", () => {
+  it("counts encoded bytes", () => {
+    expect(utf8Length("abc")).toBe(3);
+    expect(utf8Length("яя")).toBe(4);
+    expect(utf8Length("漢")).toBe(3);
+    expect(utf8Length("😀")).toBe(4);
+    expect(utf8Length("")).toBe(0);
   });
 });

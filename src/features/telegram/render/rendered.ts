@@ -15,15 +15,9 @@ export type RenderedTextMessage = {
   /** Maps to `link_preview_options: { is_disabled: true }`: cards must stay compact. */
   readonly linkPreview: "disabled";
   readonly keyboard: KeyboardSpec | null;
-  /**
-   * Message effect (private chats only, research 5.3). Never set by render:
-   * whether an effect is allowed depends on the chat type, which only the
-   * sending layer knows.
-   */
-  readonly effectId?: string;
 };
 
-/** For `sendRichMessage`: Rich Markdown up to 32768 characters. */
+/** For `sendRichMessage`: Rich Markdown up to 32768 bytes (UTF-8). */
 export type RenderedRichMessage = {
   readonly kind: "rich";
   readonly markdown: string;

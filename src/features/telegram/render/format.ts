@@ -1,8 +1,10 @@
-import { MS_PER_DAY, parseInstant, toZonedParts } from "../domain";
+import { MS_PER_DAY, MS_PER_MINUTE, parseInstant, toZonedParts } from "../domain";
 import type { Instant, Slot, ZonedParts } from "../domain";
 import { RenderError } from "./errors";
 import { join, text, timeTag } from "./html";
 import type { Html } from "./htmlType";
+import { weekdayName, yearUnlessCurrent } from "./timeWords";
+import type { TimeWords } from "./timeWords";
 
 /**
  * Date, time and duration wording for the user's own timezone. Every
@@ -12,60 +14,21 @@ import type { Html } from "./htmlType";
  * differences are counted on calendar dates, never as `24 h * n`, so a
  * 23- or 25-hour day cannot shift "today"/"tomorrow".
  *
- * The words are a `TimeWords` value: Russian by default (`RU_TIME_WORDS`),
- * and each locale of the message catalog carries its own, so a new locale
- * replaces one object, not the logic.
+ * The words are a required `TimeWords` argument (see `timeWords.ts`): each
+ * locale of the message catalog carries its own, and nothing here falls back
+ * to Russian.
  */
 
-type Tuple7 = readonly [string, string, string, string, string, string, string];
-type Tuple12 = readonly [
-  string, string, string, string, string, string,
-  string, string, string, string, string, string,
-];
-
-export type TimeWords = {
-  /** Monday first. */
-  readonly weekdaysShort: Tuple7;
-  /** January first. */
-  readonly monthsShort: Tuple12;
-  readonly minutes: string;
-  readonly hours: string;
-  readonly today: string;
-  readonly tomorrow: string;
-  /** A short date such as `12 сент.`; `year` is null for the current year. */
-  readonly date: (day: number, month: string, year: number | null) => string;
-  /** A deadline date phrase such as `в пт, 12 сент.`. */
-  readonly onDate: (weekday: string, date: string) => string;
-};
-
-export const RU_TIME_WORDS: TimeWords = {
-  weekdaysShort: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
-  monthsShort: [
-    "янв.",
-    "февр.",
-    "мар.",
-    "апр.",
-    "мая",
-    "июн.",
-    "июл.",
-    "авг.",
-    "сент.",
-    "окт.",
-    "нояб.",
-    "дек.",
-  ],
-  minutes: "мин",
-  hours: "ч",
-  today: "сегодня",
-  tomorrow: "завтра",
-  date: (day, month, year) => (year === null ? `${day} ${month}` : `${day} ${month} ${year}`),
-  onDate: (weekday, date) => `в ${weekday}, ${date}`,
-};
-
 const MINUTES_PER_HOUR = 60;
-const SLOT_START_FORMAT = "wDt"; // weekday, long date, short time
+/** `tg-time` format for the start of a slot: weekday, long date, short time. */
+export const SLOT_START_FORMAT = "wDt";
 const SLOT_TIME_FORMAT = "t";
-const RANGE_DASH = "–";
+export const RANGE_DASH = "–";
+
+/** Whole seconds since the epoch, the unit of `tg-time` and `tg://time`. */
+export function instantToUnixSeconds(instant: Instant): number {
+  return Math.floor(parseInstant(instant) / 1000);
+}
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -73,10 +36,6 @@ function pad(value: number): string {
 
 function clock(parts: ZonedParts): string {
   return `${pad(parts.hour)}:${pad(parts.minute)}`;
-}
-
-function weekday(parts: ZonedParts, words: TimeWords): string {
-  return words.weekdaysShort[parts.isoWeekday - 1];
 }
 
 function isSameLocalDay(a: ZonedParts, b: ZonedParts): boolean {
@@ -101,10 +60,28 @@ export function calendarDaysBetween(from: Instant, to: Instant, timezone: string
   return dayNumber(toZonedParts(to, timezone)) - dayNumber(toZonedParts(from, timezone));
 }
 
+/** The timezone's offset from UTC at an instant, in minutes (local wall time minus UTC). */
+function utcOffsetMinutes(instant: Instant, timezone: string): number {
+  const parts = toZonedParts(instant, timezone);
+  const wall = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+  return (wall - Math.floor(parseInstant(instant) / MS_PER_MINUTE) * MS_PER_MINUTE) / MS_PER_MINUTE;
+}
+
+/** `UTC`, `UTC+2`, `UTC-3`, `UTC+5:30`. */
+function formatUtcOffset(minutes: number): string {
+  if (minutes === 0) return "UTC";
+  const rest = Math.abs(minutes) % MINUTES_PER_HOUR;
+  const hours = Math.floor(Math.abs(minutes) / MINUTES_PER_HOUR);
+  return `UTC${minutes < 0 ? "-" : "+"}${hours}${rest === 0 ? "" : `:${pad(rest)}`}`;
+}
+
 type SlotView = {
   readonly start: ZonedParts;
   readonly end: ZonedParts;
   readonly sameDay: boolean;
+  /** Wall-clock times as text; each carries its UTC offset when the clocks changed inside the slot. */
+  readonly startClock: string;
+  readonly endClock: string;
 };
 
 function viewSlot(slot: Slot, timezone: string): SlotView {
@@ -113,28 +90,32 @@ function viewSlot(slot: Slot, timezone: string): SlotView {
   }
   const start = toZonedParts(slot.start, timezone);
   const end = toZonedParts(slot.end, timezone);
-  return { start, end, sameDay: isSameLocalDay(start, end) };
+  const startOffset = utcOffsetMinutes(slot.start, timezone);
+  const endOffset = utcOffsetMinutes(slot.end, timezone);
+  // A slot across a DST change reads "02:30-02:30" without its offsets.
+  const withOffset = (time: string, offset: number) =>
+    startOffset === endOffset ? time : `${time} (${formatUtcOffset(offset)})`;
+  return {
+    start,
+    end,
+    sameDay: isSameLocalDay(start, end),
+    startClock: withOffset(clock(start), startOffset),
+    endClock: withOffset(clock(end), endOffset),
+  };
 }
 
 /**
  * Plain-text slot, for places that cannot hold a `tg-time` tag (button
  * labels, copy text): `пт, 15:00–16:00`, or `пт, 23:30 – сб, 00:30` when it
- * crosses local midnight.
+ * crosses local midnight. When the clocks change inside the slot each time
+ * carries its UTC offset (`вс, 02:30 (UTC+2)–02:30 (UTC+1)`).
  */
-export function formatSlotRange(
-  slot: Slot,
-  timezone: string,
-  words: TimeWords = RU_TIME_WORDS,
-): string {
-  const { start, end, sameDay } = viewSlot(slot, timezone);
-  const from = `${weekday(start, words)}, ${clock(start)}`;
+export function formatSlotRange(slot: Slot, timezone: string, words: TimeWords): string {
+  const { start, end, sameDay, startClock, endClock } = viewSlot(slot, timezone);
+  const from = `${weekdayName(words, start.isoWeekday)}, ${startClock}`;
   return sameDay
-    ? `${from}${RANGE_DASH}${clock(end)}`
-    : `${from} ${RANGE_DASH} ${weekday(end, words)}, ${clock(end)}`;
-}
-
-function unixSeconds(instant: Instant): number {
-  return Math.floor(parseInstant(instant) / 1000);
+    ? `${from}${RANGE_DASH}${endClock}`
+    : `${from} ${RANGE_DASH} ${weekdayName(words, end.isoWeekday)}, ${endClock}`;
 }
 
 /**
@@ -144,27 +125,31 @@ function unixSeconds(instant: Instant): number {
  * end time would stay in the user's zone while the start shifted to the
  * reader's.
  */
-export function slotHtml(slot: Slot, timezone: string, words: TimeWords = RU_TIME_WORDS): Html {
-  const { start, end, sameDay } = viewSlot(slot, timezone);
+export function slotHtml(slot: Slot, timezone: string, words: TimeWords): Html {
+  const { start, end, sameDay, startClock, endClock } = viewSlot(slot, timezone);
   const startTag = timeTag(
-    unixSeconds(slot.start),
+    instantToUnixSeconds(slot.start),
     SLOT_START_FORMAT,
-    `${weekday(start, words)}, ${clock(start)}`,
+    `${weekdayName(words, start.isoWeekday)}, ${startClock}`,
   );
   const endTag = sameDay
-    ? timeTag(unixSeconds(slot.end), SLOT_TIME_FORMAT, clock(end))
-    : timeTag(unixSeconds(slot.end), SLOT_START_FORMAT, `${weekday(end, words)}, ${clock(end)}`);
+    ? timeTag(instantToUnixSeconds(slot.end), SLOT_TIME_FORMAT, endClock)
+    : timeTag(
+        instantToUnixSeconds(slot.end),
+        SLOT_START_FORMAT,
+        `${weekdayName(words, end.isoWeekday)}, ${endClock}`,
+      );
   return join([startTag, text(RANGE_DASH), endTag]);
 }
 
 /**
  * `30 мин`, `2 ч`, `1 ч 30 мин`. Both units are abbreviations, so they do
  * not decline and no plural rules are needed (a locale whose units decline
- * needs its own formatter). Above a day it keeps counting
- * hours (`25 ч`). Zero, negative and fractional values are bugs upstream and
- * throw instead of rendering nonsense.
+ * needs its own formatter). Above a day it keeps counting hours (`25 ч`).
+ * Zero, negative and fractional values are bugs upstream and throw instead of
+ * rendering nonsense.
  */
-export function formatDuration(minutes: number, words: TimeWords = RU_TIME_WORDS): string {
+export function formatDuration(minutes: number, words: TimeWords): string {
   if (!Number.isInteger(minutes) || minutes < 1) {
     throw new RenderError("Duration must be a whole number of minutes, at least 1");
   }
@@ -177,23 +162,18 @@ export function formatDuration(minutes: number, words: TimeWords = RU_TIME_WORDS
 }
 
 /**
- * Deadline as a date only: `сегодня`, `завтра`, else `в пт, 12 сент.` (with
- * the year when it differs from `now`'s: `в вт, 5 янв. 2027`). Days are
- * compared in the user's timezone. A past date is shown as a date, not
- * softened into "yesterday".
+ * Deadline as a date only: `сегодня`, `завтра`, else the locale's date phrase
+ * (`в пт, 12 сент.`, with the year when it differs from `now`'s: `в вт, 5
+ * янв. 2027`). Days are compared in the user's timezone. A past date is shown
+ * as a date, not softened into "yesterday".
  */
-export function formatDeadline(
-  instant: Instant,
-  timezone: string,
-  now: Instant,
-  words: TimeWords = RU_TIME_WORDS,
-): string {
+export function formatDeadline(instant: Instant, timezone: string, now: Instant, words: TimeWords): string {
   const deadline = toZonedParts(instant, timezone);
   const current = toZonedParts(now, timezone);
   const daysAhead = dayNumber(deadline) - dayNumber(current);
   if (daysAhead === 0) return words.today;
   if (daysAhead === 1) return words.tomorrow;
-  const year = deadline.year === current.year ? null : deadline.year;
+  const year = yearUnlessCurrent(deadline.year, current.year);
   const date = words.date(deadline.day, words.monthsShort[deadline.month - 1], year);
-  return words.onDate(weekday(deadline, words), date);
+  return words.onDate(weekdayName(words, deadline.isoWeekday), date);
 }

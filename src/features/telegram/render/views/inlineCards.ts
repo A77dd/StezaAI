@@ -1,11 +1,10 @@
 import type { Instant, Slot } from "../../domain";
 import { fill, fillPlain } from "../catalog";
 import { RenderError } from "../errors";
-import { formatMoment } from "../dayLabel";
 import { formatSlotRange, slotHtml } from "../format";
 import { join, text } from "../html";
 import type { Html } from "../htmlType";
-import { momentHtml } from "../dayLabel";
+import { formatMoment, momentHtml } from "../moment";
 import type { RenderedTextMessage } from "../rendered";
 import { renderMessage } from "../renderMessage";
 import type { ViewContext } from "./context";

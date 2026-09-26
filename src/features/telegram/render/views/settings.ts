@@ -4,29 +4,28 @@ import type { ButtonSpec } from "../buttonSpec";
 import { actionButton } from "../buttons";
 import { fill, fillPlain } from "../catalog";
 import { capitalizeFirst } from "../dayLabel";
-import { formatDuration } from "../format";
-import type { TimeWords } from "../format";
+import { RANGE_DASH, formatDuration } from "../format";
 import { text } from "../html";
 import { row } from "../keyboard";
 import type { RenderedMessage } from "../rendered";
 import { renderMessage } from "../renderMessage";
+import { weekdayName } from "../timeWords";
 import type { ViewContext } from "./context";
 import { BLOCK_LENGTH_OPTIONS, CALENDAR_CONNECT, CALENDAR_DISCONNECT } from "./settingsValues";
 import { compactKeyboard, miniAppButton } from "./shared";
 
 const WEEK_LENGTH = 7;
 const MIN_RANGE_DAYS = 3;
-const RANGE_DASH = "–";
 
 /** `пн–пт`, `сб, вс`, `пн, ср, пт`: runs of three or more days collapse into a range. */
 function formatWorkingDays(isoDays: readonly number[], ctx: ViewContext): string {
   const { settings } = ctx.catalog;
-  const words: TimeWords = ctx.catalog.time;
+  const words = ctx.catalog.time;
   const days = [...new Set(isoDays)].sort((a, b) => a - b);
   if (days.length === 0) return settings.noWorkingDays;
   if (days.length === WEEK_LENGTH) return settings.everyDay;
 
-  const name = (day: number) => words.weekdaysShort[day - 1];
+  const name = (day: number) => weekdayName(words, day);
   const parts: string[] = [];
   let start = 0;
   while (start < days.length) {

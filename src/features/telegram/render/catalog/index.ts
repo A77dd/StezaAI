@@ -5,7 +5,9 @@ import { ru } from "./ru";
 import type { Catalog } from "./types";
 
 export type { Catalog } from "./types";
-export { pluralRu } from "./plural";
+export { HELP_COMMANDS } from "./commands";
+export type { HelpCommand } from "./commands";
+export { pluralEn, pluralRu } from "./plural";
 export { fill, fillPlain, placeholders } from "./template";
 
 function assertNever(value: never): never {

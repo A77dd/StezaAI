@@ -14,7 +14,6 @@ export const en: Catalog = {
     onDate: (weekday, date) => `${weekday}, ${date}`,
   },
   units: {
-    days: (count) => `${count} ${pluralEn(count, "day", "days")}`,
     blocks: (count) => `${count} ${pluralEn(count, "block", "blocks")}`,
   },
   common: {
@@ -47,11 +46,16 @@ export const en: Catalog = {
     ],
     inlineHint: "Quick access: in any chat type {bot} and the words “free time”.",
     commandsTitle: "Commands",
-    commands: [
-      "/settings — settings",
-      "/export — export my data",
-      "/deleteme — delete my data",
-    ],
+    commandLine: "/{command} — {description}",
+    commandDescriptions: {
+      start: "start over",
+      help: "what I can do",
+      settings: "settings",
+      today: "today's plan",
+      week: "this week's plan",
+      deleteme: "delete my data",
+      export: "export my data",
+    },
     footer: "Everything I remember, you can review, correct and delete.",
   },
   task: {
@@ -65,8 +69,9 @@ export const en: Catalog = {
     bookedFooter: "I will remind you before it starts.",
     cancelledNote: "Task cancelled.",
     cancelledButton: "Cancelled",
-    noSlotsBeforeDeadline: "There is no free time before the deadline. Pick a time yourself or move the deadline.",
-    noSlotsHorizon: "There is no free time in the next {period}. You can pick a time yourself.",
+    noSlotsBeforeDeadline: "There is no free time before the deadline. You can pick a time manually or move the deadline.",
+    noSlotsHorizon: (days) =>
+      `There is no free time in the next ${days === 1 ? "day" : `${days} ${pluralEn(days, "day", "days")}`}. You can pick a time manually.`,
   },
   forward: {
     intro: {
@@ -76,7 +81,7 @@ export const en: Catalog = {
       follow_up: "Looks like a reply is needed about “{title}”.",
     },
     freeTime: "You are free:",
-    noSlots: "No free windows yet. You can pick a time yourself.",
+    noSlots: "No free windows yet. You can pick a time manually.",
     info: "There is no task here, it looks like information: “{title}”. Remember it?",
     remember: "Remember",
     rememberNote: "I save it only after you confirm.",
@@ -98,12 +103,13 @@ export const en: Catalog = {
     pointer: "I prepared the answer in a private chat, where you can also pick a time.",
     openPrivate: "Open private chat",
     found: ["Found a window:", "Found two windows:", "Found three windows:"],
-    add: (day, time) => `Add ${day} ${time}`,
+    add: "+ {slot}",
     fromGroup: "Request from the group “{group}”",
   },
   reminder: {
     startsIn: "Starts in {duration}.",
     startsNow: "Time to start.",
+    overdue: "The block is already underway or over.",
     when: "When",
     footer: "Cannot make it? Reschedule and I will find another time.",
     reschedule: "Reschedule",
@@ -114,13 +120,13 @@ export const en: Catalog = {
     outcomes: {
       done: "Done",
       needs_time: "Need more time",
-      not_started: "Did not start",
-      blocked: "Blocked",
+      not_started: "Didn't start",
+      blocked: "Something's in the way",
     },
     reasons: {
       not_enough_time: "Not enough time",
       task_too_big: "Task too big",
-      unclear_start: "Did not know where to start",
+      unclear_start: "Not sure where to start",
       more_important: "Something more important came up",
       postponed: "Just put it off",
     },
@@ -164,7 +170,7 @@ export const en: Catalog = {
     slotsTitle: "Free time",
     noSlots: "No free windows found.",
     eventTitle: "Meeting: {title}",
-    reminderTitle: "Remind: {title}",
+    reminderTitle: "Reminder: {title}",
     when: "When",
     withWho: "With",
     andMore: (count) => `and ${count} more`,

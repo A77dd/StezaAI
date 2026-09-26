@@ -5,7 +5,7 @@ import {
   viewSamples,
 } from "../../testing/viewSamples";
 import { expectValidKeyboard, makeEnViewContext, makeViewContext } from "../../testing/viewFixtures";
-import { RICH_LIMIT, TEXT_LIMIT, visibleLength } from "../limits";
+import { RICH_LIMIT, TEXT_LIMIT, utf8Length, visibleLength } from "../limits";
 import type { Html } from "../htmlType";
 
 const contexts = [
@@ -29,7 +29,7 @@ describe.each(contexts)("every view (%s)", (_locale, ctx) => {
     (_name, sample) => {
       for (const message of sample.render(ctx)) {
         if (message.kind === "text") expect(visibleLength(message.text as Html)).toBeLessThanOrEqual(TEXT_LIMIT);
-        else expect(message.markdown.length).toBeLessThanOrEqual(RICH_LIMIT);
+        else expect(utf8Length(message.markdown)).toBeLessThanOrEqual(RICH_LIMIT);
         expectValidKeyboard(message);
       }
     },

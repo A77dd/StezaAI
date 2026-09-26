@@ -1,4 +1,4 @@
-import { RU_TIME_WORDS } from "../format";
+import { RU_TIME_WORDS } from "../timeWords";
 import { pluralRu } from "./plural";
 import type { Catalog } from "./types";
 
@@ -6,7 +6,6 @@ import type { Catalog } from "./types";
 export const ru: Catalog = {
   time: RU_TIME_WORDS,
   units: {
-    days: (count) => `${count} ${pluralRu(count, "день", "дня", "дней")}`,
     blocks: (count) => `${count} ${pluralRu(count, "блок", "блока", "блоков")}`,
   },
   common: {
@@ -39,11 +38,16 @@ export const ru: Catalog = {
     ],
     inlineHint: "Быстрый доступ: в любом чате набери {bot} и слова «свободное время».",
     commandsTitle: "Команды",
-    commands: [
-      "/settings — настройки",
-      "/export — выгрузить мои данные",
-      "/deleteme — удалить мои данные",
-    ],
+    commandLine: "/{command} — {description}",
+    commandDescriptions: {
+      start: "начать заново",
+      help: "что я умею",
+      settings: "настройки",
+      today: "план на сегодня",
+      week: "план на неделю",
+      deleteme: "удалить мои данные",
+      export: "выгрузить мои данные",
+    },
     footer: "Всё, что я запоминаю, ты можешь посмотреть, исправить и удалить.",
   },
   task: {
@@ -57,8 +61,9 @@ export const ru: Catalog = {
     bookedFooter: "Напомню перед началом.",
     cancelledNote: "Задача отменена.",
     cancelledButton: "Отменено",
-    noSlotsBeforeDeadline: "До срока свободного времени не нашлось. Выбери время сам или сдвинь срок.",
-    noSlotsHorizon: "В ближайшие {period} свободного времени нет. Можно выбрать время самому.",
+    noSlotsBeforeDeadline: "До срока свободного времени не нашлось. Можно выбрать время вручную или сдвинуть срок.",
+    noSlotsHorizon: (days) =>
+      `${days === 1 ? "В ближайший день" : `В ближайшие ${days} ${pluralRu(days, "день", "дня", "дней")}`} свободного времени нет. Можно выбрать время вручную.`,
   },
   forward: {
     intro: {
@@ -68,7 +73,7 @@ export const ru: Catalog = {
       follow_up: "Похоже, нужно ответить по теме «{title}».",
     },
     freeTime: "У тебя свободно:",
-    noSlots: "Свободных окон пока не нашёл. Можно выбрать время самому.",
+    noSlots: "Свободных окон пока не нашёл. Можно выбрать время вручную.",
     info: "Здесь нет задачи, это скорее информация: «{title}». Запомнить?",
     remember: "Запомнить",
     rememberNote: "Сохраню только после твоего подтверждения.",
@@ -90,12 +95,13 @@ export const ru: Catalog = {
     pointer: "Ответ подготовил в личных сообщениях — там же можно выбрать время.",
     openPrivate: "Открыть личный чат",
     found: ["Нашёл окно:", "Нашёл два окна:", "Нашёл три окна:"],
-    add: (day, time) => `Добавить ${day.toLowerCase()} ${time}`,
+    add: "+ {slot}",
     fromGroup: "Запрос из группы «{group}»",
   },
   reminder: {
     startsIn: "Начало через {duration}.",
     startsNow: "Пора начинать.",
+    overdue: "Блок уже идёт или закончился.",
     when: "Когда",
     footer: "Не получается? Перенеси, и я подберу другое время.",
     reschedule: "Перенести",
@@ -106,15 +112,15 @@ export const ru: Catalog = {
     outcomes: {
       done: "Готово",
       needs_time: "Нужно ещё время",
-      not_started: "Не начал",
-      blocked: "Заблокировано",
+      not_started: "Ещё не начато",
+      blocked: "Что-то мешает",
     },
     reasons: {
       not_enough_time: "Не хватило времени",
       task_too_big: "Слишком большая задача",
-      unclear_start: "Не понял, с чего начать",
+      unclear_start: "Непонятно, с чего начать",
       more_important: "Появилось более важное",
-      postponed: "Просто отложил",
+      postponed: "Отложено",
     },
     answeredTitle: "Записал",
     outcome: "Итог",
@@ -150,7 +156,7 @@ export const ru: Catalog = {
     transcriptionUnavailable: "Не получилось разобрать голосовое. Напиши текстом, пожалуйста.",
     intentParserUnavailable: "Сейчас не могу разобрать сообщение. Попробуй чуть позже.",
     invalidTimezone: "Не знаю такого часового пояса. Пример: Europe/Moscow.",
-    failure: "Что-то пошло не так, попробуйте ещё раз.",
+    failure: "Что-то пошло не так, попробуй ещё раз.",
   },
   inline: {
     slotsTitle: "Свободное время",

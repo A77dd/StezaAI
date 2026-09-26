@@ -110,10 +110,6 @@ describe("renderMessage", () => {
     expect(renderMessage({ body: text("x") }).keyboard).toBeNull();
   });
 
-  it("does not add an effect: effects are chosen later, per chat type", () => {
-    expect("effectId" in renderMessage({ body: text("x") })).toBe(false);
-  });
-
   it("is deterministic and leaves the view untouched", () => {
     const view: MessageView = {
       title: text("t"),

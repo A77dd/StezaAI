@@ -48,7 +48,7 @@ function sourceQuote(source: ForwardChooserInput["source"], ctx: ViewContext): M
   if (content === "") return undefined;
   const { forward } = ctx.catalog;
   const summary =
-    source.hiddenOrigin || source.sourceAuthor === null
+    source.hiddenOrigin || source.sourceAuthor === null || source.sourceAuthor.trim() === ""
       ? text(forward.sourceHidden)
       : fill(forward.sourceFrom, { author: userLine(source.sourceAuthor, NAME_MAX_LENGTH) });
   return {

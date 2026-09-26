@@ -1,5 +1,6 @@
 import type { CheckInOutcome, CheckInReason, IntentKind, NotificationIntensity } from "../../domain";
-import type { TimeWords } from "../format";
+import type { TimeWords } from "../timeWords";
+import type { HelpCommand } from "./commands";
 
 /**
  * All user-visible copy of one locale. Strings are PLAIN text (views escape
@@ -15,8 +16,6 @@ import type { TimeWords } from "../format";
 export type Catalog = {
   readonly time: TimeWords;
   readonly units: {
-    /** `3 дня`. */
-    readonly days: (count: number) => string;
     /** `2 блока`. */
     readonly blocks: (count: number) => string;
   };
@@ -47,7 +46,9 @@ export type Catalog = {
     /** `{bot}`: the bot's @username. */
     readonly inlineHint: string;
     readonly commandsTitle: string;
-    readonly commands: readonly string[];
+    /** `{command}` (without the slash), `{description}`. */
+    readonly commandLine: string;
+    readonly commandDescriptions: { readonly [K in HelpCommand]: string };
     readonly footer: string;
   };
   readonly task: {
@@ -63,8 +64,8 @@ export type Catalog = {
     readonly cancelledNote: string;
     readonly cancelledButton: string;
     readonly noSlotsBeforeDeadline: string;
-    /** `{period}`: how far the search looked, e.g. "7 дней". */
-    readonly noSlotsHorizon: string;
+    /** The whole sentence for a search that looked this many days ahead and found nothing. */
+    readonly noSlotsHorizon: (days: number) => string;
   };
   readonly forward: {
     /** `{title}`; no `info`: information is asked about, not scheduled. */
@@ -91,15 +92,18 @@ export type Catalog = {
     readonly openPrivate: string;
     /** For 1, 2 and 3 found windows. */
     readonly found: readonly [string, string, string];
-    /** Label of the add-to-calendar button for a slot, e.g. "Добавить ср 16:30". */
-    readonly add: (day: string, time: string) => string;
+    /** `{slot}`: an add-to-calendar button, kept short so phones do not cut it. */
+    readonly add: string;
     /** `{group}`. */
     readonly fromGroup: string;
   };
   readonly reminder: {
     /** `{duration}`. */
     readonly startsIn: string;
+    /** The block has just begun. */
     readonly startsNow: string;
+    /** The reminder came late: the block is already going or has ended. */
+    readonly overdue: string;
     readonly when: string;
     readonly footer: string;
     readonly reschedule: string;

@@ -1,15 +1,25 @@
 import type { Slot, Task } from "../../domain";
 import { actionButton } from "../buttons";
-import { fill } from "../catalog";
+import { fill, fillPlain } from "../catalog";
 import { RenderError } from "../errors";
-import { formatDayLabel } from "../dayLabel";
-import { formatClock } from "../format";
 import { lines, text } from "../html";
 import { row } from "../keyboard";
 import type { RenderedMessage } from "../rendered";
 import { renderMessage } from "../renderMessage";
 import type { ViewContext } from "./context";
-import { NAME_MAX_LENGTH, compactKeyboard, slotBullets, slotPickButtons, titleHtml, userLine } from "./shared";
+import {
+  NAME_MAX_LENGTH,
+  chunkRows,
+  compactKeyboard,
+  slotBullets,
+  slotPickButtons,
+  slotStartLabel,
+  titleHtml,
+  userLine,
+} from "./shared";
+
+/** Two labels like "+ Завтра 10:00" fit a phone screen; a third would be cut. */
+const ADDS_PER_ROW = 2;
 
 export type GroupSlotsInput = {
   readonly task: Pick<Task, "id" | "title">;
@@ -32,7 +42,7 @@ export function groupSlotsView(input: GroupSlotsInput, ctx: ViewContext): Render
   if (found === undefined) throw new RenderError("A card offers at most 3 slots");
 
   const adds = slotPickButtons(input.task.id, slots, (slot) =>
-    group.add(formatDayLabel(slot.start, ctx.timezone, ctx.now, ctx.catalog.time), formatClock(slot.start, ctx.timezone)),
+    fillPlain(group.add, { slot: slotStartLabel(slot, ctx) }),
   );
   const otherTime = actionButton(common.otherTime, "slot.other", { taskId: input.task.id });
 
@@ -43,6 +53,6 @@ export function groupSlotsView(input: GroupSlotsInput, ctx: ViewContext): Render
       input.groupTitle === null
         ? undefined
         : fill(group.fromGroup, { group: userLine(input.groupTitle, NAME_MAX_LENGTH) }),
-    keyboard: compactKeyboard([row(...adds), row(otherTime)]),
+    keyboard: compactKeyboard([...chunkRows(adds, ADDS_PER_ROW).map((buttons) => row(...buttons)), row(otherTime)]),
   });
 }

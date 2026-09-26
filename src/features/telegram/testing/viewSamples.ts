@@ -1,3 +1,4 @@
+import { HELP_COMMANDS } from "../render/catalog";
 import type { RenderedMessage } from "../render/rendered";
 import type { ViewContext } from "../render/views/context";
 import { checkInView } from "../render/views/checkIn";
@@ -44,7 +45,7 @@ export function viewSamples(userText: string): ViewSample[] {
 
   return [
     one("welcome", (ctx) => welcomeView({ firstName: userText, calendarConnected: false }, ctx)),
-    one("help", (ctx) => helpView(ctx)),
+    one("help", (ctx) => helpView({ availableCommands: HELP_COMMANDS }, ctx)),
     one("task proposed", (ctx) => taskProposalView({ state: "proposed", task, slots: SLOTS }, ctx)),
     one("task booked", (ctx) => taskProposalView({ state: "booked", task, slot: TODAY_SLOT }, ctx)),
     one("task cancelled", (ctx) => taskProposalView({ state: "cancelled", task }, ctx)),
@@ -66,7 +67,10 @@ export function viewSamples(userText: string): ViewSample[] {
     one("group chooser", (ctx) => groupChooserView({ draftId: "d1", title: userText }, ctx)),
     one("group pointer", (ctx) => groupPointerView({ startPayload: "g_abc" }, ctx)),
     one("group slots", (ctx) => groupSlotsView({ task: { id: "task_1", title: userText }, slots: SLOTS, groupTitle: userText }, ctx)),
-    one("reminder", (ctx) => reminderView({ task: { id: "task_1", title: userText }, slot: TODAY_SLOT }, ctx)),
+    one("reminder", (ctx) => reminderView({ task: { id: "task_1", title: userText }, slot: TODAY_SLOT, phase: "before", minutesUntilStart: 10 }, ctx)),
+    ...(["started", "overdue"] as const).map((phase) =>
+      one(`reminder ${phase}`, (ctx) => reminderView({ task: { id: "task_1", title: userText }, slot: TODAY_SLOT, phase }, ctx)),
+    ),
     one("check-in question", (ctx) => checkInView({ stage: "question", checkInId: "c1", task: { title: userText } }, ctx)),
     one("check-in reason", (ctx) => checkInView({ stage: "reason", checkInId: "c1", task: { title: userText } }, ctx)),
     ...CHECK_IN_OUTCOMES.map((outcome) =>

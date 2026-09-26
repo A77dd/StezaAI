@@ -6,6 +6,7 @@ import {
   makeEnViewContext,
   makeViewContext,
   SLOT_HTML,
+  TODAY_SLOT,
   TOMORROW_SLOT,
 } from "../../testing/viewFixtures";
 import { RenderError } from "../errors";
@@ -83,8 +84,8 @@ describe("groupSlotsView", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "Добавить завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0 }, style: "primary" },
-          { kind: "action", text: "Добавить пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1 } },
+          { kind: "action", text: "+ Завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0 }, style: "primary" },
+          { kind: "action", text: "+ Пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1 } },
         ],
         [{ kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_2" } }],
       ],
@@ -108,6 +109,14 @@ describe("groupSlotsView", () => {
     expect(message.kind === "text" && message.text).toContain("«A &amp; &lt;b&gt;B&lt;/b&gt;»");
   });
 
+  it("puts at most two add-buttons in a row so labels are not cut on a phone", () => {
+    const message = groupSlotsView({ task, slots: [TOMORROW_SLOT, FRIDAY_SLOT, TODAY_SLOT], groupTitle: null }, ctx);
+
+    expect(labels(message)).toEqual([["+ Завтра 10:00", "+ Пт 11:00"], ["+ Сегодня 16:00"], ["Другое время"]]);
+    expect(message.keyboard?.[0]?.[0]).toMatchObject({ style: "primary", payload: { slotIndex: 0 } });
+    expect(message.keyboard?.[1]?.[0]).toMatchObject({ payload: { slotIndex: 2 } });
+  });
+
   it("rejects no windows and more than three", () => {
     expect(() => groupSlotsView({ task, slots: [], groupTitle: null }, ctx)).toThrow(RenderError);
     expect(() =>
@@ -119,6 +128,25 @@ describe("groupSlotsView", () => {
     const message = groupSlotsView({ task, slots: [TOMORROW_SLOT, FRIDAY_SLOT], groupTitle: "Marketing" }, makeEnViewContext());
 
     expect(message.kind === "text" && message.text).toContain("Found two windows:");
-    expect(labels(message)).toEqual([["Add Tomorrow 10:00", "Add Fri 11:00"], ["Other time"]]);
+    expect(labels(message)).toEqual([["+ Tomorrow 10:00", "+ Fri 11:00"], ["Other time"]]);
+  });
+});
+
+describe("group views", () => {
+  it("never carry a Mini App or copy-text button: nothing in a group may open or export calendar data", () => {
+    const messages = [
+      groupChooserView({ draftId: "d", title: "x" }, ctx),
+      groupPointerView({ startPayload: "g_abc" }, ctx),
+      groupSlotsView(
+        { task: { id: "t", title: "x" }, slots: [TOMORROW_SLOT, FRIDAY_SLOT, TODAY_SLOT], groupTitle: "Маркетинг" },
+        ctx,
+      ),
+    ];
+
+    for (const message of messages) {
+      const kinds = message.keyboard?.flat().map((button) => button.kind) ?? [];
+      expect(kinds).not.toContain("web_app");
+      expect(kinds).not.toContain("copy_text");
+    }
   });
 });

@@ -24,12 +24,23 @@ describe("renderRichMarkdown", () => {
     expect(() => renderRichMarkdown("x", [])).toThrow(RenderError);
   });
 
-  it("accepts exactly 32768 characters and rejects one more", () => {
+  it("accepts exactly 32768 bytes and rejects one more", () => {
     expect(renderRichMarkdown("x".repeat(RICH_LIMIT)).markdown).toHaveLength(RICH_LIMIT);
     expect(() => renderRichMarkdown("x".repeat(RICH_LIMIT + 1))).toThrow(
       expect.objectContaining({ code: "render_too_long", limit: RICH_LIMIT, actual: RICH_LIMIT + 1 }),
     );
     expect(() => renderRichMarkdown("x".repeat(RICH_LIMIT + 1))).toThrow(MessageTooLongError);
+  });
+
+  it("counts UTF-8 bytes, never fewer than Telegram's characters", () => {
+    // 3 bytes per CJK character, 4 per emoji, 2 per Cyrillic letter.
+    expect(() => renderRichMarkdown("漢".repeat(10923))).toThrow(
+      expect.objectContaining({ code: "render_too_long", limit: RICH_LIMIT, actual: 32769 }),
+    );
+    expect(renderRichMarkdown("漢".repeat(10922)).markdown).toHaveLength(10922);
+    expect(() => renderRichMarkdown("😀".repeat(8193))).toThrow(MessageTooLongError);
+    expect(renderRichMarkdown("😀".repeat(8192)).markdown).toHaveLength(16384);
+    expect(() => renderRichMarkdown("я".repeat(16385))).toThrow(MessageTooLongError);
   });
 
   it("rejects an empty or blank message", () => {

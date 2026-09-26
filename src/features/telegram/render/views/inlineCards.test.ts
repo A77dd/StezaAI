@@ -103,5 +103,6 @@ describe("inline cards in English", () => {
     expect(slotListCard({ slots: [TOMORROW_SLOT] }, en).title).toBe("Free time");
     expect(eventCard({ title: "budget", slot: TOMORROW_SLOT, participants: [] }, en).title).toBe("Meeting: budget");
     expect(reminderCard({ title: "budget", at: TOMORROW_SLOT.start }, en).description).toBe("Thu, 10:00");
+    expect(reminderCard({ title: "budget", at: TOMORROW_SLOT.start }, en).title).toBe("Reminder: budget");
   });
 });

@@ -1,6 +1,5 @@
 import type { Slot, SlotSearchResult, Task } from "../../domain";
 import { actionButton, copyButton, disabledButton } from "../buttons";
-import { fill } from "../catalog";
 import { RenderError } from "../errors";
 import { calendarDaysBetween, formatSlotRange, slotHtml } from "../format";
 import type { ButtonSpec } from "../buttonSpec";
@@ -19,6 +18,12 @@ export type TaskCard = Pick<Task, "id" | "title" | "deadline" | "durationMinutes
  * The personal task card (scenario A) in each state it passes through. The
  * same message is edited from `proposed` to `booked` or `cancelled`, so a
  * resolved card keeps its outcome visible instead of losing its buttons.
+ *
+ * Timezones: slot BUTTONS and the fallback text of `tg-time` tags use the
+ * timezone in the user's settings (`ctx.timezone`), while the tags themselves
+ * show each reader's device timezone. If the two differ (travelling, wrong
+ * setting) the card text and the button label can disagree; the settings
+ * timezone is what the scheduler used, so it is the one the buttons name.
  */
 export type TaskProposalInput =
   | { readonly state: "proposed"; readonly task: TaskCard; readonly slots: readonly Slot[] }
@@ -83,7 +88,7 @@ function noSlotsBody(search: Pick<SlotSearchResult, "exhausted" | "searchedUntil
     case "horizon_reached": {
       const days = calendarDaysBetween(ctx.now, search.searchedUntil, ctx.timezone);
       if (days < 1) throw new RenderError("A search that reached its horizon covers at least one day");
-      return fill(copy.noSlotsHorizon, { period: text(ctx.catalog.units.days(days)) });
+      return text(copy.noSlotsHorizon(days));
     }
     case "found":
       throw new RenderError("A search that found slots has no empty-result message");

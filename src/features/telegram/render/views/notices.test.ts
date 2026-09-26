@@ -49,7 +49,7 @@ describe("noticeForErrorCode", () => {
       const notice = noticeForErrorCode(code, ctx);
 
       expect(notice.kind).toBe("failure");
-      expect(notice.text).toBe("Что-то пошло не так, попробуйте ещё раз.");
+      expect(notice.text).toBe("Что-то пошло не так, попробуй ещё раз.");
     },
   );
 
