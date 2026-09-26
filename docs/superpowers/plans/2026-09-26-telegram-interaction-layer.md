@@ -57,7 +57,7 @@
 
 - [ ] **Step 1:** Failing tests for `escapeHtml` (`& < >` and quote edge cases), `renderMessage` (bold title, fact list, expandable blockquote, footer), length guard (4096/1024, truncation strategy is explicit and tested, never mid-entity), keyboard builder (rows, button count limits, url/web_app/copy_text/callback types only when allowed), and snapshot tests for each view: task card, slot proposal, booked confirmation, forward intent chooser, group chooser, reminder, check-in, check-in reason, settings, help, error/expired-button notice.
 - [ ] **Step 2:** Implement pure functions returning `{ text, parseMode: "HTML", entities?, linkPreview: disabled, replyMarkup }` as plain data (no grammY types). All copy comes from `catalog.ru.ts`; adding a second locale later must not touch views.
-- [ ] **Step 3:** Use rich features confirmed by research (expandable blockquote for source context, `copy_text` buttons for copying a time slot, custom styles only if they exist per `TELEGRAM_BOT_API.md`); every use is listed in `docs/telegram/BOT_API_FEATURES.md` later.
+- [ ] **Step 3:** Use the rich features confirmed by research (types verified in `@grammyjs/types` 5.0.0, Bot API 10.3): times rendered with the `date_time` entity / `<tg-time unix format>` so every reader sees their own timezone (helper `timeTag(unix, format)` in `format.ts`, with fallback text only inside the entity body); button `style` (`primary` for the recommended slot, `success` for confirm, `danger` for cancel/delete); `copy_text` buttons (1–256 chars) to copy a slot; expandable blockquote for source context; `DisabledButton` for resolved cards (booked cards keep a disabled "✅ Поставлено" button instead of disappearing); `sendRichMessage` (Markdown/HTML up to 32768 chars with tables and `<details>`) for agenda views. Each renderer returns plain data; the choice between `sendMessage` and `sendRichMessage` is an explicit `kind` field on the view. Every used feature is listed in `docs/telegram/BOT_API_FEATURES.md` later.
 - [ ] **Step 3b:** Add a locale completeness test (`catalog` keys identical across locales, no missing placeholders) so adding `en` later cannot ship with holes.
 - [ ] **Step 4:** `npm run check`; commit `feat: add telegram message renderer and views`.
 
@@ -78,6 +78,7 @@
 
 - [ ] **Step 1:** Failing tests: duplicate `update_id` handled once; updates of one chat processed in order; handler error is logged with redacted context, produces a single user-safe message where a reply is possible, and is rethrown to the runtime (no swallowing); `answerCallbackQuery` is guaranteed exactly once per callback even on handler failure; logs never contain message text or the token by default; `429` retried with `retry_after`; outbound throttled.
 - [ ] **Step 2:** Implement `createBot({ config, ports, api? })` composing: error boundary → dedupe → sequentialize per chat → enrich context (locale from `language_code`, user settings, `ChatContext` from chat type) → composers. Install auto-retry and transformer-throttler; allow `api` transformer injection for tests.
+- [ ] **Step 2b:** Configure auto-retry explicitly (research: default is unbounded and can duplicate a sent message after a network error): bounded `maxRetryAttempts`, `maxDelaySeconds`, retry only on 429 and 5xx, never retry non-idempotent sends after a timeout without an idempotency check; document the trade-off in code comments and `ARCHITECTURE.md`. Dedupe keeps a bounded *set* of recent `update_id`s (not a high-water mark; Telegram may reset the sequence after idle).
 - [ ] **Step 3:** Define the typed `BotContext` (services attached under one namespace, e.g. `ctx.services`).
 - [ ] **Step 4:** `npm run check`; commit `feat: add telegram bot factory and update pipeline`.
 
@@ -87,7 +88,7 @@
 - Create under `src/features/telegram/handlers/`: `commands.ts`, `privateText.ts`, `callbacks.ts`, `index.ts`, use-cases under `domain/useCases/` (`proposeSlots.ts`, `confirmSlot.ts`, `manageData.ts`), tests
 
 - [ ] **Step 1:** Failing tests through the fake API: `/start` (with deep-link payload variants) sends welcome with quick actions; `/help`; `/settings` renders toggles and edits in place; `/deleteme` requires confirmation and deletes stored data; `/export` returns the user's data as a file; plain text "Нужно до пятницы подготовить презентацию, часа на два" produces one task card with 1–3 slots and buttons [Поставить][Другое время][Изменить]; pressing a slot books through `CalendarPort`, edits the card to a confirmed state, answers the callback, and schedules a reminder; expired/replayed button explains itself; low-confidence parse asks one short clarifying question.
-- [ ] **Step 2:** Show `typing` chat action and a reaction acknowledgement while parsing; edit the same message rather than sending new ones for state changes.
+- [ ] **Step 2:** Show progress while parsing: in private chats stream a short `sendMessageDraft` ("Ищу время…", 30-second preview, `can_stop` when the work is cancellable, handle `stopped_message_generation` by cancelling the pending work) then send the final message; group chats and unsupported cases use `typing` chat action only, chosen by an explicit capability check (no silent downgrade beyond that documented rule). Acknowledge forwards/voice with `setMessageReaction` (one emoji from the allowed set). Edit the same message rather than sending new ones for state changes.
 - [ ] **Step 3:** Implement use-cases in `domain` returning view-model inputs; handlers stay thin.
 - [ ] **Step 4:** `npm run check`; commit `feat: add personal task flow with slot confirmation`.
 
@@ -106,7 +107,8 @@
 - Create: `handlers/group.ts`, `handlers/membership.ts`, tests
 
 - [ ] **Step 1:** Failing tests: ordinary group messages produce no API calls; `@bot запланируй` as a reply extracts the replied-to message (including `quote`/`external_reply` variants) and produces slots for the invoking user only; mention without reply asks what to schedule; ambiguous intent shows [Мне в календарь][Зафиксировать для группы][Просто запомнить]; group choice recorded but team tasks explicitly answered as "next stage"; topics (`message_thread_id`) keep replies in the same thread; `my_chat_member` (kicked/blocked) marks the chat inactive and stops outbound; bot never posts private details of a user's calendar into the group (busy details stay in the private chat; group reply is a short pointer with a deep link to the private chat).
-- [ ] **Step 2:** Implement mention/reply detection via entities and `reply_to_message`, not string matching on the username.
+- [ ] **Step 1b:** Add failing tests for Guest Mode (`guest_message` update: the bot is @mentioned in a chat it was not added to; it may answer once with `answerGuestQuery` — reply with a short pointer/deep link to the private chat, never calendar details) and for Ephemeral group replies (`EphemeralMessageParameters`: chooser visible only to the invoking member, 15-second window rules from `TELEGRAM_BOT_API.md` §5.8). Group reply mode is an explicit config value `TELEGRAM_GROUP_REPLY_MODE = ephemeral | public_short` (default `public_short` until manual QA confirms ephemeral behavior); an unsupported combination fails with a typed error.
+- [ ] **Step 2:** Implement mention/reply detection via entities and `reply_to_message` (research: there is no `has_mention` field; privacy-mode delivery of plain @mentions must be verified manually — see `MANUAL_QA.md`), not string matching on the username.
 - [ ] **Step 3:** `npm run check`; commit `feat: add group reply and mention flow`.
 
 ### Task 10: Inline mode (Scenario D)
@@ -133,6 +135,7 @@
 - Create: `src/app/api/telegram/webhook/route.ts`, `src/app/api/telegram/cron/route.ts`, `src/features/telegram/runtime/webhookHandler.ts`, `runtime/pollingRunner.ts`, `runtime/singleton.ts`, `scripts/telegram-polling.ts`, `scripts/telegram-setup.ts`, `package.json` scripts (`telegram:dev`, `telegram:setup`), tests
 
 - [ ] **Step 1:** Failing tests: webhook rejects a missing/wrong `X-Telegram-Bot-Api-Secret-Token` with 401 using constant-time comparison; valid update is acknowledged 200 quickly and processed; malformed JSON returns 400; oversized body rejected; non-POST rejected; cron route requires its secret; route file stays thin (delegates entirely to `runtime/webhookHandler`).
+- [ ] **Step 1b:** Introduce the `UpdateInbox` port (`accept(update) -> "accepted" | "duplicate"`, `drain(handler)`) with an in-memory adapter now and a documented Postgres sketch later (see `TELEGRAM_BOT_PATTERNS.md` §6–7). The webhook handler does verify → `inbox.accept` → schedule processing through an injected `waitUntil` (Next.js `after()` in the route) → 200. Processing failures are logged with redaction and leave the update retriable; a test proves that a duplicate delivery is acknowledged and not processed twice. Missing `secret_token` configuration is a startup error (research: grammY accepts any request when no secret is set).
 - [ ] **Step 2:** Implement the handler on the Web-standard `Request`/`Response` so it works in Next route handlers and other hosts; polling runner uses grammY runner with graceful shutdown (SIGINT/SIGTERM) and drops the webhook first; both read config only through `parseTelegramConfig`.
 - [ ] **Step 3:** `telegram-setup` script registers: commands with scopes (`default`, `all_private_chats`, `all_group_chats`) and `language_code` variants (ru, en), bot name/description/short description (localized), menu button (`web_app` when Mini App URL configured, otherwise `commands`), default administrator rights for groups, and `setWebhook` with `secret_token`, `allowed_updates`, `drop_pending_updates` flag; prints a redacted summary; refuses to run against production without `--confirm`.
 - [ ] **Step 4:** `npm run check`; commit `feat: add telegram runtime hosts and setup script`.
@@ -142,17 +145,18 @@
 **Files:**
 - Create: `src/features/telegram/miniapp/initData.ts`, `initData.test.ts`, `miniapp/launch.ts`
 
-- [ ] **Step 1:** Failing tests using known test vectors: valid `initData` HMAC (bot-token derived key), tampered hash, expired `auth_date`, missing fields, and the alternative Ed25519 third-party signature verification if the research doc confirms it; validator returns typed user info or a typed error; timing-safe comparison.
+- [ ] **Step 1:** Failing tests using known test vectors: valid `initData` HMAC (bot-token derived key), tampered hash, expired `auth_date` (default max age 1 hour, configurable; a team decision, not from the docs), replay of the same `query_id` within the window (replay cache port), missing fields, and the alternative Ed25519 third-party signature verification if the research doc confirms it; validator returns typed user info or a typed error; timing-safe comparison.
 - [ ] **Step 2:** Implement validator and `launch.ts` helpers producing `web_app` button descriptors (Today/Week/Inbox/Insights/Settings deep links via `startapp`) used by views. No Mini App pages in this slice (ADR 0002).
 - [ ] **Step 3:** `npm run check`; commit `feat: add mini app launch helpers and init data validation`.
 
-### Task 14: Rich-message upgrade pass from Bot API research
+### Task 14: Agenda views, digest, and remaining Bot API adopters
 
-**Files:** determined by `docs/research/TELEGRAM_BOT_API.md` (the matrix lists each feature with USE NOW / USE LATER / DON'T USE).
+**Files:** `handlers/agenda.ts`, `render/views/agenda.ts`, `render/richMessage.ts`, `bot/capabilities.ts`, tests
 
-- [ ] **Step 1:** For every "USE NOW" feature not yet covered by tasks 4–11 (for example draft/streaming replies, message effects, reactions, checklists, styled buttons, `copy_text`, expandable blockquotes, date/time entities, link preview options, live editing), add a failing test through the fake API, then implement it in `render` (data only) and the relevant handler.
-- [ ] **Step 2:** Add capability guards: features newer than the installed `grammy` types or unsupported by a chat type fail explicitly with a typed error covered by tests (no silent downgrade).
-- [ ] **Step 3:** `npm run check`; commit `feat: adopt latest telegram bot api rich message features`.
+- [ ] **Step 1:** Failing tests then implementation for `/today` and `/week`: an agenda rendered as a **rich message** (`sendRichMessage`, table of blocks with `date_time` times, `<details>` for long descriptions, inline buttons via the rich button blocks) using the exact block/markup shapes from `rich.d.ts`; agenda over 32768 characters is paginated explicitly.
+- [ ] **Step 2:** `bot/capabilities.ts` centralises "what this chat/update can do" (drafts: private only; ephemeral: groups; effects: private only; rich messages; topics) and throws a typed `UnsupportedInThisChatError` that callers handle explicitly — never a silent downgrade.
+- [ ] **Step 3:** Add `message_effect_id` support as an optional field on views but do not ship any effect IDs (the docs publish none; see matrix), and record `USE LATER` decisions for topics in private chats, checklists (business accounts only), Stars/paid broadcasts, managed bots in `BOT_API_FEATURES.md`.
+- [ ] **Step 4:** `npm run check`; commit `feat: add rich agenda views and capability guards`.
 
 ### Task 15: Documentation for developers
 
