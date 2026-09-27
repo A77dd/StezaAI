@@ -33,6 +33,15 @@ async function requireTask(ctx: BotContext, userId: string, taskId: string) {
   return task;
 }
 
+async function nextSlotsCard(ctx: BotContext, userId: string, taskId: string, viewCtx: ViewContext) {
+  const result = await ctx.services.personalFlow.nextSlots({ userId, taskId });
+  if (result.kind === "no_more_slots") {
+    const task = await requireTask(ctx, userId, taskId);
+    return taskProposalView({ state: "no_slots", task, search: result.search }, viewCtx);
+  }
+  return proposalCard(result, viewCtx);
+}
+
 async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
   // Answer immediately for idempotency: double-press shows no spinner
   await answerCallback(ctx);
@@ -43,11 +52,20 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
   const target = targetOfCallback(ctx);
   const viewCtx: ViewContext = ctx.viewContext(await ctx.loadSettings());
 
-  const result = await ctx.services.personalFlow.confirmSlot({
-    userId: owner.userId,
-    taskId: resolved.payload.taskId,
-    slotIndex: resolved.payload.slotIndex,
-  });
+  let result;
+  try {
+    result = await ctx.services.personalFlow.confirmSlot({
+      userId: owner.userId,
+      taskId: resolved.payload.taskId,
+      slotIndex: resolved.payload.slotIndex,
+    });
+  } catch (error) {
+    // The callback token is single-use. Restore an actionable card before
+    // rethrowing so the error boundary can log and report the failed booking.
+    const retryCard = await nextSlotsCard(ctx, owner.userId, resolved.payload.taskId, viewCtx);
+    await editCard(ctx, target, retryCard);
+    throw error;
+  }
 
   switch (result.kind) {
     case "booked": {
@@ -88,14 +106,5 @@ async function handleSlotOther(ctx: BotContext, data: string): Promise<void> {
   const target = targetOfCallback(ctx);
   const viewCtx: ViewContext = ctx.viewContext(await ctx.loadSettings());
 
-  const result = await ctx.services.personalFlow.nextSlots({ userId: owner.userId, taskId: resolved.payload.taskId });
-
-  if (result.kind === "no_more_slots") {
-    const task = await requireTask(ctx, owner.userId, resolved.payload.taskId);
-    const rendered = taskProposalView({ state: "no_slots", task, search: result.search }, viewCtx);
-    await editCard(ctx, target, rendered);
-    return;
-  }
-
-  await editCard(ctx, target, proposalCard(result, viewCtx));
+  await editCard(ctx, target, await nextSlotsCard(ctx, owner.userId, resolved.payload.taskId, viewCtx));
 }

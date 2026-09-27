@@ -78,6 +78,16 @@ describe("slots", () => {
     ]);
   });
 
+  it("uses each position as the slot index when equal slots repeat", () => {
+    const buttons = slotPickButtons("t1", [TODAY_SLOT, TODAY_SLOT, TODAY_SLOT], () => "same slot");
+
+    expect(buttons.map((button) => (button.kind === "action" ? button.payload : null))).toEqual([
+      { taskId: "t1", slotIndex: 0 },
+      { taskId: "t1", slotIndex: 1 },
+      { taskId: "t1", slotIndex: 2 },
+    ]);
+  });
+
   it("refuses more than three slots", () => {
     const four = [TODAY_SLOT, TODAY_SLOT, TODAY_SLOT, TODAY_SLOT];
 

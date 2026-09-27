@@ -91,11 +91,11 @@ export function slotPickButtons(
   label: (slot: Slot) => string,
 ): ButtonSpec[] {
   assertSlotCount(slots);
-  return slots.map((slot) =>
+  return slots.map((slot, index) =>
     actionButton(
       label(slot),
       "slot.pick",
-      { taskId, slotIndex: slotIndex(slots.indexOf(slot)) },
+      { taskId, slotIndex: slotIndex(index) },
       "success",
     ),
   );

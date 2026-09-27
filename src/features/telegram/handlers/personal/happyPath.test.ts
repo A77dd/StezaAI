@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createInMemoryCalendar } from "../../adapters";
+import { createSequentialIdGenerator } from "../../adapters/idGenerator";
 import { ALEX } from "../../testing/participants";
 import { createPipelineHarness } from "../../testing/pipelineHarness";
 import { expectCall, expectCallbackAnsweredOnce, expectRenderedText } from "../../testing/assertions";
@@ -10,6 +12,21 @@ const CHAT_ID = ALEX.id;
 
 function makeHarness() {
   return createPipelineHarness({ composers: [registerPersonalFlow()] });
+}
+
+function makeFlakyCalendar() {
+  const calendar = createInMemoryCalendar({ ids: createSequentialIdGenerator() });
+  let failNextCreate = true;
+  return {
+    ...calendar,
+    async createBlock(input: Parameters<typeof calendar.createBlock>[0]) {
+      if (failNextCreate) {
+        failNextCreate = false;
+        throw new Error("transient calendar failure");
+      }
+      return calendar.createBlock(input);
+    },
+  };
 }
 
 async function confirmTimezone(h: ReturnType<typeof makeHarness>): Promise<void> {
@@ -86,5 +103,30 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     // Both callback queries were answered exactly once (the replayed one with
     // the generic notice as an alert), never left spinning.
     expect(h.kit.fake.callsTo("answerCallbackQuery")).toHaveLength(2);
+  });
+
+  it("re-renders a fresh proposal after a transient calendar failure and reports the failure", async () => {
+    const h = createPipelineHarness({
+      composers: [registerPersonalFlow()],
+      services: { calendar: makeFlakyCalendar() },
+    });
+    await confirmTimezone(h);
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
+    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+
+    const failure = await h.deliverExpectingFailure(h.kit.updates.callbackQuery(card, oldData));
+
+    expect(failure.causeCode).toBe("unexpected");
+    expect(h.logger.records).toContainEqual(expect.objectContaining({ event: "update.failed" }));
+    const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: card.message_id });
+    expect(expectRenderedText(edited)).toContain("Подготовить презентацию");
+    const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
+    const freshData = lastSlotButtonData(refreshed as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+    expect(freshData).not.toBe(oldData);
+
+    await h.kit.press(h.bot, refreshed, { data: freshData });
+
+    expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 });
