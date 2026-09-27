@@ -5,6 +5,7 @@ import { createRichDocument } from "../src/features/telegram/render/rich";
 import { getCatalog } from "../src/features/telegram/render";
 import { makeViewContext } from "../src/features/telegram/testing/viewFixtures";
 import { richCalendarDayView, richCalendarMonthView } from "../src/features/telegram/render/views/richCalendar";
+import { welcomeRichView } from "../src/features/telegram/render/views/welcome";
 
 /**
  * Renders the real rich calendar views into a standalone HTML page styled
@@ -45,6 +46,9 @@ booked.line("чт, 11:00–12:00");
 booked.buttonRow([{ kind: "disabled", label: "Забронировано ✓" }]);
 const bookedHtml = bound(booked.build());
 
+const welcome = welcomeRichView({ firstName: "Arttur", calendarConnected: false }, ctx);
+const welcomeHtml = bound(welcome);
+
 const telegramCss = `
   :root { color-scheme: light; }
   body { margin: 0; padding: 24px; background: #e7ebf0; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }
@@ -72,6 +76,8 @@ const page = `<!doctype html>
 <body>
 <h1>Превью Rich-сообщения с календарём (Bot API 10.3, &lt;tg-button&gt;)</h1>
 <div class="phone">
+  <div class="bubble"><div class="label">0. /start — приветствие (Rich) с кнопками быстрых действий</div>
+  ${welcomeHtml}</div>
   <div class="bubble"><div class="label">1. Карточка предложения — месяц с днями-кнопками</div>
   ${bound(month as unknown as { html: string })}</div>
   <div class="bubble"><div class="label">2. После нажатия на день — слоты дня кнопками</div>

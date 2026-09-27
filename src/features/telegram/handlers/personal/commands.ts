@@ -2,7 +2,7 @@ import type { Composer } from "grammy";
 import type { BotContext } from "../../bot";
 import { createDraftStream, createEditStream, describeError, sendCard, sendDocument } from "../../bot";
 import type { DraftStreamDeps, EditStreamDeps } from "../../bot";
-import { demoDoneView, helpRichView, helpView, settingsView, welcomeView } from "../../render";
+import { demoDoneView, helpRichView, helpView, settingsView, welcomeRichView, welcomeView } from "../../render";
 import type { HelpCommand, ViewContext } from "../../render";
 import { renderDeleteConfirmation } from "./dataCallbacks";
 
@@ -92,10 +92,13 @@ export function registerCommands(composer: Composer<BotContext>): void {
     const userId = userIdOf(ctx);
     const { settings } = await ctx.services.personalFlow.startUser({ userId, locale: ctx.locale });
     const viewCtx = ctx.viewContext(settings);
-    await sendCard(
-      ctx,
-      welcomeView({ firstName: ctx.from?.first_name ?? null, calendarConnected: settings.calendarConnected }, viewCtx),
-    );
+    const input = { firstName: ctx.from?.first_name ?? null, calendarConnected: settings.calendarConnected };
+    try {
+      await sendCard(ctx, welcomeRichView(input, viewCtx));
+    } catch (error) {
+      ctx.log.warn("welcome.rich_fallback", describeError(error));
+      await sendCard(ctx, welcomeView(input, viewCtx));
+    }
   });
 
   composer.command("help", async (ctx) => {

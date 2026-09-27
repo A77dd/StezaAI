@@ -35,7 +35,8 @@ export type RenderedRichHtmlMessage = {
   readonly kind: "rich_html";
   readonly html: string;
   readonly actions: readonly ActionButtonSpec[];
-  readonly keyboard: null;
+  /** Usually `null` (buttons are in the body); a quick-action keyboard is allowed. */
+  readonly keyboard: KeyboardSpec | null;
 };
 
 export type RenderedMessage = RenderedTextMessage | RenderedRichMessage | RenderedRichHtmlMessage;
