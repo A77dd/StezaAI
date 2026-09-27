@@ -2,10 +2,18 @@ import type { Api } from "grammy";
 import type { Logger } from "./logger";
 
 /**
- * Streaming drafts (Bot API 9.3+, research §4.9, scenario I): while the bot
- * is generating an answer it can show a growing draft in the private chat,
- * with a Stop button. The draft is a 30-second preview and private-chats
- * only; the answer itself always lands as a normal card afterwards.
+ * Streaming an answer while it is generated (research §4.9, scenario I), with
+ * two transports for the same producer-facing surface:
+ *
+ * - `createDraftStream` — Bot API 9.3+ drafts: a growing draft in the private
+ *   chat, with a Stop button. The draft is a 30-second preview and
+ *   private-chats only; the answer itself always lands as a normal card
+ *   afterwards.
+ * - `createEditStream` — the edit-based fallback (verdict: USE NOW) for
+ *   groups and anywhere drafts do not exist: one message is sent immediately
+ *   as the "thinking" placeholder and then `editMessageText` replaces its
+ *   text at most once per second (the long-standing ~1 update/second per
+ *   chat guidance), ending with a final edit that swaps in the complete card.
  *
  * Two pieces live here:
  * - `DraftStreamRegistry`: handler-owned state that survives the update, so
@@ -14,10 +22,11 @@ import type { Logger } from "./logger";
  *   live, which is why streaming handlers return early and generate in the
  *   background — `sequentialize` would otherwise delay the Stop press until
  *   after the generation finished.
- * - `createDraftStream`: the producer API. Chunks are flushed to Telegram at
- *   most once per throttle window (research assumption: 300-500 ms), with
+ * - the two stream factories. Chunks are flushed to Telegram at most once
+ *   per throttle window (research assumption: 300-500 ms for drafts), with
  *   `can_stop` on and `keep_on_stop` off, so a pressed Stop removes the
- *   draft itself.
+ *   draft itself. Groups have no Stop mechanism; the edit stream simply
+ *   cannot be interrupted by the reader.
  */
 
 export type ActiveDraftStream = {
@@ -180,6 +189,120 @@ export function createDraftStreamRegistry(): DraftStreamRegistry {
       streams.delete(draftId);
       stream.onStopped();
       return true;
+    },
+  };
+}
+
+const DEFAULT_EDIT_THROTTLE_MS = 1000;
+
+export type EditStream = {
+  /** Always false: Telegram offers no Stop mechanism for edited messages. */
+  readonly stopped: boolean;
+  /** Sends the "thinking" placeholder message and remembers its id. */
+  begin(): Promise<void>;
+  /** Queues a chunk; the message text is edited at most once per throttle window. */
+  push(chunk: string): void;
+  /** Waits `pacingMs`, so a streaming loop can pace its chunks. */
+  pushPaced(chunk: string): Promise<void>;
+  /**
+   * Edits the progressive message one last time, swapping in the complete
+   * card (`finalHtml` is Telegram HTML, as produced by `renderMessage`).
+   */
+  finish(finalHtml: string): Promise<void>;
+  /** Gives up the stream without a final edit (already finished, or failed). */
+  release(): void;
+};
+
+export type EditStreamDeps = {
+  readonly api: Api;
+  readonly logger: Logger;
+  readonly chatId: number;
+  /** The forum topic of the invoking message, so the stream stays in it. */
+  readonly threadId?: number;
+  /** The first text the progressive message carries ("Думаю…"). */
+  readonly thinkingText: string;
+  /** Default: 1000 ms — the research guidance is at most one edit per second. */
+  readonly throttleMs?: number;
+  readonly pacingMs?: number;
+};
+
+/**
+ * The edit-based streaming fallback for chats where drafts do not exist
+ * (groups, topics). Same pacing surface as `createDraftStream`, but the
+ * progress lives in one ordinary message: `begin` sends the placeholder,
+ * pushes edit its text, `finish` replaces it with the complete card.
+ */
+export function createEditStream(deps: EditStreamDeps): EditStream {
+  const { api, logger, chatId, threadId, thinkingText } = deps;
+  const throttleMs = deps.throttleMs ?? DEFAULT_EDIT_THROTTLE_MS;
+  const pacingMs = deps.pacingMs ?? DEFAULT_PACING_MS;
+
+  let messageId: number | undefined;
+  let lastSent = thinkingText;
+  let buffer = "";
+  let flushTimer: ReturnType<typeof setTimeout> | undefined;
+  let finished = false;
+
+  const editProgress = async (text: string): Promise<void> => {
+    if (messageId === undefined || text === lastSent) return;
+    try {
+      await api.editMessageText(chatId, messageId, text);
+      lastSent = text;
+    } catch (error) {
+      // "message is not modified" or a rate limit must not kill generation:
+      // the final edit still carries the whole answer. Logged, never silent.
+      logger.warn("stream.edit_rejected", describe(error));
+    }
+  };
+
+  const flush = async (): Promise<void> => {
+    flushTimer = undefined;
+    if (finished) return;
+    await editProgress(buffer);
+  };
+
+  const scheduleFlush = (): void => {
+    if (flushTimer !== undefined || finished) return;
+    flushTimer = setTimeout(() => void flush(), throttleMs);
+  };
+
+  return {
+    get stopped() {
+      return false;
+    },
+    async begin() {
+      const message = await api.sendMessage(chatId, thinkingText, {
+        ...(threadId === undefined ? {} : { message_thread_id: threadId }),
+      });
+      messageId = message.message_id;
+      lastSent = thinkingText;
+    },
+    push(chunk: string) {
+      buffer += chunk;
+      scheduleFlush();
+    },
+    async pushPaced(chunk: string) {
+      this.push(chunk);
+      await sleep(pacingMs);
+    },
+    async finish(finalHtml: string) {
+      if (flushTimer !== undefined) {
+        clearTimeout(flushTimer);
+        flushTimer = undefined;
+      }
+      if (messageId !== undefined) {
+        try {
+          await api.editMessageText(chatId, messageId, finalHtml, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
+        } catch (error) {
+          logger.warn("stream.edit_rejected", describe(error));
+        }
+      }
+      finished = true;
+    },
+    release() {
+      if (flushTimer !== undefined) clearTimeout(flushTimer);
+      flushTimer = undefined;
+      finished = true;
     },
   };
 }

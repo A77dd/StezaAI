@@ -51,6 +51,10 @@ export type Catalog = {
     readonly commandDescriptions: { readonly [K in HelpCommand]: string };
     readonly footer: string;
   };
+  readonly stream: {
+    /** First text of the edit-based fallback message while generating. */
+    readonly thinking: string;
+  };
   readonly demo: {
     /** Paragraphs the `/demo` simulation streams as drafts, in order. */
     readonly paragraphs: readonly string[];

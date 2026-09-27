@@ -58,6 +58,9 @@ export const en: Catalog = {
     },
     footer: "Everything I remember, you can review, correct and delete.",
   },
+  stream: {
+    thinking: "Thinking…",
+  },
   demo: {
     paragraphs: [
       "Imagine this is a language model's answer…",

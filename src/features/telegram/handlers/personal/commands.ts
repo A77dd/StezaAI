@@ -1,7 +1,7 @@
 import type { Composer } from "grammy";
 import type { BotContext } from "../../bot";
-import { createDraftStream, describeError, sendCard, sendDocument } from "../../bot";
-import type { DraftStreamDeps } from "../../bot";
+import { createDraftStream, createEditStream, describeError, sendCard, sendDocument } from "../../bot";
+import type { DraftStreamDeps, EditStreamDeps } from "../../bot";
 import { demoDoneView, helpRichView, helpView, settingsView, welcomeView } from "../../render";
 import type { HelpCommand, ViewContext } from "../../render";
 import { renderDeleteConfirmation } from "./dataCallbacks";
@@ -19,37 +19,67 @@ function userIdOf(ctx: BotContext): string {
 }
 
 /**
- * `/demo` (scenario I): simulates a streaming LLM answer with drafts, so the
- * mechanics — gradual text, the Stop button, the final card — can be exercised
- * on a real device before any model is connected. Not advertised in `/help`.
- * `streamOptions` exists for tests; production uses the defaults.
+ * `/demo` (scenario I): simulates a streaming LLM answer, so the mechanics —
+ * gradual text, the Stop button, the final card — can be exercised on a real
+ * device before any model is connected. Private chats stream drafts; groups
+ * get the edit-based fallback (one message, edited at most once per second).
+ * Not advertised in `/help`. `streamOptions` exists for tests; production
+ * uses the defaults.
  */
 export async function runDemoStream(
   ctx: BotContext,
   viewCtx: ViewContext,
-  streamOptions: Partial<Pick<DraftStreamDeps, "throttleMs" | "pacingMs">> = {},
+  streamOptions: Partial<Pick<DraftStreamDeps, "throttleMs" | "pacingMs"> & Pick<EditStreamDeps, "throttleMs" | "pacingMs">> = {},
 ): Promise<void> {
-  if (ctx.chat === undefined || ctx.chat.type !== "private") {
-    throw new Error("demo stream: drafts exist only in private chats");
+  if (ctx.chat === undefined) throw new Error("demo stream: the update has no chat");
+
+  if (ctx.chat.type === "private") {
+    const stream = createDraftStream({
+      api: ctx.api,
+      registry: ctx.services.draftStreams,
+      logger: ctx.services.logger,
+      chatId: ctx.chat.id,
+      ...streamOptions,
+    });
+    ctx.log.info("stream.started", { draftId: stream.draftId });
+    try {
+      await stream.begin();
+      for (const paragraph of viewCtx.catalog.demo.paragraphs) {
+        if (stream.stopped) return; // the Stop press already removed the draft
+        await stream.pushPaced(paragraph + "\n\n");
+      }
+      await stream.finish(async () => {
+        await sendCard(ctx, demoDoneView(viewCtx));
+      });
+      ctx.log.info("stream.finished", { draftId: stream.draftId });
+    } catch (error) {
+      stream.release();
+      throw error;
+    }
+    return;
   }
-  const stream = createDraftStream({
+
+  // Edit-based fallback (research §4.9, USE NOW): groups and topics have no
+  // drafts, so the progress lives in one ordinary message, edited at most
+  // once per second, with the final card as the last edit.
+  const stream = createEditStream({
     api: ctx.api,
-    registry: ctx.services.draftStreams,
     logger: ctx.services.logger,
     chatId: ctx.chat.id,
+    threadId: ctx.msg?.is_topic_message === true ? ctx.msg.message_thread_id : undefined,
+    thinkingText: viewCtx.catalog.stream.thinking,
     ...streamOptions,
   });
-  ctx.log.info("stream.started", { draftId: stream.draftId });
+  ctx.log.info("stream.started", { transport: "edit" });
   try {
     await stream.begin();
     for (const paragraph of viewCtx.catalog.demo.paragraphs) {
-      if (stream.stopped) return; // the Stop press already removed the draft
       await stream.pushPaced(paragraph + "\n\n");
     }
-    await stream.finish(async () => {
-      await sendCard(ctx, demoDoneView(viewCtx));
-    });
-    ctx.log.info("stream.finished", { draftId: stream.draftId });
+    const finalCard = demoDoneView(viewCtx);
+    if (finalCard.kind !== "text") throw new Error("demo stream: the final edit needs a text card");
+    await stream.finish(finalCard.text);
+    ctx.log.info("stream.finished", { transport: "edit" });
   } catch (error) {
     stream.release();
     throw error;
