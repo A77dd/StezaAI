@@ -2,7 +2,7 @@
 
 ## Local setup
 
-1. Install Node.js from `.nvmrc` (`nvm use` if you use nvm).
+1. Install Node.js 22.23.3 from `.nvmrc` (`nvm install` and `nvm use` if you use nvm).
 2. Install exact dependencies with `npm ci`.
 3. Start the app with `npm run dev`.
 
