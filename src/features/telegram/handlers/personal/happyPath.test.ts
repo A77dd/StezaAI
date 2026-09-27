@@ -183,4 +183,20 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
 
     expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
+
+  it("keeps the timezone prompt and original draft after an invalid timezone reply", async () => {
+    const h = makeHarness();
+    await h.services.personalFlow.startUser({ userId: USER_ID, locale: "ru" });
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+
+    const failure = await h.deliverExpectingFailure(h.kit.updates.privateText("Not/A_Real_Zone", { from: ALEX }));
+    expect(failure.causeCode).toBe("invalid_timezone");
+
+    await h.deliver(h.kit.updates.privateText("Europe/Moscow", { from: ALEX }));
+
+    expect((await h.services.settings.get(USER_ID))?.timezoneConfirmed).toBe(true);
+    const tasks = await h.services.tasks.listByUser(USER_ID);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.source.sourceText).toBe(TASK_TEXT);
+  });
 });

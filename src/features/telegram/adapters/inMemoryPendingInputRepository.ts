@@ -8,8 +8,8 @@ export type InMemoryPendingInputRepositoryOptions = {
 /**
  * In-memory `PendingInputRepository`, one pending input per prompt message.
  * `save` is an upsert on `(userId, chatId, promptMessageId)`.
- * `takeByPrompt` never awaits between reading and removing, so it is safe to
- * call concurrently: the entry is consumed by exactly one caller.
+ * `consumeByPrompt` never awaits between reading and removing, so it is safe
+ * to call concurrently: the entry is consumed by exactly one caller.
  */
 export function createInMemoryPendingInputRepository(
   options: InMemoryPendingInputRepositoryOptions,
@@ -19,6 +19,18 @@ export function createInMemoryPendingInputRepository(
   const key = (userId: string, chatId: number, promptMessageId: number): string =>
     `${userId}\u0000${chatId}\u0000${promptMessageId}`;
 
+  const read = (userId: string, chatId: number, promptMessageId: number, consume: boolean): PendingInput | null => {
+    const mapKey = key(userId, chatId, promptMessageId);
+    const input = inputs.get(mapKey);
+    if (input === undefined || input.userId !== userId) return null;
+    if (parseInstant(input.expiresAt) <= parseInstant(clock.now())) {
+      inputs.delete(mapKey);
+      return null;
+    }
+    if (consume) inputs.delete(mapKey);
+    return structuredClone(input);
+  };
+
   return {
     async save(input) {
       const stored = structuredClone(input);
@@ -26,12 +38,12 @@ export function createInMemoryPendingInputRepository(
       return structuredClone(stored);
     },
 
-    async takeByPrompt(userId, chatId, promptMessageId) {
-      const mapKey = key(userId, chatId, promptMessageId);
-      const input = inputs.get(mapKey);
-      if (input === undefined || input.userId !== userId) return null;
-      inputs.delete(mapKey);
-      return parseInstant(input.expiresAt) <= parseInstant(clock.now()) ? null : structuredClone(input);
+    async peekByPrompt(userId, chatId, promptMessageId) {
+      return read(userId, chatId, promptMessageId, false);
+    },
+
+    async consumeByPrompt(userId, chatId, promptMessageId) {
+      return read(userId, chatId, promptMessageId, true);
     },
 
     async deleteAllForUser(userId) {

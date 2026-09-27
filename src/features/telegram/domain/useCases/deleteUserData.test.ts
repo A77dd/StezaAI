@@ -104,7 +104,7 @@ describe("deleteUserData", () => {
     await expect(ports.settings.get("user_1")).resolves.toBeNull();
     await expect(ports.drafts.get("user_1", "draft_1")).resolves.toBeNull();
     await expect(ports.proposals.get("user_1", "task_open")).resolves.toBeNull();
-    await expect(ports.pendingInputs.takeByPrompt("user_1", 1001, 42)).resolves.toBeNull();
+  await expect(ports.pendingInputs.consumeByPrompt("user_1", 1001, 42)).resolves.toBeNull();
     await expect(ports.memory.listByUser("user_1")).resolves.toEqual([]);
     await expect(ports.reminders.exportForUser("user_1")).resolves.toEqual([]);
     await expect(ports.calendar.getBlock("user_1", booked.booking.id)).resolves.toBeNull();

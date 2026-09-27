@@ -77,6 +77,21 @@ describe("personal flow: settings", () => {
     expect(expectRenderedText(edited)).toContain("10:00");
   });
 
+  it("keeps the working-hours prompt after invalid hours so a corrected reply can apply", async () => {
+    const h = makeHarness();
+    const card = await openSettings(h);
+    await h.kit.press(h.bot, card, { text: "Изменить рабочие часы" });
+
+    const failure = await h.deliverExpectingFailure(h.kit.updates.privateText("18:00-09:00", { from: ALEX }));
+    expect(failure.causeCode).toBe("invalid_settings");
+
+    await h.deliver(h.kit.updates.privateText("09:00-18:00", { from: ALEX }));
+
+    expect((await h.services.settings.get(USER_ID))?.workingHours).toMatchObject({ start: "09:00", end: "18:00" });
+    const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: card.message_id });
+    expect(expectRenderedText(edited)).toContain("09:00");
+  });
+
   it("sets the timezone from the settings flow by pressing a preset (independent of the onboarding gate)", async () => {
     const h = makeHarness();
     await openSettings(h);

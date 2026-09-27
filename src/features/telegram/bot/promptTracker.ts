@@ -26,8 +26,10 @@ export type PendingPrompt = {
 export type PromptTracker = {
   /** Remembers the prompt for `(userId, chatId)`, replacing any previous one. */
   remember(userId: string, chatId: number, prompt: PendingPrompt): void;
-  /** Reads and clears the remembered prompt for `(userId, chatId)`; `undefined` if there is none. */
-  take(userId: string, chatId: number): PendingPrompt | undefined;
+  /** Reads the remembered prompt without clearing it; `undefined` if there is none. */
+  peek(userId: string, chatId: number): PendingPrompt | undefined;
+  /** Clears the remembered prompt for `(userId, chatId)`. */
+  consume(userId: string, chatId: number): void;
 };
 
 /** In-memory `PromptTracker`, one entry per `(userId, chatId)`. */
@@ -39,11 +41,11 @@ export function createPromptTracker(): PromptTracker {
     remember(userId, chatId, prompt) {
       prompts.set(key(userId, chatId), prompt);
     },
-    take(userId, chatId) {
-      const mapKey = key(userId, chatId);
-      const prompt = prompts.get(mapKey);
-      prompts.delete(mapKey);
-      return prompt;
+    peek(userId, chatId) {
+      return prompts.get(key(userId, chatId));
+    },
+    consume(userId, chatId) {
+      prompts.delete(key(userId, chatId));
     },
   };
 }

@@ -96,11 +96,15 @@ async function handleSettingsTimezone(ctx: BotContext, data: string): Promise<vo
   // button's own message id is the key to look it up.
   const pending =
     target.kind === "chat"
-      ? await ctx.services.pendingInputs.takeByPrompt(owner.userId, target.chatId, target.messageId)
+      ? await ctx.services.pendingInputs.peekByPrompt(owner.userId, target.chatId, target.messageId)
       : null;
   const draftId = pending !== null && pending.purpose === "timezone" ? pending.refId : undefined;
 
   const result = await ctx.services.personalFlow.setTimezone({ userId: owner.userId, tz: resolved.payload.tz, draftId });
+  if (pending?.purpose === "timezone" && target.kind === "chat") {
+    await ctx.services.pendingInputs.consumeByPrompt(owner.userId, target.chatId, target.messageId);
+    ctx.services.promptTracker.consume(owner.userId, target.chatId);
+  }
 
   if (result.kind === "timezone_set") {
     const confirmation = fill(viewCtx.catalog.personal.timezoneConfirmed, { tz: text(result.settings.timezone) });

@@ -18,7 +18,7 @@ describe("beginTaskEdit", () => {
     const result = await beginTaskEdit({ userId: "user_1", chatId: 1001, taskId: task.id, promptMessageId: 55 });
 
     expect(result).toEqual({ kind: "awaiting_input" });
-    await expect(ports.pendingInputs.takeByPrompt("user_1", 1001, 55)).resolves.toMatchObject({
+    await expect(ports.pendingInputs.consumeByPrompt("user_1", 1001, 55)).resolves.toMatchObject({
       purpose: "task_edit",
       refId: task.id,
     });

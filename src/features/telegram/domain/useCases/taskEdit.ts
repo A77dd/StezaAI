@@ -120,7 +120,7 @@ async function reproposeAfterEdit(
  */
 export function createApplyTaskEdit(ports: ApplyTaskEditPorts) {
   return async function applyTaskEdit(input: ApplyTaskEditInput): Promise<ApplyTaskEditResult> {
-    const pending = await ports.pendingInputs.takeByPrompt(input.userId, input.chatId, input.promptMessageId);
+    const pending = await ports.pendingInputs.consumeByPrompt(input.userId, input.chatId, input.promptMessageId);
     if (pending === null || pending.purpose !== "task_edit") {
       return { kind: "no_pending_edit" };
     }

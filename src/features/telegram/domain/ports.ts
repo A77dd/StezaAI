@@ -258,13 +258,15 @@ export interface ProposalRepository {
  */
 export interface PendingInputRepository {
   save(input: PendingInput): Promise<PendingInput>;
+  /** Reads a matching, unexpired input without consuming it; expired inputs are removed. */
+  peekByPrompt(userId: UserId, chatId: number, promptMessageId: number): Promise<PendingInput | null>;
   /**
    * Atomically reads and removes the pending input for that prompt, so an
    * answer can be applied at most once. Returns `null` when there is none, it
    * belongs to another user, or it has expired (an expired one is still
    * removed).
    */
-  takeByPrompt(userId: UserId, chatId: number, promptMessageId: number): Promise<PendingInput | null>;
+  consumeByPrompt(userId: UserId, chatId: number, promptMessageId: number): Promise<PendingInput | null>;
   /** Returns how many pending inputs were removed. */
   deleteAllForUser(userId: UserId): Promise<number>;
 }
