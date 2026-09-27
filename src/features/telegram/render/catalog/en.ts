@@ -100,6 +100,8 @@ export const en: Catalog = {
     personal: "Add to my calendar",
     team: "Note it for the group",
     remember: "Just remember",
+    rememberNote: "Remembered.",
+    teamPending: "Team scheduling is coming soon.",
     pointer: "I prepared the answer in a private chat, where you can also pick a time.",
     openPrivate: "Open private chat",
     found: ["Found a window:", "Found two windows:", "Found three windows:"],

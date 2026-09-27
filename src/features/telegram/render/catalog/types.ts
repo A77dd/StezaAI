@@ -87,6 +87,9 @@ export type Catalog = {
     readonly personal: string;
     readonly team: string;
     readonly remember: string;
+    readonly rememberNote: string;
+    /** The team path is not built yet (Task 9); said instead of a proposal. */
+    readonly teamPending: string;
     /** The only thing said in the group itself: never any calendar detail. */
     readonly pointer: string;
     readonly openPrivate: string;
