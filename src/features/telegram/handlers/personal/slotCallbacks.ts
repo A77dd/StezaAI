@@ -89,9 +89,8 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       return;
     }
     case "slot_taken": {
-      const notice = noticeForKind("slot_conflict", viewCtx);
-      await editCard(ctx, target, notice.message);
-      await answerCallback(ctx, notice.text, { alert: true });
+      const task = await requireTask(ctx, owner.userId, result.proposal.taskId);
+      await editCard(ctx, target, proposalCard({ kind: "proposed", task, proposal: result.proposal }, viewCtx));
       return;
     }
     case "no_such_slot": {

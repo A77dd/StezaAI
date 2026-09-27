@@ -37,7 +37,9 @@ async function confirmTimezone(h: ReturnType<typeof makeHarness>): Promise<void>
 function lastSlotButtonData(message: { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } }): string {
   const row = message.reply_markup?.inline_keyboard[0];
   const button = row?.[row.length - 1];
-  if (button?.callback_data === undefined) throw new Error("expected a slot button on the proposal card");
+  if (button?.callback_data === undefined) {
+    throw new Error(`expected a slot button on the proposal card: ${JSON.stringify(message.reply_markup?.inline_keyboard)}`);
+  }
   return button.callback_data;
 }
 
@@ -118,6 +120,27 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
 
     expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "proposed", bookingId: null });
     expect(expectRenderedText(h.kit.fake.lastCall("editMessageText")!)).toContain("Эта кнопка недоступна");
+  });
+
+  it("keeps a fresh actionable proposal when a calendar conflict appears before confirmation", async () => {
+    const calendar = createInMemoryCalendar({ ids: createSequentialIdGenerator() });
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()], services: { calendar } });
+    await confirmTimezone(h);
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
+    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+    const proposal = await h.services.proposals.get(USER_ID, "task_1");
+    const conflictedSlot = proposal!.slots.at(-1)!;
+    calendar.addBusyInterval(USER_ID, conflictedSlot);
+
+    await h.kit.press(h.bot, card, { data: oldData });
+
+    const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
+    expect(refreshed.reply_markup?.inline_keyboard[0]?.length).toBeGreaterThan(0);
+    const freshData = lastSlotButtonData(refreshed as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+    expect(freshData).not.toBe(oldData);
+    await h.kit.press(h.bot, refreshed, { data: freshData });
+    expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 
   it("re-renders a fresh proposal after a transient calendar failure and reports the failure", async () => {
