@@ -22,7 +22,7 @@ Carry-over notes from reviews (must be handled by later tasks):
 - **Callbacks minor debt:** validators should require plain objects and bound `settings.toggle.value` and id charset; add a contract test that a consumed token still answers "replayed" after `purgeExpired`; use a distinct code for corrupted stored payloads.
 - **Contract suites** live in `src/features/telegram/testing/contracts/` (not `adapters/ports.contract.ts` as written in Task 2).
 - **Parser:** `ruleBasedIntentParser.ts` (~480 lines) is a candidate for splitting; branded ids, error-code unions, and a busy-interval sweep in the scheduler are deferred.
-- **Platform:** research flags Node 20 as end-of-life (2026-04-30); decide on a Node LTS upgrade in a separate ADR.
+- **Platform (resolved):** Node 22.23.3 is the runtime baseline; local long polling is the first hands-on runtime, with in-memory callbacks, reminders, and inbox explicitly non-production. Production webhook hosting with durable PostgreSQL and a worker remains deferred. See [ADR 0003](../../decisions/0003-telegram-hands-on-runtime.md).
 
 ---
 
