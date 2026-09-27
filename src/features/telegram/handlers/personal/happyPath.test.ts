@@ -150,6 +150,40 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 
+  it("renders the no-slots state when a conflict leaves no later availability", async () => {
+    const baseScheduler = createSlotScheduler();
+    const calendar = createInMemoryCalendar({ ids: createSequentialIdGenerator() });
+    let schedulerCalls = 0;
+    const h = createPipelineHarness({
+      composers: [registerPersonalFlow()],
+      services: {
+        calendar,
+        scheduler: {
+          propose(input) {
+            schedulerCalls += 1;
+            const result = baseScheduler.propose(input);
+            return schedulerCalls === 1
+              ? result
+              : { ...result, slots: [], exhausted: "none_before_deadline" as const };
+          },
+        },
+      },
+    });
+    await confirmTimezone(h);
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
+    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+    const proposal = await h.services.proposals.get(USER_ID, "task_1");
+    calendar.addBusyInterval(USER_ID, proposal!.slots.at(-1)!);
+
+    await h.kit.press(h.bot, card, { data: oldData });
+
+    expect(expectRenderedText(h.kit.fake.lastCall("editMessageText")!)).toContain("свободного времени не нашлось");
+    expect(h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message.reply_markup?.inline_keyboard.flat().length).toBeGreaterThan(0);
+    expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "proposed", bookingId: null });
+    expect(schedulerCalls).toBe(2);
+  });
+
   it("re-renders a fresh proposal after a transient calendar failure and reports the failure", async () => {
     const baseScheduler = createSlotScheduler();
     let schedulerCalls = 0;

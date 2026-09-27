@@ -17,6 +17,7 @@ import type {
 } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 import { computeProposal, requireSettings, storeProposal } from "./shared";
+import type { SlotSearchSummary } from "./shared";
 
 export type ConfirmSlotInput = {
   readonly userId: UserId;
@@ -28,7 +29,7 @@ export type ConfirmSlotInput = {
 
 export type ConfirmSlotResult =
   | { readonly kind: "booked"; readonly task: Task; readonly booking: BlockBooking }
-  | { readonly kind: "slot_taken"; readonly proposal: SlotProposal }
+  | { readonly kind: "slot_taken"; readonly proposal: SlotProposal; readonly search: SlotSearchSummary }
   | { readonly kind: "no_such_slot" }
   | { readonly kind: "already_booked"; readonly booking: BlockBooking }
   | { readonly kind: "already_booked_other_slot"; readonly booking: BlockBooking };
@@ -91,12 +92,12 @@ async function regenerateProposal(
   userId: UserId,
   task: Task,
   after: string,
-): Promise<SlotProposal> {
+): Promise<{ readonly proposal: SlotProposal; readonly search: SlotSearchSummary }> {
   const outcome = await computeProposal(ports, { userId, task, now: after });
   const proposal: SlotProposal =
     outcome.kind === "proposed" ? outcome.proposal : { taskId: task.id, slots: [] };
   await storeProposal(ports, userId, proposal);
-  return proposal;
+  return { proposal, search: outcome.search };
 }
 
 async function scheduleReminders(ports: ConfirmSlotPorts, userId: UserId, task: Task, slot: Slot): Promise<void> {
@@ -183,8 +184,8 @@ export function createConfirmSlot(ports: ConfirmSlotPorts) {
     const busy = await ports.calendar.getBusyIntervals(userId, slot);
     if (busy.length > 0) {
       await ports.tasks.transition(userId, taskId, ["scheduled"], { status: "proposed" });
-      const proposal = await regenerateProposal(ports, userId, scheduled, slot.end);
-      return { kind: "slot_taken", proposal };
+      const regenerated = await regenerateProposal(ports, userId, scheduled, slot.end);
+      return { kind: "slot_taken", ...regenerated };
     }
 
     let booking: BlockBooking;
@@ -193,8 +194,8 @@ export function createConfirmSlot(ports: ConfirmSlotPorts) {
     } catch (error) {
       await ports.tasks.transition(userId, taskId, ["scheduled"], { status: "proposed" });
       if (error instanceof SlotConflictError) {
-        const proposal = await regenerateProposal(ports, userId, scheduled, slot.end);
-        return { kind: "slot_taken", proposal };
+        const regenerated = await regenerateProposal(ports, userId, scheduled, slot.end);
+        return { kind: "slot_taken", ...regenerated };
       }
       throw error;
     }

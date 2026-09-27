@@ -89,7 +89,10 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
     }
     case "slot_taken": {
       const task = await requireTask(ctx, owner.userId, result.proposal.taskId);
-      await editCard(ctx, target, proposalCard({ kind: "proposed", task, proposal: result.proposal }, viewCtx));
+      const outcome = result.proposal.slots.length === 0
+        ? { kind: "no_slots" as const, task, search: result.search }
+        : { kind: "proposed" as const, task, proposal: result.proposal };
+      await editCard(ctx, target, proposalCard(outcome, viewCtx));
       await answerCallback(ctx);
       return;
     }
