@@ -1,38 +1,29 @@
 {
-  "name": "steza-ai",
-  "version": "0.1.0",
+  "name": "telegram-gpt",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=20.9.0 <21"
-  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "security:scan": "node scripts/check-public-repo.mjs",
-    "check": "npm run security:scan && npm run lint && npm run typecheck && npm test -- --run",
-    "verify": "npm run check && npm run build"
-  },
-  "dependencies": {
-    "next": "16.3.5",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "npm start --workspace=backend",
+    "start:frontend": "npm run dev --workspace=frontend",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "install:all": "npm install --workspace=backend && npm install --workspace=frontend",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "db:init": "mysql -u root -p telegram_gpt < backend/init.sql"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.3",
-    "@types/node": "20.19.24",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.1",
-    "eslint": "9.39.5",
-    "eslint-config-next": "16.3.5",
-    "jsdom": "26.1.0",
-    "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "https-proxy-agent": "^9.1.0",
+    "node-fetch": "^2.7.0"
   }
 }

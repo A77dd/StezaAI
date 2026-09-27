@@ -1,0 +1,95 @@
+.navigation {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    justify-content: center;   /* ← было space-between */
+    gap: 10px;                 /* ← расстояние между панелями */
+    z-index: 100;
+    pointer-events: none;
+}
+
+/* Панели — «пилюли» */
+.navigation__panel {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background-color: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    pointer-events: auto; /* клики работают только по панелям */
+}
+
+/* Основная панель — растягивается */
+.navigation__panel--main {
+    flex: 1;
+    justify-content: space-around;
+    max-width: 320px;
+}
+
+/* Правая панель — квадратная */
+.navigation__panel--chat {
+    width: 56px;
+    height: 56px;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.navigation__panel--chat:active {
+    transform: scale(0.94);
+}
+
+.navigation__panel--chat.navigation__panel--active {
+    background-color: var(--primary);
+    color: var(--background);
+}
+
+.navigation__panel--chat.navigation__panel--active svg {
+    stroke: var(--background);
+}
+
+/* ============================
+   Кнопки-иконки в основной панели
+   ============================ */
+.navigation__item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: var(--gray-400);
+    text-decoration: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.navigation__item:active {
+    transform: scale(0.92);
+}
+
+.navigation__item--active {
+    color: var(--primary);
+    background-color: rgba(46, 235, 103, 0.12);
+}
+
+/* Кнопка "+" — акцентная */
+.navigation__item--plus {
+    background-color: var(--primary);
+    color: var(--background);
+}
+
+.navigation__item--plus:active {
+    transform: scale(0.92);
+    background-color: var(--primary-hover);
+}

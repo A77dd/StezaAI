@@ -1,0 +1,37 @@
+/* src/pages/TasksPage/TasksPage.css */
+.tasks-page {
+    display: flex;
+    flex-direction: column;
+    padding: 40px 20px 100px;
+    min-height: 60vh;
+    justify-content: center;
+}
+
+.tasks-page__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+}
+
+.tasks-page__title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--white);
+    margin: 12px 0 0;
+    letter-spacing: -0.03em;
+}
+
+.tasks-page__text {
+    font-size: 14px;
+    color: var(--gray-400);
+    line-height: 1.5;
+    max-width: 280px;
+    margin: 0;
+}
+
+.tasks-page__text b {
+    color: var(--primary);
+    font-weight: 600;
+}

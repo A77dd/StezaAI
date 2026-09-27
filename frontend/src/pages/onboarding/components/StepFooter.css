@@ -1,0 +1,138 @@
+/* src/pages/onboarding/components/StepFooter/StepFooter.css */
+.step-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+    background-color: var(--surface);
+    z-index: 10;
+}
+
+/* Растворение контента над футером */
+.step-footer::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 24px;
+    background: linear-gradient(
+        to top,
+        var(--surface),
+        transparent
+    );
+    pointer-events: none;
+}
+
+.step-footer__actions {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+}
+
+/* ============================
+   Кнопка "Пропустить"
+   ============================ */
+.step-footer__skip {
+    padding: 14px 20px;
+    border-radius: 24px;
+    background-color: var(--background);
+    color: var(--white);
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+.step-footer__skip:active {
+    background-color: var(--border-color);
+}
+
+.step-footer__skip:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================
+   Основная кнопка
+   ============================ */
+.step-footer__next {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 24px;
+    background-color: var(--primary);
+    color: var(--background);
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+.step-footer__next:active:not(:disabled) {
+    transform: scale(0.98);
+    background-color: var(--primary-hover);
+}
+
+.step-footer__next:disabled {
+    background-color: rgba(46, 235, 103, 0.2);
+    color: var(--gray-500);
+    cursor: not-allowed;
+}
+
+/* ============================
+   Кнопка "Назад"
+   ============================ */
+.step-footer__back-icon {
+    width: 48px;
+    flex-shrink: 0;
+    border-radius: 24px;
+    background-color: var(--background);
+    color: var(--white);
+    font-size: 20px;
+    font-weight: 500;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+.step-footer__back-icon:active {
+    background-color: var(--border-color);
+}
+
+.step-footer__back-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ============================
+   Подсказка под кнопками
+   ============================ */
+.step-footer__hint {
+    margin-top: 12px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--gray-400);
+    text-align: center;
+    padding: 0 8px;
+}
+
+.step-footer__hint a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.step-footer__hint a:active {
+    opacity: 0.7;
+}

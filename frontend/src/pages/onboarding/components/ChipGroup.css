@@ -1,0 +1,29 @@
+/* src/pages/onboarding/components/ChipGroup/ChipGroup.css */
+.chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    padding: 10px 16px;
+    border-radius: 100px;
+    background-color: var(--surface);
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 500;
+    border: 1.5px solid transparent;
+    transition: all var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.chip:active {
+    transform: scale(0.97);
+}
+
+.chip--selected {
+    background-color: var(--surface);
+    color: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 0 12px rgba(46, 235, 103, 0.2);
+}

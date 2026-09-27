@@ -1,0 +1,262 @@
+/* src/pages/ChatPage/ChatPage.css */
+.chat-page {
+    display: flex;
+    flex-direction: column;
+    /* вся доступная высота между Header и Navigation */
+    height: calc(100vh - 280px);
+    background-color: var(--background);
+    overflow: hidden;
+}
+
+/* ============================
+   Сообщения
+   ============================ */
+.chat-page__messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px 16px 8px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ============================
+   Пузыри
+   ============================ */
+.chat-bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: bubble-in 0.3s ease;
+}
+
+@keyframes bubble-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat-bubble--assistant {
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-bottom-left-radius: 6px;
+    color: var(--white);
+}
+
+.chat-bubble--user {
+    align-self: flex-end;
+    background: var(--primary);
+    border-bottom-right-radius: 6px;
+    color: var(--background);
+}
+
+.chat-bubble__text {
+    font-size: 15px;
+    line-height: 1.4;
+    margin: 0;
+    word-wrap: break-word;
+}
+
+.chat-bubble__time {
+    font-size: 10px;
+    opacity: 0.6;
+    align-self: flex-end;
+}
+
+/* ============================
+   Поле ввода — той же высоты, что кнопка
+   ============================ */
+.chat-page__input {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--background);
+    flex-shrink: 0;
+}
+
+.chat-page__input-wrap {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    overflow: hidden;
+}
+
+.chat-page__textarea {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    resize: none;
+    outline: none;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--white);
+    line-height: 1.4;
+    max-height: 120px;
+    overflow-y: auto;
+}
+
+.chat-page__textarea::placeholder {
+    color: var(--gray-500);
+}
+
+.chat-page__send,
+.chat-page__mic {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: var(--background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    user-select: none;
+}
+
+.chat-page__send:active,
+.chat-page__mic:active {
+    transform: scale(0.92);
+}
+
+.chat-page__mic--recording {
+    background: var(--error);
+}
+
+/* ============================
+   Оверлей записи
+   ============================ */
+.chat-page__recording-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    background: rgba(11, 26, 22, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 300;
+    animation: overlay-in 0.2s ease;
+}
+
+@keyframes overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Орб с кольцами и микрофоном */
+.chat-page__recording-orb {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+}
+
+.chat-page__recording-orb svg {
+    width: 40px;
+    height: 40px;
+    z-index: 2;
+}
+
+.chat-page__recording-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    opacity: 0;
+    animation: ring-pulse 2s ease-out infinite;
+}
+
+.chat-page__recording-ring--delay {
+    animation-delay: 0.6s;
+}
+
+.chat-page__recording-ring--delay-2 {
+    animation-delay: 1.2s;
+}
+
+@keyframes ring-pulse {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.9;
+    }
+    100% {
+        transform: scale(1.4);
+        opacity: 0;
+    }
+}
+
+/* Эквалайзер */
+.chat-page__recording-eq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+}
+
+.chat-page__recording-bar {
+    display: block;
+    width: 5px;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--primary);
+    animation: eq-bounce 0.9s ease-in-out infinite;
+    transform-origin: center;
+}
+
+.chat-page__recording-bar:nth-child(1) { animation-delay: 0s;    height: 40%; }
+.chat-page__recording-bar:nth-child(2) { animation-delay: 0.15s; height: 70%; }
+.chat-page__recording-bar:nth-child(3) { animation-delay: 0.3s;  height: 100%; }
+.chat-page__recording-bar:nth-child(4) { animation-delay: 0.15s; height: 70%; }
+.chat-page__recording-bar:nth-child(5) { animation-delay: 0s;    height: 40%; }
+
+@keyframes eq-bounce {
+    0%, 100% {
+        transform: scaleY(0.4);
+        opacity: 0.6;
+    }
+    50% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
+}
+
+.chat-page__recording-text {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.chat-page__recording-hint {
+    font-size: 13px;
+    color: var(--gray-400);
+    margin: 0;
+}

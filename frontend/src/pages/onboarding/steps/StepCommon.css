@@ -1,0 +1,57 @@
+/* src/pages/onboarding/steps/StepCommon.css */
+.step {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 20px;
+}
+
+.step--center {
+    align-items: center;
+    text-align: center;
+    padding-top: 60px;
+}
+
+.step__emoji {
+    font-size: 64px;
+    margin-bottom: 8px;
+    line-height: 1;
+}
+
+.step__title {
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--white);
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    margin: 0;
+}
+
+.step__subtitle {
+    font-size: 15px;
+    color: var(--gray-400);
+    line-height: 1.5;
+    margin: 0 0 8px;
+}
+
+.step__input {
+    margin-top: 16px;
+    padding: 14px 18px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border-color);
+    background-color: var(--surface);
+    font-size: 15px;
+    color: var(--white);
+    outline: none;
+    transition: border-color var(--transition-fast);
+    font-family: inherit;
+    width: 100%;
+}
+
+.step__input::placeholder {
+    color: var(--gray-500);
+}
+
+.step__input:focus {
+    border-color: var(--primary);
+}

@@ -1,0 +1,31 @@
+/* src/pages/onboarding/components/StepProgress/StepProgress.css */
+.step-progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 20px 12px;
+}
+
+.step-progress__bar {
+    flex: 1;
+    height: 4px;
+    background-color: var(--surface);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.step-progress__fill {
+    height: 100%;
+    background-color: var(--primary);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px rgba(46, 235, 103, 0.6);
+}
+
+.step-progress__label {
+    font-size: 13px;
+    color: var(--gray-400);
+    font-weight: 500;
+    min-width: 40px;
+    text-align: right;
+}

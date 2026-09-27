@@ -1,0 +1,18 @@
+/* src/pages/onboarding/OnboardingPage.css */
+.onboarding {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--bg);
+    color: var(--white);
+    padding-top: 100px; /* top safe zone — сдвигаем контент вниз */
+}
+
+.onboarding__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px;
+    overflow-y: auto;
+}

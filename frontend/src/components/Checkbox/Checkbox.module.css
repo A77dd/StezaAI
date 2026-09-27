@@ -1,0 +1,81 @@
+/* components/Checkbox/Checkbox.module.css */
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox.disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.customCheckbox {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  border: 2px solid rgba(96, 128, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.customCheckbox svg {
+  width: 12px;
+  height: 10px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.input:checked + .customCheckbox svg {
+  opacity: 1;
+}
+
+.checkbox:hover .customCheckbox {
+  border-color: rgba(96, 128, 255, 0.5);
+}
+
+.input:checked + .customCheckbox {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.input:focus + .customCheckbox {
+  box-shadow: 0 0 0 2px rgba(96, 128, 255, 0.2);
+}
+
+.label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  display: inline-block;
+}
+
+.link {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.required {
+  color: #dc2626;
+  margin-left: 2px;
+}

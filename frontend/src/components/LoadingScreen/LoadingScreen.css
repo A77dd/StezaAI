@@ -1,0 +1,167 @@
+/* src/components/LoadingScreen/LoadingScreen.css */
+.loading-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--background);
+    z-index: 9999;
+    overflow: hidden;
+    transition: background-color 0.3s ease;
+}
+
+/* Фоновое свечение */
+.loading-screen__glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 600px;
+    height: 600px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(
+        circle,
+        rgba(46, 235, 103, 0.18) 0%,
+        rgba(46, 235, 103, 0.06) 35%,
+        transparent 70%
+    );
+    animation: loading-pulse-bg 3s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes loading-pulse-bg {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.15);
+        opacity: 1;
+    }
+}
+
+.loading-screen__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Пульсирующий орб с кольцами */
+.loading-screen__orb {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-screen__orb::before,
+.loading-screen__orb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    opacity: 0;
+    animation: loading-ring 2.4s ease-out infinite;
+}
+
+.loading-screen__orb::after {
+    animation-delay: 1.2s;
+}
+
+@keyframes loading-ring {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+.loading-screen__orb-inner {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow:
+        0 0 24px rgba(46, 235, 103, 0.6),
+        0 0 48px rgba(46, 235, 103, 0.3);
+    animation: loading-orb-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes loading-orb-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow:
+            0 0 24px rgba(46, 235, 103, 0.6),
+            0 0 48px rgba(46, 235, 103, 0.3);
+    }
+    50% {
+        transform: scale(1.08);
+        box-shadow:
+            0 0 32px rgba(46, 235, 103, 0.9),
+            0 0 64px rgba(46, 235, 103, 0.5);
+    }
+}
+
+/* Логотип */
+.loading-screen__brand {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--primary);
+    letter-spacing: -0.05em;
+    margin: 0;
+    text-shadow:
+        0 0 20px rgba(46, 235, 103, 0.5),
+        0 0 40px rgba(46, 235, 103, 0.25);
+    animation: loading-brand-fade 2.4s ease-in-out infinite;
+}
+
+@keyframes loading-brand-fade {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.7; }
+}
+
+/* Три точки */
+.loading-screen__dots {
+    display: flex;
+    gap: 8px;
+}
+
+.loading-screen__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--primary);
+    opacity: 0.4;
+    animation: loading-dot-bounce 1.4s ease-in-out infinite;
+}
+
+.loading-screen__dot:nth-child(1) { animation-delay: 0s; }
+.loading-screen__dot:nth-child(2) { animation-delay: 0.2s; }
+.loading-screen__dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes loading-dot-bounce {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+    }
+    40% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+.loading-screen__text {
+    font-size: 13px;
+    color: var(--gray-400);
+    margin: 0;
+    letter-spacing: 0.02em;
+}

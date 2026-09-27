@@ -1,0 +1,15 @@
+/* src/components/OnboardingLayout/OnboardingLayout.css */
+.onboarding-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--bg);
+}
+
+.onboarding-layout__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px 32px;
+}
