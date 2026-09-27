@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import { GrammyError, HttpError } from "grammy";
 import { describe, expect, it } from "vitest";
 import { AlreadyExistsError } from "../domain";
@@ -116,5 +117,51 @@ describe("UpdateProcessingError", () => {
     expect(error.causeCode).toBe("unexpected");
     expect(error.cause).toBe(cause);
     expect(error.message).not.toContain("secret text");
+  });
+
+  it("renders a redacted description, never the raw cause, through JSON.stringify", () => {
+    const cause = apiError(400, "Bad Request: chat not found");
+    const error = new UpdateProcessingError({ updateId: 7, causeCode: "telegram_bad_request", cause });
+
+    const json = JSON.stringify(error);
+
+    expect(JSON.parse(json)).toEqual({
+      name: "UpdateProcessingError",
+      code: "update_processing_failed",
+      updateId: 7,
+      causeCode: "telegram_bad_request",
+      cause: { errorClass: "GrammyError", errorCode: "telegram_bad_request", telegramStatus: 400, method: "sendMessage", detail: "Bad Request: chat not found" },
+    });
+    expect(json).not.toContain("private text");
+  });
+
+  it("renders the same redacted description through util.inspect (console.log/console.error)", () => {
+    const cause = new TypeError("cannot read property of my private text");
+    const error = new UpdateProcessingError({ updateId: 7, causeCode: "unexpected", cause });
+
+    const rendered = inspect(error);
+
+    expect(rendered).toContain("UpdateProcessingError");
+    expect(rendered).toContain("unexpected");
+    expect(rendered).not.toContain("private text");
+  });
+
+  it("never leaks the request payload of a Bot API error through either route", () => {
+    const cause = apiError(400, "Bad Request: chat not found");
+    const error = new UpdateProcessingError({ updateId: 7, causeCode: "telegram_bad_request", cause });
+
+    expect(JSON.stringify(error)).not.toContain("private text");
+    expect(inspect(error)).not.toContain("private text");
+  });
+
+  it("never leaks a bot token from a network error through either route", () => {
+    const cause = new HttpError(
+      "Network request failed!",
+      new Error(`request to https://api.example.test/bot${TOKEN}/sendMessage failed`),
+    );
+    const error = new UpdateProcessingError({ updateId: 7, causeCode: "telegram_network_error", cause });
+
+    expect(JSON.stringify(error)).not.toContain(TOKEN);
+    expect(inspect(error)).not.toContain(TOKEN);
   });
 });

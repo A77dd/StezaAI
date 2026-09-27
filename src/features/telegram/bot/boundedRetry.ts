@@ -120,7 +120,10 @@ function decide(
   if (response.ok) return undefined;
   const retryAfter = response.parameters?.retry_after;
   if (retryAfter !== undefined) {
-    return retryAfter <= maxDelaySeconds ? { reason: "rate_limited", delaySeconds: retryAfter } : undefined;
+    // Telegram's own value; clamped defensively so a malformed or negative
+    // one can never turn into a negative `setTimeout` delay.
+    const delaySeconds = Math.max(0, retryAfter);
+    return delaySeconds <= maxDelaySeconds ? { reason: "rate_limited", delaySeconds } : undefined;
   }
   if (response.error_code >= 500 && isIdempotentMethod(method)) {
     return { reason: "server_error", delaySeconds: backoff };

@@ -68,6 +68,11 @@ describe("redaction", () => {
     "phone",
     "secret_token",
     "botToken",
+    "title",
+    "chatTitle",
+    "name",
+    "bio",
+    "description",
   ])("replaces the value of a field named %s", (key) => {
     const logger = createMemoryLogger();
 
@@ -75,6 +80,15 @@ describe("redaction", () => {
 
     expect(logger.records[0]?.[key]).toBe(REDACTED);
     expect(logger.serialized()).not.toContain("sensitive value");
+  });
+
+  it("redacts a group or channel title (chatTitle)", () => {
+    const logger = createMemoryLogger();
+
+    logger.info("x", { chatTitle: "EVIL" });
+
+    expect(logger.records[0]?.chatTitle).toBe(REDACTED);
+    expect(logger.serialized()).not.toContain("EVIL");
   });
 
   it("redacts sensitive keys in nested objects and arrays", () => {

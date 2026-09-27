@@ -3,13 +3,18 @@
  * typed context, the presenter that turns rendered messages into Bot API
  * calls, ports and in-memory adapters, and structured logging. Together with
  * `handlers/` this is the only code allowed to import grammY.
+ *
+ * A handful of lower-level pieces (`bindKeyboard`, `boundedRetry`,
+ * `installOutboundPolicy`, `redactTransportErrors`, `createBotContextClass`,
+ * `hasAnsweredCallback`) are internals that `createBot`/`presenter` already
+ * compose for callers; nothing outside `bot/` used them through this barrel
+ * as of this file's last split, so they live in `./testing` instead of here.
+ * If a later task (handlers, or a runtime host) genuinely needs one, promote
+ * that one export back here rather than reaching into `./testing`.
  */
 export { ALLOWED_UPDATES } from "./allowedUpdates";
-export { bindKeyboard } from "./bindKeyboard";
 export type { CallbackOwner } from "./bindKeyboard";
-export { boundedRetry, isIdempotentMethod } from "./boundedRetry";
-export type { BoundedRetryOptions, RetryReason, Sleep } from "./boundedRetry";
-export { createBotContextClass, DEFAULT_VIEW_TIMEZONE } from "./context";
+export { DEFAULT_VIEW_TIMEZONE } from "./context";
 export type { BotContext, BotContextFlavor } from "./context";
 export { createBot } from "./createBot";
 export type { CreateBotOptions } from "./createBot";
@@ -21,9 +26,8 @@ export { createInMemoryUpdateDeduper } from "./inMemoryUpdateDeduper";
 export type { InMemoryUpdateDeduperOptions } from "./inMemoryUpdateDeduper";
 export { createJsonLogger, createMemoryLogger } from "./logger";
 export type { LogFields, Logger, LoggerOptions, LogLevel, LogRecord, LogValue, MemoryLogger } from "./logger";
-export { hasAnsweredCallback } from "./middleware/callbackAnswers";
-export { installOutboundPolicy, realSleep, redactTransportErrors } from "./outbound";
-export type { OutboundPolicy } from "./outbound";
+export type { Sleep } from "./boundedRetry";
+export { realSleep } from "./outbound";
 export type { UpdateDeduper } from "./ports";
 export {
   answerCallback,

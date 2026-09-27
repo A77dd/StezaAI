@@ -32,6 +32,11 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set([
   "authorization",
   "initdata",
   "cookie",
+  "title",
+  "chattitle",
+  "name",
+  "bio",
+  "description",
 ]);
 
 // Credentials come in many spellings (`botToken`, `secret_token`, `apiKey`).

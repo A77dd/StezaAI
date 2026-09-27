@@ -15,7 +15,13 @@ import { hasAnsweredCallback } from "./callbackAnswers";
  */
 const NOTICE_KINDS: ReadonlySet<string> = new Set(["message", "callback_query"]);
 
-type NoticeDelivery = "answered_callback" | "sent_message" | "skipped_forbidden" | "skipped_kind" | "skipped_no_chat";
+type NoticeDelivery =
+  | "answered_callback"
+  | "sent_message"
+  | "skipped_forbidden"
+  | "skipped_rate_limited"
+  | "skipped_kind"
+  | "skipped_no_chat";
 
 /**
  * Tells the user, once, that the action failed. A callback query is answered
@@ -28,6 +34,9 @@ async function deliverNotice(ctx: BotContext, notice: Notice, error: unknown): P
   // A 403 means the bot may not write here (blocked, kicked). Another send
   // would fail the same way and only bury the real error.
   if (classifyTelegramError(error) === "forbidden") return "skipped_forbidden";
+  // The update failed because Telegram is already rate-limiting this chat; a
+  // notice is another call to the same chat and would likely hit the same 429.
+  if (classifyTelegramError(error) === "rate_limited") return "skipped_rate_limited";
   if (!NOTICE_KINDS.has(updateKindOf(ctx.update))) return "skipped_kind";
   if (ctx.callbackQuery !== undefined && !hasAnsweredCallback(ctx)) {
     await ctx.answerCallbackQuery({ text: notice.text, show_alert: true });
@@ -51,9 +60,10 @@ async function deliverNotice(ctx: BotContext, notice: Notice, error: unknown): P
  * (`update.notice_failed`) and the ORIGINAL error is still the one rethrown:
  * a failure of the courtesy message must not hide the real failure.
  *
- * Blocked users: a 403 skips the notice (see `deliverNotice`). Recording that
- * the user blocked the bot (to stop reminders) is a job for the membership
- * handler (`my_chat_member`), not for this generic boundary.
+ * Blocked or rate-limited chats: a 403 or a 429 (the update itself failed
+ * because of flood control) skips the notice (see `deliverNotice`). Recording
+ * that the user blocked the bot (to stop reminders) is a job for the
+ * membership handler (`my_chat_member`), not for this generic boundary.
  */
 export function errorBoundary(): MiddlewareFn<BotContext> {
   return async (ctx, next) => {

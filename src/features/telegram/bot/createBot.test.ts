@@ -1,4 +1,4 @@
-import { Composer } from "grammy";
+import { BotError, Composer, GrammyError } from "grammy";
 import type { Transformer } from "grammy";
 import { describe, expect, it } from "vitest";
 import { parseTelegramConfig } from "../config";
@@ -7,6 +7,7 @@ import { TEST_BOT_TOKEN, createPipelineHarness, createTestConfig } from "../test
 import { createTelegramTestKit } from "../testing/testKit";
 import type { BotContext } from "./context";
 import { createBot } from "./createBot";
+import { UpdateProcessingError } from "./errors";
 import { createInMemoryServices } from "./inMemoryServices";
 import { createMemoryLogger } from "./logger";
 import { sendCard } from "./presenter";
@@ -100,6 +101,34 @@ describe("createBot: configuration", () => {
 
     expect(seen).toEqual([h.services]);
     expect(seen[0]).toBe(h.services);
+  });
+
+  it("installs its own bot.catch: logs a redacted description through services.logger and does not rethrow", async () => {
+    // errorBoundary already handled this and produced the UpdateProcessingError;
+    // bot.catch is the net for whatever reaches grammY anyway (a bug, or
+    // middleware installed outside createBot). Exercised directly against the
+    // installed `bot.errorHandler`, which is what grammY's own polling loop
+    // and @grammyjs/runner call.
+    const h = createPipelineHarness();
+    const cause = new GrammyError(
+      "Call to 'sendMessage' failed!",
+      { ok: false, error_code: 400, description: "Bad Request: chat not found" },
+      "sendMessage",
+      { chat_id: 1, text: "private plan text" },
+    );
+    const error = new UpdateProcessingError({ updateId: 1, causeCode: "telegram_bad_request", cause });
+    const botError = new BotError<BotContext>(error, {} as BotContext);
+
+    await h.bot.errorHandler(botError);
+
+    expect(h.logger.records).toContainEqual({
+      level: "error",
+      event: "bot.catch",
+      errorClass: "UpdateProcessingError",
+      errorCode: "update_processing_failed",
+      detail: "Update 1 failed (telegram_bad_request)",
+    });
+    expect(h.logger.serialized()).not.toContain("private plan text");
   });
 
   it("runs several composers in the given order", async () => {

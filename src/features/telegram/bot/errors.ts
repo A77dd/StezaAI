@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import { GrammyError, HttpError } from "grammy";
 import { TelegramLayerError } from "../domain";
 import { classifyTelegramError } from "./telegramErrors";
@@ -13,6 +14,15 @@ import { redactTokens } from "./redaction";
  * grammY wraps whatever middleware throws in a `BotError` (`.error` is this
  * error). The runtime must log `describeError(cause)`, never the raw cause:
  * a `GrammyError` carries the request payload, which contains message text.
+ *
+ * Defense in depth: `errorBoundary` already logs a redacted description
+ * before this is thrown, but nothing stops a caller (a test failure printout,
+ * an unrelated `console.log(err)`, grammY's own default `bot.catch`) from
+ * inspecting or serializing this error directly. `cause` is the raw error, so
+ * a plain `JSON.stringify` or `util.inspect` would otherwise show a
+ * `GrammyError`'s request payload (message text) or a transport error's URL
+ * (the bot token). `toJSON` and the custom inspector below make both routes
+ * render `describeError(cause)` instead.
  */
 export class UpdateProcessingError extends TelegramLayerError {
   readonly updateId: number;
@@ -27,6 +37,33 @@ export class UpdateProcessingError extends TelegramLayerError {
     );
     this.updateId = input.updateId;
     this.causeCode = input.causeCode;
+  }
+
+  /** What `toJSON` and the custom inspector both show: never the raw `cause`. */
+  private safeDescription(): {
+    readonly name: string;
+    readonly code: string;
+    readonly updateId: number;
+    readonly causeCode: string;
+    readonly cause: ErrorDescription;
+  } {
+    return {
+      name: this.name,
+      code: this.code,
+      updateId: this.updateId,
+      causeCode: this.causeCode,
+      cause: describeError(this.cause),
+    };
+  }
+
+  /** Used by `JSON.stringify(error)`. */
+  toJSON(): unknown {
+    return this.safeDescription();
+  }
+
+  /** Used by `util.inspect(error)` (and so by `console.log`/`console.error`). */
+  [inspect.custom](): string {
+    return `${this.name}: ${JSON.stringify(this.safeDescription())}`;
   }
 }
 
