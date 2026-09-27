@@ -40,6 +40,7 @@ export function registerVoice(composer: Composer<BotContext>): void {
     }
 
     const file = await ctx.api.getFile(voice.file_id);
+    await ctx.api.sendChatAction(ctx.chat.id, "record_voice");
     if (file.file_path === undefined) {
       ctx.log.warn("voice.file_path_unavailable");
       await sendVoiceNotice(ctx, "voice_unavailable");
