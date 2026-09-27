@@ -29,7 +29,7 @@ function recordingComposer(seen: Seen[]): Composer<BotContext> {
 }
 
 describe("pipeline: context enrichment", () => {
-  it("derives the locale from language_code when the user has no settings", async () => {
+  it("answers in Russian whatever the client's language_code is (Russian-only pilot)", async () => {
     const seen: Seen[] = [];
     const h = createPipelineHarness({ composers: [recordingComposer(seen)] });
 
@@ -37,10 +37,10 @@ describe("pipeline: context enrichment", () => {
     await h.deliver(h.kit.updates.privateText("b", { from: { ...ALEX, language_code: "de" } }));
     await h.deliver(h.kit.updates.privateText("c", { from: { ...ALEX, language_code: undefined } }));
 
-    expect(seen.map((entry) => entry.locale)).toEqual(["en", "ru", "ru"]);
+    expect(seen.map((entry) => entry.locale)).toEqual(["ru", "ru", "ru"]);
   });
 
-  it("prefers the stored settings locale over language_code", async () => {
+  it("keeps Russian even when the stored settings say en (Russian-only pilot)", async () => {
     const seen: Seen[] = [];
     const h = createPipelineHarness({ composers: [recordingComposer(seen)] });
     await h.services.settings.upsert({
@@ -50,7 +50,7 @@ describe("pipeline: context enrichment", () => {
 
     await h.deliver(h.kit.updates.privateText("привет", { from: { ...ALEX, language_code: "ru" } }));
 
-    expect(seen[0]).toMatchObject({ locale: "en", timezone: "Europe/Moscow" });
+    expect(seen[0]).toMatchObject({ locale: "ru", timezone: "Europe/Moscow" });
     expect(seen[0]?.settings?.locale).toBe("en");
   });
 

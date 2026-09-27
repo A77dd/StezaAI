@@ -20,6 +20,7 @@ describe("createInMemoryServices", () => {
         "clock",
         "config",
         "deduper",
+        "draftStreams",
         "drafts",
         "ids",
         "intentParser",

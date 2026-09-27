@@ -16,6 +16,7 @@ import type {
   TranscriptionPort,
 } from "../domain";
 import type { PersonalFlow } from "../domain/useCases";
+import type { DraftStreamRegistry } from "./draftStreams";
 import type { Logger } from "./logger";
 import type { TelegramFileDownloadPort, UpdateDeduper } from "./ports";
 import type { PromptTracker } from "./promptTracker";
@@ -53,6 +54,8 @@ export type BotServices = {
   readonly pendingInputs: PendingInputRepository;
   /** Which prompt message a chat is waiting on a plain-text reply for; see `./promptTracker`. */
   readonly promptTracker: PromptTracker;
+  /** Live streaming drafts (scenario I): `stopped_message_generation` reaches them here; see `./draftStreams`. */
+  readonly draftStreams: DraftStreamRegistry;
   /** The personal-flow use-cases (Task 7a), wired to this same set of ports. */
   readonly personalFlow: PersonalFlow;
 };

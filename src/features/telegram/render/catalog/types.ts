@@ -51,6 +51,12 @@ export type Catalog = {
     readonly commandDescriptions: { readonly [K in HelpCommand]: string };
     readonly footer: string;
   };
+  readonly demo: {
+    /** Paragraphs the `/demo` simulation streams as drafts, in order. */
+    readonly paragraphs: readonly string[];
+    readonly doneTitle: string;
+    readonly doneNote: string;
+  };
   readonly task: {
     readonly deadline: string;
     readonly estimate: string;

@@ -6,7 +6,7 @@ import { getCatalog } from "../render";
 import type { ViewContext } from "../render";
 import type { Logger } from "./logger";
 import type { BotServices } from "./services";
-import { chatContextOf, chatTypeOf, deriveLocale, updateKindOf } from "./updateFacts";
+import { chatContextOf, chatTypeOf, updateKindOf } from "./updateFacts";
 import type { ChatKind } from "./updateFacts";
 
 /**
@@ -66,7 +66,10 @@ export function createBotContextClass(
     constructor(update: Update, api: Api, me: UserFromGetMe) {
       super(update, api, me);
       this.chatContext = chatContextOf(this.chatKind());
-      this.locale = deriveLocale(this.from?.language_code);
+      // Product decision (2026-09-27): the pilot speaks Russian only, whatever
+      // the client's `language_code` is. The catalogs stay bilingual, so
+      // re-enabling `deriveLocale` is a one-line change here.
+      this.locale = "ru";
       this.log = services.logger.child({ updateId: update.update_id });
     }
 

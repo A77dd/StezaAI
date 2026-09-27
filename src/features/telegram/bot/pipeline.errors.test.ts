@@ -10,7 +10,6 @@ import type { BotContext } from "./context";
 import { UpdateProcessingError } from "./errors";
 
 const ru = getCatalog("ru");
-const en = getCatalog("en");
 
 function failingComposer(error: () => unknown): Composer<BotContext> {
   const composer = new Composer<BotContext>();
@@ -80,13 +79,13 @@ describe("pipeline: error boundary", () => {
     ]);
   });
 
-  it("answers in English for an English-speaking user without stored settings", async () => {
+  it("answers in Russian even for an English-speaking client (Russian-only pilot)", async () => {
     const h = createPipelineHarness({ composers: [failingComposer(() => new Error("x"))] });
     const english = { ...ALEX, language_code: "en" };
 
     await h.deliverExpectingFailure(h.kit.updates.privateText("hi", { from: english }));
 
-    expectCall(h.kit, "sendMessage", { text: en.notices.failure });
+    expectCall(h.kit, "sendMessage", { text: ru.notices.failure });
   });
 
   it("replies to the invoking message in a group", async () => {

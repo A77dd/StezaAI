@@ -2,6 +2,7 @@ import { Composer } from "grammy";
 import type { BotContext } from "../bot";
 import { registerGroupFlow } from "./group";
 import { registerPersonalFlow } from "./personal";
+import { registerStreaming } from "./streaming";
 
 /**
  * The bot's handlers as one composer, installed after the pipeline
@@ -14,5 +15,6 @@ export function createHandlers(): Composer<BotContext> {
   const composer = new Composer<BotContext>();
   composer.use(registerPersonalFlow());
   composer.use(registerGroupFlow());
+  composer.use(registerStreaming());
   return composer;
 }

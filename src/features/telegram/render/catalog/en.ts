@@ -58,6 +58,16 @@ export const en: Catalog = {
     },
     footer: "Everything I remember, you can review, correct and delete.",
   },
+  demo: {
+    paragraphs: [
+      "Imagine this is a language model's answer…",
+      "It appears on screen gradually, as it is being generated.",
+      "You can press Stop at any moment — the generation aborts.",
+      "The final answer always arrives as a regular message; the draft disappears.",
+    ],
+    doneTitle: "Streaming works",
+    doneNote: "This is how answers will look once a language model is connected: text appears gradually, and Stop aborts the generation.",
+  },
   task: {
     deadline: "Deadline",
     estimate: "Estimate",

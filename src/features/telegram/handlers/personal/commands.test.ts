@@ -42,19 +42,20 @@ describe("personal flow: commands", () => {
     expect(await h.services.settings.get(USER_ID)).not.toBeNull();
   });
 
-  it("/help lists only the commands this task implements", async () => {
+  it("/help goes out as a Rich Message and lists only the commands this task implements", async () => {
     const h = makeHarness();
 
     await h.deliver(h.kit.updates.command("help", undefined, { from: ALEX }));
 
-    const sent = expectCall(h.kit, "sendMessage", { chat_id: CHAT_ID });
-    const text = expectRenderedText(sent);
-    expect(text).toContain("/start");
-    expect(text).toContain("/settings");
-    expect(text).toContain("/export");
-    expect(text).toContain("/deleteme");
-    expect(text).not.toContain("/today");
-    expect(text).not.toContain("/week");
+    const sent = expectCall(h.kit, "sendRichMessage", { chat_id: CHAT_ID });
+    const markdown = (sent.payload.rich_message as { markdown: string }).markdown;
+    expect(markdown).toContain("# Что я умею");
+    expect(markdown).toContain("- /start —");
+    expect(markdown).toContain("- /settings —");
+    expect(markdown).toContain("- /export —");
+    expect(markdown).toContain("- /deleteme —");
+    expect(markdown).not.toContain("/today");
+    expect(markdown).not.toContain("/week");
   });
 
   it("/settings renders the settings card with toggle buttons", async () => {

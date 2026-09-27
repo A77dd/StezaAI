@@ -22,6 +22,7 @@ import { createPersonalFlow } from "../domain/useCases";
 import { createInMemoryUpdateDeduper } from "./inMemoryUpdateDeduper";
 import type { Logger } from "./logger";
 import { createPromptTracker } from "./promptTracker";
+import { createDraftStreamRegistry } from "./draftStreams";
 import type { BotServices } from "./services";
 
 export type InMemoryServicesInput = {
@@ -97,6 +98,7 @@ export function createInMemoryServices(input: InMemoryServicesInput): BotService
     proposals,
     pendingInputs,
     promptTracker: input.promptTracker ?? createPromptTracker(),
+    draftStreams: input.draftStreams ?? createDraftStreamRegistry(),
     personalFlow,
   };
 }
