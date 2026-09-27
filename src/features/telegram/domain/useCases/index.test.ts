@@ -39,6 +39,7 @@ describe("createPersonalFlow", () => {
         "confirmSlot",
         "deleteUserData",
         "exportUserData",
+        "getRetryableProposal",
         "nextSlots",
         "proposeSlots",
         "setBlockLength",

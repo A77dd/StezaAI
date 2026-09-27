@@ -10,6 +10,7 @@ export * from "./chooseIntent";
 export * from "./confirmSlot";
 export * from "./deleteUserData";
 export * from "./exportUserData";
+export * from "./getRetryableProposal";
 export * from "./nextSlots";
 export * from "./ports";
 export * from "./proposeSlots";
@@ -23,6 +24,7 @@ import { createChooseIntent } from "./chooseIntent";
 import { createConfirmSlot } from "./confirmSlot";
 import { createDeleteUserData } from "./deleteUserData";
 import { createExportUserData } from "./exportUserData";
+import { createGetRetryableProposal } from "./getRetryableProposal";
 import { createNextSlots } from "./nextSlots";
 import type { PersonalFlowPorts } from "./ports";
 import { createProposeSlots } from "./proposeSlots";
@@ -45,6 +47,7 @@ export function createPersonalFlow(ports: PersonalFlowPorts) {
     chooseIntent: createChooseIntent(ports),
     proposeSlots: createProposeSlots(ports),
     confirmSlot: createConfirmSlot(ports),
+    getRetryableProposal: createGetRetryableProposal(ports),
     nextSlots: createNextSlots(ports),
     beginTaskEdit: createBeginTaskEdit(ports),
     applyTaskEdit: createApplyTaskEdit(ports),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInMemoryCalendar } from "../../adapters";
+import { createInMemoryCalendar, createSlotScheduler } from "../../adapters";
 import { createSequentialIdGenerator } from "../../adapters/idGenerator";
 import { ALEX } from "../../testing/participants";
 import { createPipelineHarness } from "../../testing/pipelineHarness";
@@ -106,14 +106,27 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
   });
 
   it("re-renders a fresh proposal after a transient calendar failure and reports the failure", async () => {
+    const baseScheduler = createSlotScheduler();
+    let schedulerCalls = 0;
     const h = createPipelineHarness({
       composers: [registerPersonalFlow()],
-      services: { calendar: makeFlakyCalendar() },
+      services: {
+        calendar: makeFlakyCalendar(),
+        scheduler: {
+          propose(input) {
+            schedulerCalls += 1;
+            const result = baseScheduler.propose(input);
+            return { ...result, slots: result.slots.slice(0, 1) };
+          },
+        },
+      },
     });
     await confirmTimezone(h);
     await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
     const card = h.kit.fake.messages.last(CHAT_ID)!.message;
+    expect(card.reply_markup?.inline_keyboard[0]).toHaveLength(1);
     const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+    const originalSlotLabel = card.reply_markup!.inline_keyboard[0]![0]!.text;
 
     const failure = await h.deliverExpectingFailure(h.kit.updates.callbackQuery(card, oldData));
 
@@ -122,6 +135,9 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: card.message_id });
     expect(expectRenderedText(edited)).toContain("Подготовить презентацию");
     const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
+    expect(refreshed.reply_markup?.inline_keyboard[0]).toHaveLength(1);
+    expect(refreshed.reply_markup!.inline_keyboard[0]![0]!.text).toBe(originalSlotLabel);
+    expect(schedulerCalls).toBe(1);
     const freshData = lastSlotButtonData(refreshed as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
     expect(freshData).not.toBe(oldData);
 

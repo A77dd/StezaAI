@@ -62,8 +62,13 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
   } catch (error) {
     // The callback token is single-use. Restore an actionable card before
     // rethrowing so the error boundary can log and report the failed booking.
-    const retryCard = await nextSlotsCard(ctx, owner.userId, resolved.payload.taskId, viewCtx);
-    await editCard(ctx, target, retryCard);
+    const retryable = await ctx.services.personalFlow.getRetryableProposal({
+      userId: owner.userId,
+      taskId: resolved.payload.taskId,
+    });
+    if (retryable !== null) {
+      await editCard(ctx, target, proposalCard({ kind: "proposed", ...retryable }, viewCtx));
+    }
     throw error;
   }
 
