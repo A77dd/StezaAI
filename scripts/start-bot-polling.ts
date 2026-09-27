@@ -15,6 +15,15 @@ import { startPolling } from "@/features/telegram/runtime/polling";
 async function main(): Promise<void> {
   const logger = createJsonLogger((line) => console.log(line));
 
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  if (nodeMajor < 22) {
+    logger.error("bot.startup_failed", {
+      errorCode: "unsupported_runtime",
+      detail: `Node ${process.versions.node} is below the ADR 0003 baseline (22.23.3); run \`nvm use\` first (.nvmrc)`,
+    });
+    process.exit(1);
+  }
+
   let config;
   try {
     config = parseTelegramConfig(process.env);

@@ -36,11 +36,11 @@ export type StartPollingOptions = {
 export async function startPolling(options: StartPollingOptions): Promise<PollingHandle> {
   const { bot, config, logger } = options;
 
-  if (bot.botInfo === undefined) await bot.init();
-  const username = bot.botInfo?.username;
-  if (username === undefined || username.toLowerCase() !== config.botUsername.toLowerCase()) {
+  if (!bot.isInited()) await bot.init();
+  const username = bot.botInfo.username;
+  if (username.toLowerCase() !== config.botUsername.toLowerCase()) {
     throw new Error(
-      `polling: getMe returned @${username ?? "unknown"} but the configuration expects @${config.botUsername}; fix TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_USERNAME`,
+      `polling: getMe returned @${username} but the configuration expects @${config.botUsername}; fix TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_USERNAME`,
     );
   }
 
