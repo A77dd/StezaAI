@@ -85,4 +85,26 @@ describe("personal flow: task.edit", () => {
     await h.kit.press(h.bot, refreshed, { data: freshData });
     expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
+
+  it("preserves the booked card when a stale edit action receives a no-change reply", async () => {
+    const h = makeHarness();
+    const proposedCard = await proposeTask(h);
+    const slotData = (proposedCard.reply_markup!.inline_keyboard[0]![0] as { callback_data: string }).callback_data;
+    await h.kit.press(h.bot, proposedCard, { data: slotData });
+    const bookedCard = h.kit.fake.messages.get(CHAT_ID, proposedCard.message_id)!.message;
+    const bookedText = bookedCard.text;
+    const bookedMarkup = structuredClone(bookedCard.reply_markup);
+    const editsBeforeNoChange = h.kit.fake.callsTo("editMessageText").length;
+
+    await h.kit.press(h.bot, proposedCard, { text: "Изменить" });
+    await h.deliver(h.kit.updates.privateText("хм ладно", { from: ALEX }));
+
+    const unchangedBookedCard = h.kit.fake.messages.get(CHAT_ID, proposedCard.message_id)!.message;
+    expect(unchangedBookedCard.text).toBe(bookedText);
+    expect(unchangedBookedCard.reply_markup).toEqual(bookedMarkup);
+    expect(h.kit.fake.callsTo("editMessageText")).toHaveLength(editsBeforeNoChange);
+    expect(h.kit.fake.lastCall("sendMessage")?.payload).toMatchObject({ chat_id: CHAT_ID });
+    expect(expectRenderedText(h.kit.fake.lastCall("sendMessage")!)).toBe("Ничего не изменилось.");
+    expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "scheduled", bookingId: expect.any(String) });
+  });
 });

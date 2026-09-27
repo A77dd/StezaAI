@@ -102,9 +102,16 @@ async function applyTaskEditReply(
   let rendered: RenderedMessage;
   if (result.kind === "nothing_changed") {
     const retryable = await ctx.services.personalFlow.getRetryableProposal({ userId, taskId: result.task.id });
-    rendered = retryable === null
-      ? renderMessage({ body: text(viewCtx.catalog.personal.taskEditNoChange) })
-      : proposalCard({ kind: "proposed", ...retryable }, viewCtx);
+    if (retryable !== null) {
+      rendered = proposalCard({ kind: "proposed", ...retryable }, viewCtx);
+    } else {
+      const notice = renderMessage({ body: text(viewCtx.catalog.personal.taskEditNoChange) });
+      if (result.task.status === "scheduled") {
+        await sendCard(ctx, notice);
+        return;
+      }
+      rendered = notice;
+    }
   } else {
     rendered = proposalCard(result, viewCtx);
   }
