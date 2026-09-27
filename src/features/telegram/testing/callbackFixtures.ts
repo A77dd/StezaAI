@@ -16,6 +16,7 @@ export const SAMPLE_CALLBACK_PAYLOADS: { readonly [A in CallbackAction]: Callbac
   "calendar.month": { taskId: LONG_ID, year: 2026, month: 10 },
   "calendar.day": { taskId: LONG_ID, year: 2026, month: 10, day: 12 },
   "welcome.providers": {},
+  "welcome.providers.back": {},
   "welcome.main": {},
   "welcome.connect": { provider: "google" },
   "task.edit": { taskId: LONG_ID },

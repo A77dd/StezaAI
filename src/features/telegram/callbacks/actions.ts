@@ -33,6 +33,7 @@ export type CallbackPayloads = {
   "calendar.month": { readonly taskId: string; readonly year: number; readonly month: number };
   "calendar.day": { readonly taskId: string; readonly year: number; readonly month: number; readonly day: number };
   "welcome.providers": Record<string, never>;
+  "welcome.providers.back": Record<string, never>;
   "welcome.main": Record<string, never>;
   "welcome.connect": { readonly provider: string };
   "task.edit": { readonly taskId: string };
@@ -242,6 +243,7 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "calendar.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarMonth },
   "calendar.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarDay },
   "welcome.providers": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
+  "welcome.providers.back": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
   "welcome.main": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
   "welcome.connect": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isWelcomeConnect },
   "task.edit": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },

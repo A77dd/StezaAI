@@ -11,7 +11,7 @@ const DAY_MS = 24 * HOUR_MS;
 
 describe("CALLBACK_ACTIONS registry", () => {
   it("registers exactly the documented actions", () => {
-    expect([...ACTIONS].sort()).toEqual(
+expect([...ACTIONS].sort()).toEqual(
       [
         "calendar.day",
         "calendar.month",
@@ -26,9 +26,10 @@ describe("CALLBACK_ACTIONS registry", () => {
         "slot.other",
         "slot.pick",
         "task.edit",
-    "welcome.connect",
-    "welcome.main",
-    "welcome.providers",
+        "welcome.connect",
+        "welcome.main",
+        "welcome.providers",
+        "welcome.providers.back",
       ].sort(),
     );
   });
