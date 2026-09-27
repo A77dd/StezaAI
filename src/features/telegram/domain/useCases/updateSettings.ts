@@ -1,5 +1,5 @@
 import { assertValidTimezone, InvalidSettingsError, NOTIFICATION_INTENSITIES } from "../index";
-import type { DraftId, NotificationIntensity, UserId, UserSettings, WorkingHours } from "../index";
+import type { CalendarProvider, DraftId, NotificationIntensity, UserId, UserSettings, WorkingHours } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 import { createSubmitText } from "./submitText";
 import type { SubmitTextResult } from "./submitText";
@@ -198,12 +198,16 @@ export function createSetWorkingHours(ports: Pick<PersonalFlowPorts, "settings">
 
 // --- setCalendarConnected ---------------------------------------------------
 
-export type SetCalendarConnectedInput = { readonly userId: UserId; readonly connected: boolean };
+export type SetCalendarConnectedInput = { readonly userId: UserId; readonly connected: boolean; readonly provider?: CalendarProvider };
 
 /** v1 demo flag: no real calendar connector exists yet (ADR 0002). */
 export function createSetCalendarConnected(ports: Pick<PersonalFlowPorts, "settings">) {
   return async function setCalendarConnected(input: SetCalendarConnectedInput): Promise<UserSettings> {
     const settings = await requireSettings(ports, input.userId);
-    return ports.settings.upsert({ ...settings, calendarConnected: input.connected });
+    return ports.settings.upsert({
+      ...settings,
+      calendarConnected: input.connected,
+      calendarProvider: input.connected ? (input.provider ?? settings.calendarProvider) : null,
+    });
   };
 }

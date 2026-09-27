@@ -89,10 +89,8 @@ function welcomeRichState(
     doc.line(welcome.calendarConnectedNote);
     doc.buttonRow([urlCellForProfile(ctx)]);
   } else {
-    doc.buttonRow([
-      providerCell(welcome.connectCalendar, "welcome.providers", {}, "primary"),
-      urlCellForProfile(ctx),
-    ]);
+    doc.buttonRow([providerCell(welcome.connectCalendar, "welcome.providers", {}, "primary")]);
+    doc.buttonRow([urlCellForProfile(ctx)]);
   }
 
   // Legal footer: small gray text with underlined links (rendered by the

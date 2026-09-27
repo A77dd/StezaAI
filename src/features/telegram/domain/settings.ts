@@ -24,6 +24,7 @@ export function createDefaultSettings(userId: UserId, locale: Locale): UserSetti
     defaultBlockMinutes: 30,
     notificationIntensity: "normal",
     calendarConnected: false,
+    calendarProvider: null,
   };
 }
 
@@ -56,5 +57,6 @@ export function normalizeSettings(settings: UserSettings): UserSettings {
     ...settings,
     timezone,
     workingHours: { ...settings.workingHours, isoDays: [...isoDays] },
+    calendarProvider: settings.calendarProvider ?? null,
   };
 }

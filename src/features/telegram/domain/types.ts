@@ -149,6 +149,8 @@ export type WorkingHours = {
   readonly end: string;
 };
 
+export type CalendarProvider = "google" | "yandex" | "outlook" | "apple";
+
 export type UserSettings = {
   readonly userId: UserId;
   /** The Bot API does not expose a timezone, so it is stored explicitly. */
@@ -164,6 +166,8 @@ export type UserSettings = {
   readonly defaultBlockMinutes: number;
   readonly notificationIntensity: NotificationIntensity;
   readonly calendarConnected: boolean;
+  /** Which calendar provider the user connected (if any). */
+  readonly calendarProvider: CalendarProvider | null;
 };
 
 // --- Chat context -----------------------------------------------------------

@@ -13,6 +13,7 @@ describe("createDefaultSettings", () => {
       defaultBlockMinutes: 30,
       notificationIntensity: "normal",
       calendarConnected: false,
+      calendarProvider: null,
     });
   });
 

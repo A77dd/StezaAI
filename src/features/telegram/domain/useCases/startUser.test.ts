@@ -31,6 +31,7 @@ describe("startUser", () => {
       defaultBlockMinutes: 45,
       notificationIntensity: "high",
       calendarConnected: false,
+      calendarProvider: null,
     });
 
     const result = await startUser({ userId: "user_1", locale: "en" });

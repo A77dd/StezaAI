@@ -1,3 +1,4 @@
+import type { CalendarProvider } from "../../domain";
 import type { Composer } from "grammy";
 import type { BotContext } from "../../bot";
 import { answerCallback, editCard, ownerOf, targetOfCallback } from "../../bot";
@@ -27,9 +28,11 @@ export function registerWelcomeCallbacks(composer: Composer<BotContext>): void {
     const viewCtx = ctx.viewContext(await ctx.loadSettings());
 
     if (resolved.action === "welcome.connect") {
+      const provider = resolved.payload.provider as CalendarProvider | undefined;
       const settings = await ctx.services.personalFlow.setCalendarConnected({
         userId: owner.userId,
         connected: true,
+        provider,
       });
       const viewCtxConnected = ctx.viewContext(settings);
       await editCard(ctx, target, welcomeRichView({ firstName: ctx.from?.first_name ?? null, calendarConnected: settings.calendarConnected }, viewCtxConnected));
