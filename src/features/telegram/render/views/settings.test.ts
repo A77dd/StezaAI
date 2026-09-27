@@ -24,16 +24,16 @@ describe("settingsView", () => {
       keyboard: [
         [
           { kind: "action", text: "Реже", action: "settings.toggle", payload: { key: "notification_intensity", value: "low" } },
-          { kind: "action", text: "✓ Обычно", action: "settings.toggle", payload: { key: "notification_intensity", value: "normal" } },
+          { kind: "action", text: "✓ Обычно", action: "settings.toggle", payload: { key: "notification_intensity", value: "normal" }, style: "primary" },
           { kind: "action", text: "Чаще", action: "settings.toggle", payload: { key: "notification_intensity", value: "high" } },
         ],
         [
           { kind: "action", text: "15 мин", action: "settings.toggle", payload: { key: "block_length", value: "15" } },
-          { kind: "action", text: "✓ 30 мин", action: "settings.toggle", payload: { key: "block_length", value: "30" } },
+          { kind: "action", text: "✓ 30 мин", action: "settings.toggle", payload: { key: "block_length", value: "30" }, style: "primary" },
           { kind: "action", text: "45 мин", action: "settings.toggle", payload: { key: "block_length", value: "45" } },
           { kind: "action", text: "1 ч", action: "settings.toggle", payload: { key: "block_length", value: "60" } },
         ],
-        [{ kind: "action", text: "Изменить рабочие часы", action: "settings.toggle", payload: { key: "working_hours" } }],
+        [{ kind: "action", text: "Изменить рабочие часы", action: "settings.toggle", payload: { key: "working_hours" }, style: "primary" }],
         [{ kind: "action", text: "Подключить календарь", action: "settings.toggle", payload: { key: "calendar", value: "connect" }, style: "primary" }],
         [{ kind: "web_app", text: "Открыть в приложении", url: "https://app.example.com/mini/settings" }],
       ],

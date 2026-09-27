@@ -179,4 +179,18 @@ export const ru: Catalog = {
     paged: "{title} ({page}/{pages})",
     dayContinued: "{day} (продолжение)",
   },
+  personal: {
+    clarifyIntro: "Не уверен, что это: «{title}».",
+    clarifyQuestion: "Выбери, что подходит:",
+    askTimezone: "Укажи свой часовой пояс, например Europe/Moscow, или выбери один из вариантов.",
+    askTaskEdit: "Что изменить?",
+    askWorkingHours: "Напиши рабочие часы, например «09:00-18:00 пн-пт».",
+    timezoneConfirmed: "Часовой пояс сохранён: {tz}.",
+    taskEditNoChange: "Ничего не изменилось.",
+    deleteConfirmQuestion: "Удалить все мои данные? Это нельзя отменить.",
+    deleteConfirmYes: "Да, удалить",
+    deleteConfirmCancel: "Отмена",
+    deleteConfirmed: "Данные удалены.",
+    deleteCancelled: "Отменено, данные не удалены.",
+  },
 };

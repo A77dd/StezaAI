@@ -46,16 +46,12 @@ function proposed(task: TaskCard, slots: readonly Slot[], ctx: ViewContext): Ren
   if (slots.length === 0) throw new RenderError("A proposed card needs a slot; use the no_slots state");
   assertSlotCount(slots);
   const copy = ctx.catalog.task;
-  // One slot: the card already says when, so the button is a plain confirmation.
-  const picks =
-    slots.length === 1
-      ? [actionButton(copy.confirm, "slot.pick", { taskId: task.id, slotIndex: 0 }, "success")]
-      : slotPickButtons(task.id, slots, (slot) => slotStartLabel(slot, ctx));
+  const picks = slotPickButtons(task.id, slots, (slot) => slotStartLabel(slot, ctx));
   return renderMessage({
     title: titleHtml(task.title),
     facts: taskFacts(task, ctx),
     body: lines(b(text(copy.found)), slotBullets(slots, ctx)),
-    keyboard: keyboard(row(...picks), row(...secondaryRow(task, ctx))),
+    keyboard: keyboard(row(...picks), row(...secondaryRow(task, ctx, "primary"))),
   });
 }
 

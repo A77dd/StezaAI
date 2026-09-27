@@ -1,3 +1,4 @@
+import { InputFile } from "grammy";
 import type { Message } from "grammy/types";
 import type { KeyboardSpec, RenderedMessage, RenderedTextMessage } from "../render";
 import { bindKeyboard } from "./bindKeyboard";
@@ -129,6 +130,19 @@ export async function sendCard(
     parse_mode: rendered.parseMode,
     link_preview_options: linkPreviewOptions(rendered.linkPreview),
   });
+}
+
+/**
+ * Sends `bytes` as a document (for example `/export`'s JSON dump). Not a
+ * `RenderedMessage`: a file has no view model, so this bypasses `renderMessage`
+ * entirely and goes straight to the Bot API.
+ */
+export async function sendDocument(ctx: BotContext, fileName: string, bytes: Uint8Array): Promise<Message> {
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) {
+    throw new PresenterError("sendDocument: the update has no chat");
+  }
+  return ctx.api.sendDocument(chatId, new InputFile(bytes, fileName));
 }
 
 /** Runs an edit call; "message is not modified" is an outcome, every other failure propagates. */

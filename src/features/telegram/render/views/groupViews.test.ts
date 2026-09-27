@@ -84,8 +84,8 @@ describe("groupSlotsView", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "+ Завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0 }, style: "primary" },
-          { kind: "action", text: "+ Пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1 } },
+          { kind: "action", text: "+ Завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0 }, style: "success" },
+          { kind: "action", text: "+ Пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1 }, style: "success" },
         ],
         [{ kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_2" } }],
       ],
@@ -113,8 +113,8 @@ describe("groupSlotsView", () => {
     const message = groupSlotsView({ task, slots: [TOMORROW_SLOT, FRIDAY_SLOT, TODAY_SLOT], groupTitle: null }, ctx);
 
     expect(labels(message)).toEqual([["+ Завтра 10:00", "+ Пт 11:00"], ["+ Сегодня 16:00"], ["Другое время"]]);
-    expect(message.keyboard?.[0]?.[0]).toMatchObject({ style: "primary", payload: { slotIndex: 0 } });
-    expect(message.keyboard?.[1]?.[0]).toMatchObject({ payload: { slotIndex: 2 } });
+    expect(message.keyboard?.[0]?.[0]).toMatchObject({ style: "success", payload: { slotIndex: 0 } });
+    expect(message.keyboard?.[1]?.[0]).toMatchObject({ style: "success", payload: { slotIndex: 2 } });
   });
 
   it("rejects no windows and more than three", () => {

@@ -35,6 +35,7 @@ export {
   editCardMarkup,
   ownerOf,
   sendCard,
+  sendDocument,
   targetOfCallback,
 } from "./presenter";
 export type { AnswerCallbackOptions, EditOutcome, MessageTarget, SendCardOptions } from "./presenter";

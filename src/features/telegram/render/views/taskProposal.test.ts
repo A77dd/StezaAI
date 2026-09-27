@@ -22,7 +22,7 @@ const task = {
 };
 
 describe("taskProposalView: proposed", () => {
-  it("shows the card with found slots and slot buttons, the first one blue", () => {
+  it("shows the card with found slots and slot buttons, all green confirmations", () => {
     const message = taskProposalView({ state: "proposed", task, slots: [TODAY_SLOT, TOMORROW_SLOT] }, ctx);
 
     expect(message).toEqual({
@@ -38,11 +38,11 @@ describe("taskProposalView: proposed", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 0 }, style: "primary" },
-          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 1 } },
+          { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 0 }, style: "success" },
+          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 1 }, style: "success" },
         ],
         [
-          { kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_1" } },
+          { kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_1" }, style: "primary" },
           { kind: "action", text: "Изменить", action: "task.edit", payload: { taskId: "task_1" } },
         ],
       ],
@@ -50,10 +50,10 @@ describe("taskProposalView: proposed", () => {
     expectValidKeyboard(message);
   });
 
-  it("offers a green [Поставить] when there is a single slot", () => {
+  it("offers a green slot button when there is a single slot", () => {
     const message = taskProposalView({ state: "proposed", task, slots: [FRIDAY_SLOT] }, ctx);
 
-    expect(labels(message)).toEqual([["Поставить"], ["Другое время", "Изменить"]]);
+    expect(labels(message)).toEqual([["Пт 11:00"], ["Другое время", "Изменить"]]);
     expect(message.keyboard?.[0]?.[0]).toMatchObject({
       action: "slot.pick",
       payload: { taskId: "task_1", slotIndex: 0 },

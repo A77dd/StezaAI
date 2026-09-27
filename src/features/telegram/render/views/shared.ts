@@ -84,19 +84,19 @@ export function slotStartLabel(slot: Slot, ctx: ViewContext): string {
   return `${day} ${formatClock(slot.start, ctx.timezone)}`;
 }
 
-/** One `slot.pick` button per slot; the first, recommended one is blue. */
+/** One `slot.pick` button per slot; all are confirmations (green). */
 export function slotPickButtons(
   taskId: string,
   slots: readonly Slot[],
   label: (slot: Slot) => string,
 ): ButtonSpec[] {
   assertSlotCount(slots);
-  return slots.map((slot, index) =>
+  return slots.map((slot) =>
     actionButton(
       label(slot),
       "slot.pick",
-      { taskId, slotIndex: slotIndex(index) },
-      index === 0 ? "primary" : undefined,
+      { taskId, slotIndex: slotIndex(slots.indexOf(slot)) },
+      "success",
     ),
   );
 }

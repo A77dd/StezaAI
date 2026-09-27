@@ -3,17 +3,22 @@ import type { TelegramConfig } from "../config";
 import type {
   CalendarPort,
   Clock,
+  DraftRepository,
   IdGenerator,
   IntentParser,
   MemoryRepository,
+  PendingInputRepository,
+  ProposalRepository,
   ReminderQueue,
   SettingsRepository,
   SlotScheduler,
   TaskRepository,
   TranscriptionPort,
 } from "../domain";
+import type { PersonalFlow } from "../domain/useCases";
 import type { Logger } from "./logger";
 import type { UpdateDeduper } from "./ports";
+import type { PromptTracker } from "./promptTracker";
 
 /**
  * Everything the bot needs from the outside world, as ports. Handlers reach
@@ -38,4 +43,14 @@ export type BotServices = {
   readonly callbacks: CallbackStore;
   readonly logger: Logger;
   readonly deduper: UpdateDeduper;
+  /** Short-lived drafts awaiting a timezone, a low-confidence classification, or a kind choice (ADR 0002 Task 7). */
+  readonly drafts: DraftRepository;
+  /** The slot proposal currently offered for a task. */
+  readonly proposals: ProposalRepository;
+  /** A free-text answer the bot expects after prompting (task edit, working hours, timezone). */
+  readonly pendingInputs: PendingInputRepository;
+  /** Which prompt message a chat is waiting on a plain-text reply for; see `./promptTracker`. */
+  readonly promptTracker: PromptTracker;
+  /** The personal-flow use-cases (Task 7a), wired to this same set of ports. */
+  readonly personalFlow: PersonalFlow;
 };

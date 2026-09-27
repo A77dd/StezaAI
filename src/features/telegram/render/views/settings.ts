@@ -45,6 +45,10 @@ function markCurrent(label: string, isCurrent: boolean, ctx: ViewContext): strin
   return isCurrent ? fillPlain(ctx.catalog.common.selected, { label }) : label;
 }
 
+function buttonStyle(isCurrent: boolean): "primary" | undefined {
+  return isCurrent ? "primary" : undefined;
+}
+
 function calendarButton(settings: UserSettings, ctx: ViewContext): ButtonSpec {
   const copy = ctx.catalog.settings;
   return settings.calendarConnected
@@ -78,20 +82,24 @@ export function settingsView(settings: UserSettings, ctx: ViewContext): Rendered
     },
   ];
 
-  const intensityRow = NOTIFICATION_INTENSITIES.map((value) =>
-    actionButton(
-      markCurrent(capitalizeFirst(copy.intensity[value]), value === settings.notificationIntensity, ctx),
+  const intensityRow = NOTIFICATION_INTENSITIES.map((value) => {
+    const isCurrent = value === settings.notificationIntensity;
+    return actionButton(
+      markCurrent(capitalizeFirst(copy.intensity[value]), isCurrent, ctx),
       "settings.toggle",
       { key: "notification_intensity", value },
-    ),
-  );
-  const blockRow = BLOCK_LENGTH_OPTIONS.map((minutes) =>
-    actionButton(
-      markCurrent(formatDuration(minutes, words), minutes === settings.defaultBlockMinutes, ctx),
+      buttonStyle(isCurrent),
+    );
+  });
+  const blockRow = BLOCK_LENGTH_OPTIONS.map((minutes) => {
+    const isCurrent = minutes === settings.defaultBlockMinutes;
+    return actionButton(
+      markCurrent(formatDuration(minutes, words), isCurrent, ctx),
       "settings.toggle",
       { key: "block_length", value: String(minutes) },
-    ),
-  );
+      buttonStyle(isCurrent),
+    );
+  });
   const app = miniAppButton(ctx, ctx.catalog.settings.openInApp, "settings");
 
   return renderMessage({
@@ -101,7 +109,7 @@ export function settingsView(settings: UserSettings, ctx: ViewContext): Rendered
     keyboard: compactKeyboard([
       row(...intensityRow),
       row(...blockRow),
-      row(actionButton(copy.changeHours, "settings.toggle", { key: "working_hours" })),
+      row(actionButton(copy.changeHours, "settings.toggle", { key: "working_hours" }, "primary")),
       row(calendarButton(settings, ctx)),
       app === null ? null : row(app),
     ]),

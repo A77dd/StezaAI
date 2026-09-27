@@ -4,7 +4,10 @@ import {
 } from "../callbacks";
 import {
   createInMemoryCalendar,
+  createInMemoryDraftRepository,
   createInMemoryMemoryRepository,
+  createInMemoryPendingInputRepository,
+  createInMemoryProposalRepository,
   createInMemoryReminderQueue,
   createInMemorySettingsRepository,
   createInMemoryTaskRepository,
@@ -15,8 +18,10 @@ import {
   createUuidIdGenerator,
 } from "../adapters";
 import type { TelegramConfig } from "../config";
+import { createPersonalFlow } from "../domain/useCases";
 import { createInMemoryUpdateDeduper } from "./inMemoryUpdateDeduper";
 import type { Logger } from "./logger";
+import { createPromptTracker } from "./promptTracker";
 import type { BotServices } from "./services";
 
 export type InMemoryServicesInput = {
@@ -41,21 +46,56 @@ export type InMemoryServicesInput = {
 export function createInMemoryServices(input: InMemoryServicesInput): BotServices {
   const clock = input.clock ?? createSystemClock();
   const ids = input.ids ?? createUuidIdGenerator();
+  const intentParser = input.intentParser ?? createRuleBasedIntentParser();
+  const scheduler = input.scheduler ?? createSlotScheduler();
+  const calendar = input.calendar ?? createInMemoryCalendar({ ids });
+  const tasks = input.tasks ?? createInMemoryTaskRepository();
+  const settings = input.settings ?? createInMemorySettingsRepository();
+  const memory = input.memory ?? createInMemoryMemoryRepository();
+  const reminders = input.reminders ?? createInMemoryReminderQueue();
+  const callbacks =
+    input.callbacks ?? createInMemoryCallbackStore({ clock, tokens: createCryptoTokenGenerator() });
+  const drafts = input.drafts ?? createInMemoryDraftRepository({ clock });
+  const proposals = input.proposals ?? createInMemoryProposalRepository({ clock });
+  const pendingInputs = input.pendingInputs ?? createInMemoryPendingInputRepository({ clock });
+
+  const personalFlow =
+    input.personalFlow ??
+    createPersonalFlow({
+      tasks,
+      settings,
+      drafts,
+      proposals,
+      pendingInputs,
+      intentParser,
+      scheduler,
+      calendar,
+      reminders,
+      memory,
+      callbackTokens: callbacks,
+      clock,
+      ids,
+    });
+
   return {
     config: input.config,
     logger: input.logger,
     clock,
     ids,
-    intentParser: input.intentParser ?? createRuleBasedIntentParser(),
-    scheduler: input.scheduler ?? createSlotScheduler(),
-    calendar: input.calendar ?? createInMemoryCalendar({ ids }),
-    tasks: input.tasks ?? createInMemoryTaskRepository(),
-    settings: input.settings ?? createInMemorySettingsRepository(),
-    memory: input.memory ?? createInMemoryMemoryRepository(),
-    reminders: input.reminders ?? createInMemoryReminderQueue(),
+    intentParser,
+    scheduler,
+    calendar,
+    tasks,
+    settings,
+    memory,
+    reminders,
     transcription: input.transcription ?? createStubTranscription([]),
-    callbacks:
-      input.callbacks ?? createInMemoryCallbackStore({ clock, tokens: createCryptoTokenGenerator() }),
+    callbacks,
     deduper: input.deduper ?? createInMemoryUpdateDeduper({ clock }),
+    drafts,
+    proposals,
+    pendingInputs,
+    promptTracker: input.promptTracker ?? createPromptTracker(),
+    personalFlow,
   };
 }

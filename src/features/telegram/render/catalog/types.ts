@@ -181,4 +181,21 @@ export type Catalog = {
     /** `{day}`: a day heading repeated on the next page. */
     readonly dayContinued: string;
   };
+  /** Personal-flow prompts and confirmations that are not part of a task card (Task 7). */
+  readonly personal: {
+    /** `{title}`: a low-confidence personal message asks which kind it is. */
+    readonly clarifyIntro: string;
+    readonly clarifyQuestion: string;
+    readonly askTimezone: string;
+    readonly askTaskEdit: string;
+    readonly askWorkingHours: string;
+    /** `{tz}`. */
+    readonly timezoneConfirmed: string;
+    readonly taskEditNoChange: string;
+    readonly deleteConfirmQuestion: string;
+    readonly deleteConfirmYes: string;
+    readonly deleteConfirmCancel: string;
+    readonly deleteConfirmed: string;
+    readonly deleteCancelled: string;
+  };
 };

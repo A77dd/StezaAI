@@ -187,4 +187,18 @@ export const en: Catalog = {
     paged: "{title} ({page}/{pages})",
     dayContinued: "{day} (continued)",
   },
+  personal: {
+    clarifyIntro: "Not sure what this is: “{title}”.",
+    clarifyQuestion: "Pick what fits:",
+    askTimezone: "Send your timezone, for example Europe/Moscow, or pick one of these.",
+    askTaskEdit: "What should I change?",
+    askWorkingHours: "Send your working hours, for example “09:00-18:00 Mon-Fri”.",
+    timezoneConfirmed: "Timezone saved: {tz}.",
+    taskEditNoChange: "Nothing changed.",
+    deleteConfirmQuestion: "Delete all my data? This cannot be undone.",
+    deleteConfirmYes: "Yes, delete",
+    deleteConfirmCancel: "Cancel",
+    deleteConfirmed: "Your data was deleted.",
+    deleteCancelled: "Cancelled, nothing was deleted.",
+  },
 };

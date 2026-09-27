@@ -43,8 +43,8 @@ describe("forwardChooserView: scheduling kinds", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_9", slotIndex: 0 }, style: "primary" },
-          { kind: "action", text: "Пт 11:00", action: "slot.pick", payload: { taskId: "task_9", slotIndex: 1 } },
+          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_9", slotIndex: 0 }, style: "success" },
+          { kind: "action", text: "Пт 11:00", action: "slot.pick", payload: { taskId: "task_9", slotIndex: 1 }, style: "success" },
         ],
         [{ kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_9" } }],
         [

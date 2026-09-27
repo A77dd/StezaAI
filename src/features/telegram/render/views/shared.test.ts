@@ -69,12 +69,12 @@ describe("slots", () => {
     );
   });
 
-  it("makes one slot.pick button per slot, the first one blue", () => {
+  it("makes one slot.pick button per slot, all green confirmations", () => {
     const buttons = slotPickButtons("t1", [TODAY_SLOT, TOMORROW_SLOT], (slot) => slotStartLabel(slot, ctx));
 
     expect(buttons).toEqual([
-      { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 0 }, style: "primary" },
-      { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 1 } },
+      { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 0 }, style: "success" },
+      { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 1 }, style: "success" },
     ]);
   });
 
