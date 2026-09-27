@@ -13,6 +13,8 @@ export const SAMPLE_CALLBACK_PAYLOADS: { readonly [A in CallbackAction]: Callbac
     slotEnd: "2026-09-28T10:30:00.000Z",
   },
   "slot.other": { taskId: LONG_ID },
+  "calendar.month": { taskId: LONG_ID, year: 2026, month: 10 },
+  "calendar.day": { taskId: LONG_ID, year: 2026, month: 10, day: 12 },
   "task.edit": { taskId: LONG_ID },
   "intent.choose": { draftId: LONG_ID, kind: "follow_up" },
   "context.choose": { draftId: LONG_ID, choice: "remember" },

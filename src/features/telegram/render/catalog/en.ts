@@ -61,6 +61,9 @@ export const en: Catalog = {
   stream: {
     thinking: "Thinking…",
   },
+  calendar: {
+    back: "‹ Back to calendar",
+  },
   demo: {
     paragraphs: [
       "Imagine this is a language model's answer…",

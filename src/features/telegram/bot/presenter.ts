@@ -1,7 +1,7 @@
 import { InputFile } from "grammy";
 import type { Message } from "grammy/types";
 import type { KeyboardSpec, RenderedMessage, RenderedTextMessage } from "../render";
-import { bindKeyboard } from "./bindKeyboard";
+import { bindKeyboard, bindRichActions } from "./bindKeyboard";
 import type { CallbackOwner } from "./bindKeyboard";
 import type { BotContext } from "./context";
 import { PresenterError } from "./errors";
@@ -107,26 +107,40 @@ export async function sendCard(
   if (chatId === undefined) {
     throw new PresenterError("sendCard: the update has no chat and no chatId option was given");
   }
-  const markup = await bindKeyboard(
-    rendered.keyboard,
-    ownerOf(ctx, chatId),
-    ctx.services.callbacks,
-  );
   const inUpdateChat = chatId === ctx.chat?.id;
   const replyTo = options.replyToInvoking === true && inUpdateChat ? ctx.msg?.message_id : undefined;
   const other = {
-    ...(markup === undefined ? {} : { reply_markup: markup }),
     ...(inUpdateChat ? topicOf(ctx) : {}),
     ...(replyTo === undefined
       ? {}
       : { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } }),
     ...(options.silent === true ? { disable_notification: true } : {}),
   };
+  if (rendered.kind === "rich_html") {
+    // Buttons live inside the document: bind their callback data and
+    // substitute the placeholders. No reply_markup is involved.
+    const data = await bindRichActions(rendered.actions, ownerOf(ctx, chatId), ctx.services.callbacks);
+    const html = rendered.html.replace(/\{\{cb:(\d+)\}\}/g, (_whole, index: string) => {
+      const bound = data[Number(index)];
+      if (bound === undefined) throw new PresenterError(`sendCard: rich html has no action for placeholder ${index}`);
+      return bound;
+    });
+    return ctx.api.sendRichMessage(chatId, { html }, other);
+  }
+  const markup = await bindKeyboard(
+    rendered.keyboard,
+    ownerOf(ctx, chatId),
+    ctx.services.callbacks,
+  );
+  const otherWithMarkup = {
+    ...other,
+    ...(markup === undefined ? {} : { reply_markup: markup }),
+  };
   if (rendered.kind === "rich") {
-    return ctx.api.sendRichMessage(chatId, { markdown: rendered.markdown }, other);
+    return ctx.api.sendRichMessage(chatId, { markdown: rendered.markdown }, otherWithMarkup);
   }
   return ctx.api.sendMessage(chatId, rendered.text, {
-    ...other,
+    ...otherWithMarkup,
     parse_mode: rendered.parseMode,
     link_preview_options: linkPreviewOptions(rendered.linkPreview),
   });
@@ -177,6 +191,20 @@ export async function editCard(
     targetOwner(ctx, target),
     ctx.services.callbacks,
   );
+  if (rendered.kind === "rich_html") {
+    if (markup !== undefined) throw new PresenterError("editCard: a rich_html card carries its buttons inline");
+    const data = await bindRichActions(rendered.actions, targetOwner(ctx, target), ctx.services.callbacks);
+    const html = rendered.html.replace(/\{\{cb:(\d+)\}\}/g, (_whole, index: string) => {
+      const bound = data[Number(index)];
+      if (bound === undefined) throw new PresenterError(`editCard: rich html has no action for placeholder ${index}`);
+      return bound;
+    });
+    return outcomeOf(() =>
+      target.kind === "chat"
+        ? ctx.api.editMessageText(target.chatId, target.messageId, { html })
+        : ctx.api.editMessageTextInline(target.inlineMessageId, { html }),
+    );
+  }
   const content = rendered.kind === "rich" ? { markdown: rendered.markdown } : rendered.text;
   const other = {
     ...(markup === undefined ? {} : { reply_markup: markup }),

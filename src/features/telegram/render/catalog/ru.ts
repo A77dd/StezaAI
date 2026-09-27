@@ -53,6 +53,9 @@ export const ru: Catalog = {
   stream: {
     thinking: "Думаю…",
   },
+  calendar: {
+    back: "‹ К календарю",
+  },
   demo: {
     paragraphs: [
       "Представь, что это ответ языковой модели…",

@@ -1,7 +1,14 @@
 import type { SlotProposal, SlotSearchResult, Task } from "../../domain";
 import type { BotContext } from "../../bot";
-import { sendCard } from "../../bot";
-import { noticeForKind, personalClarifyView, personalInfoOnlyView, taskProposalView } from "../../render";
+import { describeError, sendCard } from "../../bot";
+import {
+  noticeForKind,
+  personalClarifyView,
+  personalInfoOnlyView,
+  richCalendarMonthView,
+  taskProposalView,
+} from "../../render";
+import { initialCalendarMonth } from "../../render";
 import type { RenderedMessage, ViewContext } from "../../render";
 import type { SubmitTextResult } from "../../domain/useCases";
 
@@ -52,6 +59,33 @@ export async function sendSubmitOutcome(
     }
     case "proposed":
     case "no_slots":
-      await sendCard(ctx, proposalCard(outcome, viewCtx));
+      await sendProposalCard(ctx, outcome, viewCtx);
   }
+}
+
+/**
+ * Sends the proposal card. The primary rendering is the Rich calendar
+ * (Bot API 10.3, research §5.2 pilot): days with slots are tappable inside
+ * the message. If the rich send fails (an older client or API path), the
+ * HTML keyboard card is the fallback — nothing has been sent when it kicks
+ * in, so there is no duplication.
+ */
+export async function sendProposalCard(
+  ctx: BotContext,
+  outcome: ProposalOutcome,
+  viewCtx: ViewContext,
+): Promise<void> {
+  if (outcome.kind === "proposed") {
+    try {
+      const view = initialCalendarMonth(outcome.proposal.slots, viewCtx.timezone);
+      await sendCard(
+        ctx,
+        richCalendarMonthView({ task: outcome.task, slots: outcome.proposal.slots }, view, viewCtx),
+      );
+      return;
+    } catch (error) {
+      ctx.log.warn("proposal.rich_fallback", describeError(error));
+    }
+  }
+  await sendCard(ctx, proposalCard(outcome, viewCtx));
 }

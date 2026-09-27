@@ -6,7 +6,7 @@ import { registerPersonalFlow } from "./index";
 
 describe("private voice", () => {
   it("reports unavailable immediately in the default composition", async () => {
-    const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()], failRichMessages: true });
     await h.deliver(h.kit.updates.voice("voice-1", 4));
     expect(h.kit.fake.callsTo("getFile")).toHaveLength(0);
     expect(h.kit.fake.callsTo("sendMessage")[0]?.payload.text).toContain("голос");
@@ -21,6 +21,7 @@ describe("private voice", () => {
         transcription,
         voiceFileDownload: { async download(path: string) { paths.push(path); return new Uint8Array([1, 2, 3]); } },
       },
+      failRichMessages: true,
     });
     await h.services.personalFlow.startUser({ userId: String(ALEX.id), locale: "ru" });
     await h.services.personalFlow.setTimezone({ userId: String(ALEX.id), tz: "Europe/Moscow" });
@@ -37,6 +38,7 @@ describe("private voice", () => {
     const h = createPipelineHarness({
       composers: [registerPersonalFlow()],
       services: { voiceFileDownload: { async download() { throw new Error("must not download"); } } },
+      failRichMessages: true,
     });
     await h.deliver(h.kit.updates.voice("huge", 1, { fileSize: 21 * 1024 * 1024 }));
     await h.deliver(h.kit.updates.voice("unsupported", 1, { mimeType: "audio/wav" }));
@@ -49,6 +51,7 @@ describe("private voice", () => {
     const h = createPipelineHarness({
       composers: [registerPersonalFlow()],
       services: { transcription, voiceFileDownload: { async download() { return new Uint8Array([1]); } } },
+      failRichMessages: true,
     });
     await h.deliver(h.kit.updates.voice("secret-file-id", 1, { fileSize: 1 }));
     expect(h.kit.fake.callsTo("sendMessage")[0]?.payload.text).toContain("голос");

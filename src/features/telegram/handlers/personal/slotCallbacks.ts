@@ -2,7 +2,14 @@ import type { Composer } from "grammy";
 import { NotFoundError } from "../../domain";
 import type { BotContext } from "../../bot";
 import { answerCallback, editCard, ownerOf, targetOfCallback } from "../../bot";
-import { noticeForKind, taskProposalView } from "../../render";
+import {
+  initialCalendarMonth,
+  noticeForKind,
+  richBookedView,
+  richCalendarDayView,
+  richCalendarMonthView,
+  taskProposalView,
+} from "../../render";
 import type { ViewContext } from "../../render";
 import { peekCallbackAction } from "./callbackRouting";
 import { proposalCard } from "./outcomes";
@@ -18,12 +25,26 @@ export function registerSlotCallbacks(composer: Composer<BotContext>): void {
   });
 
   composer.on("callback_query:data", async (ctx, next) => {
-    if (peekCallbackAction(ctx.callbackQuery.data) !== "slot.other") {
+    const action = peekCallbackAction(ctx.callbackQuery.data);
+    if (action !== "slot.other" && action !== "calendar.month" && action !== "calendar.day") {
       await next();
+      return;
+    }
+    if (action !== "slot.other") {
+      await handleCalendarView(ctx, ctx.callbackQuery.data, action);
       return;
     }
     await handleSlotOther(ctx, ctx.callbackQuery.data);
   });
+}
+
+/**
+ * True when the pressed button lives inside a Rich Message: the card must be
+ * re-rendered as rich too (research §5.2 pattern: press → re-render the same
+ * message), otherwise the HTML keyboard card is kept.
+ */
+function isRichSource(ctx: BotContext): boolean {
+  return ctx.callbackQuery?.message?.rich_message !== undefined;
 }
 
 /** The booked/already-booked branches only carry a `BlockBooking`; the card needs the task it belongs to. */
@@ -66,14 +87,23 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       taskId: resolved.payload.taskId,
     });
     if (retryable !== null) {
-      await editCard(ctx, target, proposalCard({ kind: "proposed", ...retryable }, viewCtx));
+      const rendered = isRichSource(ctx)
+        ? richCalendarMonthView(
+            { task: retryable.task, slots: retryable.proposal.slots },
+            initialCalendarMonth(retryable.proposal.slots, viewCtx.timezone),
+            viewCtx,
+          )
+        : proposalCard({ kind: "proposed", ...retryable }, viewCtx);
+      await editCard(ctx, target, rendered);
     }
     throw error;
   }
 
   switch (result.kind) {
     case "booked": {
-      const rendered = taskProposalView({ state: "booked", task: result.task, slot: result.booking.slot }, viewCtx);
+      const rendered = isRichSource(ctx)
+        ? richBookedView({ task: result.task, slot: result.booking.slot }, viewCtx)
+        : taskProposalView({ state: "booked", task: result.task, slot: result.booking.slot }, viewCtx);
       await editCard(ctx, target, rendered);
       await answerCallback(ctx);
       return;
@@ -82,7 +112,9 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
     case "already_booked_other_slot": {
       // Idempotent double-press: show the booking that actually won, not an error.
       const task = await requireTask(ctx, owner.userId, result.booking.taskId);
-      const rendered = taskProposalView({ state: "booked", task, slot: result.booking.slot }, viewCtx);
+      const rendered = isRichSource(ctx)
+        ? richBookedView({ task, slot: result.booking.slot }, viewCtx)
+        : taskProposalView({ state: "booked", task, slot: result.booking.slot }, viewCtx);
       await editCard(ctx, target, rendered);
       await answerCallback(ctx);
       return;
@@ -92,7 +124,14 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       const outcome = result.proposal.slots.length === 0
         ? { kind: "no_slots" as const, task, search: result.search }
         : { kind: "proposed" as const, task, proposal: result.proposal };
-      await editCard(ctx, target, proposalCard(outcome, viewCtx));
+      const rendered = isRichSource(ctx) && outcome.kind === "proposed"
+        ? richCalendarMonthView(
+            { task, slots: outcome.proposal.slots },
+            initialCalendarMonth(outcome.proposal.slots, viewCtx.timezone),
+            viewCtx,
+          )
+        : proposalCard(outcome, viewCtx);
+      await editCard(ctx, target, rendered);
       await answerCallback(ctx);
       return;
     }
@@ -103,6 +142,39 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       return;
     }
   }
+}
+
+/**
+ * `calendar.month` / `calendar.day`: navigation inside the Rich calendar
+ * card. Each press re-renders the same message (fresh tokens included) and is
+ * idempotent, so the tokens are not single-use. A proposal that has expired
+ * or was booked meanwhile answers with the regular expired notice.
+ */
+async function handleCalendarView(
+  ctx: BotContext,
+  data: string,
+  action: "calendar.month" | "calendar.day",
+): Promise<void> {
+  await answerCallback(ctx);
+
+  const owner = ownerOf(ctx);
+  const resolved = await ctx.services.callbacks.resolve(data, owner);
+  if (resolved.action !== action) throw new Error("calendar handler resolved a different action");
+  const target = targetOfCallback(ctx);
+  const viewCtx: ViewContext = ctx.viewContext(await ctx.loadSettings());
+
+  const task = await requireTask(ctx, owner.userId, resolved.payload.taskId);
+  const proposal = await ctx.services.proposals.get(owner.userId, resolved.payload.taskId);
+  if (proposal === null || proposal.slots.length === 0) {
+    await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+    return;
+  }
+  const input = { task, slots: proposal.slots };
+  const rendered =
+    resolved.action === "calendar.month"
+      ? richCalendarMonthView(input, { ...resolved.payload }, viewCtx)
+      : richCalendarDayView(input, { ...resolved.payload }, viewCtx);
+  await editCard(ctx, target, rendered);
 }
 
 async function handleSlotOther(ctx: BotContext, data: string): Promise<void> {

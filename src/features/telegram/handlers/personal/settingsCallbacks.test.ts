@@ -8,7 +8,7 @@ const USER_ID = String(ALEX.id);
 const CHAT_ID = ALEX.id;
 
 function makeHarness() {
-  return createPipelineHarness({ composers: [registerPersonalFlow()] });
+  return createPipelineHarness({ composers: [registerPersonalFlow()], failRichMessages: true });
 }
 
 async function openSettings(h: ReturnType<typeof makeHarness>) {

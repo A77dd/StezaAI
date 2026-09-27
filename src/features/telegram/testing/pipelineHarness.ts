@@ -34,6 +34,8 @@ export type PipelineHarnessOptions = {
    * about it. Pass a transformer to observe or replace it.
    */
   readonly throttle?: false | Transformer;
+  /** If true, `sendRichMessage` calls fail in the fake API (useful for tests that expect the HTML fallback). Default: true. */
+  readonly failRichMessages?: boolean;
 };
 
 /**
@@ -43,7 +45,10 @@ export type PipelineHarnessOptions = {
  * it is the innermost transformer, as the kit requires.
  */
 export function createPipelineHarness(options: PipelineHarnessOptions = {}) {
-  const kit: TelegramTestKit = createTelegramTestKit(options.kit);
+  const kit: TelegramTestKit = createTelegramTestKit({
+    ...options.kit,
+    failRichMessages: options.failRichMessages ?? false,
+  });
   const logger: MemoryLogger = createMemoryLogger();
   const sleeps: number[] = [];
   const services = createInMemoryServices({

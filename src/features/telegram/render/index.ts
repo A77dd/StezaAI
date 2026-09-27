@@ -14,6 +14,7 @@ export * from "./dayLabel";
 export * from "./errors";
 export * from "./escape";
 export * from "./format";
+export * from "./rich";
 export * from "./html";
 export type { Html } from "./htmlType";
 export * from "./keyboard";

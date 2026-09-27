@@ -13,6 +13,8 @@ describe("CALLBACK_ACTIONS registry", () => {
   it("registers exactly the documented actions", () => {
     expect([...ACTIONS].sort()).toEqual(
       [
+        "calendar.day",
+        "calendar.month",
         "checkin.answer",
         "checkin.reason",
         "context.choose",

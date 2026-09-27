@@ -38,4 +38,6 @@ export type FakeBotApiOptions = {
   readonly rateLimits?: boolean | Partial<RateLimitOptions>;
   /** Share with an update builder so both draw message ids from one sequence per chat. */
   readonly messageIds?: MessageIdAllocator;
+  /** If true, `sendRichMessage` calls fail (useful for tests that expect the HTML fallback). Default: false. */
+  readonly failRichMessages?: boolean;
 };

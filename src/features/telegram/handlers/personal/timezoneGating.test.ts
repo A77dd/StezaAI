@@ -9,7 +9,7 @@ const USER_ID = String(ALEX.id);
 const CHAT_ID = ALEX.id;
 
 function makeHarness() {
-  return createPipelineHarness({ composers: [registerPersonalFlow()] });
+  return createPipelineHarness({ composers: [registerPersonalFlow()], failRichMessages: true });
 }
 
 describe("personal flow: timezone gating", () => {
@@ -31,6 +31,7 @@ describe("personal flow: timezone gating", () => {
 
     // The original task text was replayed: a proposal card followed, not
     // another timezone prompt and not a task titled "Europe/Moscow".
+    // With failRichMessages: true, the rich calendar fails and falls back to HTML card (sendMessage).
     const proposalCall = h.kit.fake.calls.at(-1);
     expect(proposalCall?.method).toBe("sendMessage");
     expect(expectRenderedText(proposalCall!)).toContain("Подготовить презентацию");

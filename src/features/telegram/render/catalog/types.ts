@@ -55,6 +55,10 @@ export type Catalog = {
     /** First text of the edit-based fallback message while generating. */
     readonly thinking: string;
   };
+  readonly calendar: {
+    /** The day view's return-to-month button. */
+    readonly back: string;
+  };
   readonly demo: {
     /** Paragraphs the `/demo` simulation streams as drafts, in order. */
     readonly paragraphs: readonly string[];

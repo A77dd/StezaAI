@@ -13,6 +13,7 @@
  * that one export back here rather than reaching into `./testing`.
  */
 export { ALLOWED_UPDATES } from "./allowedUpdates";
+export { bindRichActions } from "./bindKeyboard";
 export type { CallbackOwner } from "./bindKeyboard";
 export { DEFAULT_VIEW_TIMEZONE } from "./context";
 export type { BotContext, BotContextFlavor } from "./context";

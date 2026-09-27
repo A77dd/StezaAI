@@ -30,8 +30,10 @@ describe.each(["ru", "en"] as const)("render output is accepted by the Bot API o
           if (message.kind === "text") {
             const parsed = readMessageText({ text: message.text, parse_mode: message.parseMode });
             expect(parsed.text.trim()).not.toBe("");
-          } else {
+          } else if (message.kind === "rich") {
             expect(() => readRichContent({ markdown: message.markdown })).not.toThrow();
+          } else {
+            expect(message.html.trim()).not.toBe("");
           }
         }
       });

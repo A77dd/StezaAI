@@ -33,6 +33,8 @@ export type TelegramTestKitOptions = {
   readonly startAt?: Instant;
   readonly rateLimits?: FakeBotApiOptions["rateLimits"];
   readonly firstUpdateId?: number;
+  /** If true, `sendRichMessage` calls fail (useful for tests that expect the HTML fallback). Default: false. */
+  readonly failRichMessages?: boolean;
 };
 
 /** Which callback button of a message to press. */
@@ -60,7 +62,7 @@ export function createTelegramTestKit(options: TelegramTestKitOptions = {}) {
   const clock = createTestClock(options.startAt);
   const messageIds = createMessageIdAllocator();
   const botInfo = fakeBotInfo(botUsername, botId);
-  const fake = createFakeBotApi({ clock, messageIds, botInfo, rateLimits: options.rateLimits });
+  const fake = createFakeBotApi({ clock, messageIds, botInfo, rateLimits: options.rateLimits, failRichMessages: options.failRichMessages });
   const updates = createUpdateBuilder({
     botUsername,
     botId,

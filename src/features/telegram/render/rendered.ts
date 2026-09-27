@@ -1,4 +1,4 @@
-import type { KeyboardSpec } from "./buttonSpec";
+import type { ActionButtonSpec, KeyboardSpec } from "./buttonSpec";
 
 /**
  * What `render/` produces: plain data with no grammY types. A later layer
@@ -24,4 +24,18 @@ export type RenderedRichMessage = {
   readonly keyboard: KeyboardSpec | null;
 };
 
-export type RenderedMessage = RenderedTextMessage | RenderedRichMessage;
+/**
+ * For `sendRichMessage` with Rich HTML and buttons INSIDE the message body
+ * (`<tg-button>`, Bot API 10.3): the interactive calendar cards (research
+ * §5.2). `html` carries `{{cb:N}}` placeholders — one per entry of `actions`,
+ * in order; the presenter replaces each with bound `callback_data` (the same
+ * 64-byte codec as reply_markup keyboards). No `reply_markup` is sent.
+ */
+export type RenderedRichHtmlMessage = {
+  readonly kind: "rich_html";
+  readonly html: string;
+  readonly actions: readonly ActionButtonSpec[];
+  readonly keyboard: null;
+};
+
+export type RenderedMessage = RenderedTextMessage | RenderedRichMessage | RenderedRichHtmlMessage;

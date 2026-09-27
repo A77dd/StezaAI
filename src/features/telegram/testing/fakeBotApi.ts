@@ -78,6 +78,12 @@ export function createFakeBotApi(options: FakeBotApiOptions = {}) {
   const faults = createFaultQueue();
   const recorded: RecordedCall[] = [];
 
+  // If failRichMessages is true, queue a permanent failure for sendRichMessage
+  // so tests fall back to the HTML card path.
+  if (options.failRichMessages) {
+    faults.add("sendRichMessage", { error_code: 400, description: "Rich messages disabled in test mode" }, 1000000);
+  }
+
   const record = (method: string, payload: Payload, outcome: CallOutcome): void => {
     recorded.push({ seq: recorded.length + 1, method, payload, at: clock.current.now(), outcome });
   };

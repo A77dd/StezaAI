@@ -29,7 +29,8 @@ describe.each(contexts)("every view (%s)", (_locale, ctx) => {
     (_name, sample) => {
       for (const message of sample.render(ctx)) {
         if (message.kind === "text") expect(visibleLength(message.text as Html)).toBeLessThanOrEqual(TEXT_LIMIT);
-        else expect(utf8Length(message.markdown)).toBeLessThanOrEqual(RICH_LIMIT);
+        else if (message.kind === "rich") expect(utf8Length(message.markdown)).toBeLessThanOrEqual(RICH_LIMIT);
+        else expect(utf8Length(message.html)).toBeLessThanOrEqual(RICH_LIMIT);
         expectValidKeyboard(message);
       }
     },
@@ -39,7 +40,7 @@ describe.each(contexts)("every view (%s)", (_locale, ctx) => {
     "%s: escapes user text and never puts it on a button",
     (_name, sample) => {
       for (const message of sample.render(ctx)) {
-        const body = message.kind === "text" ? message.text : message.markdown;
+        const body = message.kind === "text" ? message.text : message.kind === "rich" ? message.markdown : message.html;
 
         expect(body).not.toContain("<INJECT>");
         expect(body).not.toContain("</a>");

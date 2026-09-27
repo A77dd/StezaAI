@@ -54,6 +54,33 @@ async function actionButton(
   };
 }
 
+/**
+ * Binds the callback buttons INSIDE a Rich HTML document: returns one
+ * `callback_data` string per spec, in order, for the presenter to substitute
+ * into the document's `{{cb:N}}` placeholders. Same codec, same token rules
+ * as `bindKeyboard` — the transport (inline keyboard vs in-body button) is
+ * the only difference.
+ */
+export async function bindRichActions(
+  actions: readonly ActionButtonSpec[],
+  owner: CallbackOwner,
+  store: CallbackStore,
+): Promise<string[]> {
+  const data: string[] = [];
+  for (const button of actions) {
+    if (button.kind !== "action") throw new Error("rich buttons: only action buttons are bound");
+    data.push(
+      await store.issue({
+        action: button.action,
+        payload: button.payload,
+        userId: owner.userId,
+        chatId: owner.chatId,
+      } as IssueInput),
+    );
+  }
+  return data;
+}
+
 async function bindButton(
   button: ButtonSpec,
   owner: CallbackOwner,

@@ -6,7 +6,7 @@ import { registerPersonalFlow } from "./index";
 afterEach(() => vi.useRealTimers());
 
 async function harness() {
-  const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+  const h = createPipelineHarness({ composers: [registerPersonalFlow()], failRichMessages: true });
   await h.services.personalFlow.startUser({ userId: String(ALEX.id), locale: "ru" });
   await h.services.personalFlow.setTimezone({ userId: String(ALEX.id), tz: "Europe/Moscow" });
   return h;

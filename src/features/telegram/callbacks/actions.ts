@@ -30,6 +30,8 @@ export type CallbackPayloads = {
     readonly slotEnd: string;
   };
   "slot.other": { readonly taskId: string };
+  "calendar.month": { readonly taskId: string; readonly year: number; readonly month: number };
+  "calendar.day": { readonly taskId: string; readonly year: number; readonly month: number; readonly day: number };
   "task.edit": { readonly taskId: string };
   "intent.choose": { readonly draftId: string; readonly kind: (typeof INTENT_KINDS)[number] };
   "context.choose": { readonly draftId: string; readonly choice: (typeof CONTEXT_CHOICES)[number] };
@@ -176,9 +178,51 @@ function isNoop(payload: unknown): payload is CallbackPayloads["noop"] {
   return isPlainRecord(payload) && Object.keys(payload).length === 0;
 }
 
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+const MONTHS_PER_YEAR = 12;
+
+function isCalendarMonth(payload: unknown): payload is CallbackPayloads["calendar.month"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["taskId", "year", "month"]) &&
+    isId(payload.taskId) &&
+    typeof payload.year === "number" &&
+    Number.isInteger(payload.year) &&
+    payload.year >= MIN_YEAR &&
+    payload.year <= MAX_YEAR &&
+    typeof payload.month === "number" &&
+    Number.isInteger(payload.month) &&
+    payload.month >= 1 &&
+    payload.month <= MONTHS_PER_YEAR
+  );
+}
+
+function isCalendarDay(payload: unknown): payload is CallbackPayloads["calendar.day"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["taskId", "year", "month", "day"]) &&
+    isId(payload.taskId) &&
+    typeof payload.year === "number" &&
+    Number.isInteger(payload.year) &&
+    payload.year >= MIN_YEAR &&
+    payload.year <= MAX_YEAR &&
+    typeof payload.month === "number" &&
+    Number.isInteger(payload.month) &&
+    payload.month >= 1 &&
+    payload.month <= MONTHS_PER_YEAR &&
+    typeof payload.day === "number" &&
+    Number.isInteger(payload.day) &&
+    payload.day >= 1 &&
+    payload.day <= 31
+  );
+}
+
 export const CALLBACK_ACTIONS = Object.freeze({
   "slot.pick": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isSlotPick },
   "slot.other": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "calendar.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarMonth },
+  "calendar.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarDay },
   "task.edit": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "intent.choose": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isIntentChoose },
   "context.choose": { singleUse: true, ttlMs: DAY_MS, scope: "chat", validate: isContextChoose },

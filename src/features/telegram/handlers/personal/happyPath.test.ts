@@ -4,6 +4,7 @@ import { createSequentialIdGenerator } from "../../adapters/idGenerator";
 import { ALEX } from "../../testing/participants";
 import { createPipelineHarness } from "../../testing/pipelineHarness";
 import { expectCall, expectCallbackAnsweredOnce, expectRenderedText } from "../../testing/assertions";
+import { lastRichCall, pressRich, richButtons, richText } from "../../testing/richPress";
 import { registerPersonalFlow } from "./index";
 
 const TASK_TEXT = "Нужно до пятницы подготовить презентацию, часа на два";
@@ -11,7 +12,7 @@ const USER_ID = String(ALEX.id);
 const CHAT_ID = ALEX.id;
 
 function makeHarness() {
-  return createPipelineHarness({ composers: [registerPersonalFlow()] });
+  return createPipelineHarness({ composers: [registerPersonalFlow()], failRichMessages: true });
 }
 
 function makeFlakyCalendar() {
@@ -134,19 +135,24 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     const h = createPipelineHarness({ composers: [registerPersonalFlow()], services: { calendar } });
     await confirmTimezone(h);
     await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
-    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
-    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+
+    // Rich calendar: the first day button opens the first slot's day.
+    const oldDayData = richButtons(lastRichCall(h, CHAT_ID)).find((b) => /^\d+/.test(b.label))!.data;
     const proposal = await h.services.proposals.get(USER_ID, "task_1");
-    const conflictedSlot = proposal!.slots.at(-1)!;
-    calendar.addBusyInterval(USER_ID, conflictedSlot);
+    calendar.addBusyInterval(USER_ID, proposal!.slots[0]!);
 
-    await h.kit.press(h.bot, card, { data: oldData });
+    await pressRich(h, CHAT_ID, /^\d+/);
+    await pressRich(h, CHAT_ID, /–/);
 
-    const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
-    expect(refreshed.reply_markup?.inline_keyboard[0]?.length).toBeGreaterThan(0);
-    const freshData = lastSlotButtonData(refreshed as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
-    expect(freshData).not.toBe(oldData);
-    await h.kit.press(h.bot, refreshed, { data: freshData });
+    // The slot was taken: the same message is re-rendered as a rich month
+    // view whose day button carries a newly bound token.
+    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
+    expect(card.rich_message).toBeDefined();
+    const freshDayData = richButtons(lastRichCall(h, CHAT_ID)).find((b) => /^\d+/.test(b.label))!.data;
+    expect(freshDayData).not.toBe(oldDayData);
+
+    await pressRich(h, CHAT_ID, /^\d+/);
+    await pressRich(h, CHAT_ID, /–/);
     expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 
@@ -171,15 +177,16 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     });
     await confirmTimezone(h);
     await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
-    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
-    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
     const proposal = await h.services.proposals.get(USER_ID, "task_1");
-    calendar.addBusyInterval(USER_ID, proposal!.slots.at(-1)!);
+    calendar.addBusyInterval(USER_ID, proposal!.slots[0]!);
 
-    await h.kit.press(h.bot, card, { data: oldData });
+    // Rich calendar: open the first slot's day and try to book it.
+    await pressRich(h, CHAT_ID, /^\d+/);
+    await pressRich(h, CHAT_ID, /–/);
 
+    // No later availability: the re-proposal lands as the HTML no-slots card.
     expect(expectRenderedText(h.kit.fake.lastCall("editMessageText")!)).toContain("свободного времени не нашлось");
-    expect(h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message.reply_markup?.inline_keyboard.flat().length).toBeGreaterThan(0);
+    expect(h.kit.fake.messages.last(CHAT_ID)!.message.reply_markup?.inline_keyboard.flat().length).toBeGreaterThan(0);
     expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "proposed", bookingId: null });
     expect(schedulerCalls).toBe(2);
   });
@@ -202,26 +209,27 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     });
     await confirmTimezone(h);
     await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
-    const card = h.kit.fake.messages.last(CHAT_ID)!.message;
-    expect(card.reply_markup?.inline_keyboard[0]).toHaveLength(1);
-    const oldData = lastSlotButtonData(card as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
-    const originalSlotLabel = card.reply_markup!.inline_keyboard[0]![0]!.text;
 
-    const failure = await h.deliverExpectingFailure(h.kit.updates.callbackQuery(card, oldData));
+    // One slot: one day button, one booking button in the day view.
+    const oldDayData = richButtons(lastRichCall(h, CHAT_ID)).find((b) => /^\d+/.test(b.label))!.data;
+    await pressRich(h, CHAT_ID, /^\d+/);
+    const dayCard = h.kit.fake.messages.last(CHAT_ID)!.message;
+
+    const failure = await h.deliverExpectingFailure(h.kit.updates.callbackQuery(dayCard, richButtons(lastRichCall(h, CHAT_ID)).find((b) => /–/.test(b.label))!.data));
 
     expect(failure.causeCode).toBe("unexpected");
     expect(h.logger.records).toContainEqual(expect.objectContaining({ event: "update.failed" }));
-    const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: card.message_id });
-    expect(expectRenderedText(edited)).toContain("Подготовить презентацию");
-    const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
-    expect(refreshed.reply_markup?.inline_keyboard[0]).toHaveLength(1);
-    expect(refreshed.reply_markup!.inline_keyboard[0]![0]!.text).toBe(originalSlotLabel);
+    const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: dayCard.message_id });
+    expect(richText(edited)).toContain("Подготовить презентацию");
+    const refreshed = h.kit.fake.messages.get(CHAT_ID, dayCard.message_id)!.message;
+    expect(refreshed.rich_message).toBeDefined();
+    const freshDayData = richButtons(lastRichCall(h, CHAT_ID)).find((b) => /^\d+/.test(b.label))!.data;
+    expect(freshDayData).not.toBe(oldDayData);
     expect(schedulerCalls).toBe(1);
-    const freshData = lastSlotButtonData(refreshed as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
-    expect(freshData).not.toBe(oldData);
 
-    await h.kit.press(h.bot, refreshed, { data: freshData });
-
+    // The retry books the restored proposal.
+    await pressRich(h, CHAT_ID, /^\d+/);
+    await pressRich(h, CHAT_ID, /–/);
     expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 

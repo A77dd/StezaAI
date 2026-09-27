@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Превью: Rich-календарь предложения</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 24px; background: #e7ebf0; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  h1 { font-size: 16px; color: #707579; font-weight: 500; }
+  .phone { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+  .bubble { background: #effdde; border-radius: 12px 12px 4px 12px; padding: 10px 12px; margin: 12px 0; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .bubble + .label { font-size: 12px; color: #707579; margin: 14px 0 2px 4px; }
+  .bubble b { font-size: 15px; }
+  .bubble, .bubble tg-button-row { line-height: 1.45; }
+  tg-button-row { display: flex; gap: 4px; margin: 4px 0; }
+  tg-button { flex: 1; text-align: center; font-size: 14px; padding: 8px 4px; border-radius: 8px;
+    background: #f4f4f5; color: #000; cursor: default; white-space: nowrap; overflow: hidden; }
+  tg-button[type="callback_data"] { background: #e8f1fb; color: #168acd; font-weight: 500; }
+  tg-button[type="callback_data"][style="primary"] { background: #3390ec; color: #fff; }
+  tg-button[type="callback_data"][style="success"] { background: #4fae4e; color: #fff; }
+  tg-button[type="disabled"] { color: #a2acb4; background: #f4f4f5; }
+  .note { font-size: 13px; color: #707579; margin-top: 16px; }
+</style></head>
+<body>
+<h1>Превью Rich-сообщения с календарём (Bot API 10.3, &lt;tg-button&gt;)</h1>
+<div class="phone">
+  <div class="bubble"><div class="label">1. Карточка предложения — месяц с днями-кнопками</div>
+  <b>Подготовить презентацию</b>
+сент. 2026
+<tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">14</tg-button><tg-button type="disabled">15</tg-button><tg-button type="disabled">16</tg-button><tg-button type="disabled">17</tg-button><tg-button type="disabled">18</tg-button><tg-button type="disabled">19</tg-button><tg-button type="disabled">20</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">21</tg-button><tg-button type="disabled">22</tg-button><tg-button type="disabled">23</tg-button><tg-button type="callback_data" style="primary" data="#">24 (2)</tg-button><tg-button type="disabled">25</tg-button><tg-button type="disabled">26</tg-button><tg-button type="callback_data" style="primary" data="#">27</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">28</tg-button><tg-button type="disabled">29</tg-button><tg-button type="disabled">30</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">‹</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">›</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" data="#">Изменить</tg-button><tg-button type="callback_data" data="#">Другое время</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">2. После нажатия на день — слоты дня кнопками</div>
+  <b>Подготовить презентацию</b>
+сент. 2026
+<tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">14</tg-button><tg-button type="disabled">15</tg-button><tg-button type="disabled">16</tg-button><tg-button type="disabled">17</tg-button><tg-button type="disabled">18</tg-button><tg-button type="disabled">19</tg-button><tg-button type="disabled">20</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">21</tg-button><tg-button type="disabled">22</tg-button><tg-button type="disabled">23</tg-button><tg-button type="callback_data" style="success" data="#">24 (2)</tg-button><tg-button type="disabled">25</tg-button><tg-button type="disabled">26</tg-button><tg-button type="callback_data" style="primary" data="#">27</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">28</tg-button><tg-button type="disabled">29</tg-button><tg-button type="disabled">30</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">‹</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">›</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" style="success" data="#">чт, 13:00–14:00</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" style="success" data="#">чт, 16:00–17:00</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" data="#">‹ К календарю</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">3. После выбора слота — забронировано (правка того же сообщения)</div>
+  <b>Подготовить презентацию</b>
+чт, 11:00–12:00
+<tg-button-row><tg-button type="disabled">Забронировано ✓</tg-button></tg-button-row></div>
+</div>
+<p class="note">Кнопки в превью стилизованы CSS под Telegram и не нажимаются: настоящий интерактив —
+в @stezabot (напиши задачу текстом). Колбэки кнопок идут через тот же 64-байтный кодек v1:&lt;action&gt;:&lt;token&gt;.</p>
+</body></html>
