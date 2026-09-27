@@ -149,6 +149,9 @@ export type Catalog = {
     readonly slotConflict: string;
     readonly notFound: string;
     readonly transcriptionUnavailable: string;
+    readonly voiceUnavailable: string;
+    readonly voiceTooLarge: string;
+    readonly voiceUnsupported: string;
     readonly intentParserUnavailable: string;
     readonly invalidTimezone: string;
     readonly failure: string;

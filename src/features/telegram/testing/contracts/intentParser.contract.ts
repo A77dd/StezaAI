@@ -41,7 +41,7 @@ export function describeIntentParserContract(
   describe(`${name} satisfies the IntentParser contract`, () => {
     const parser = useSubject(factory);
     const parse = (text: string): Promise<Intent> =>
-      parser().parse({ text, now: NOW, timezone: TIMEZONE, source: makeSource({ sourceText: text }) });
+      parser().parse({ text, now: NOW, timezone: TIMEZONE, source: makeSource({ sourceText: text }), dateTimeHints: [] });
 
     it.each(SAMPLES)("returns a well-formed intent for %j", async (text) => {
       const intent = await parse(text);

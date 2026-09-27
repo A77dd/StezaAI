@@ -53,6 +53,7 @@ export function createSetTimezone(ports: SetTimezonePorts) {
     }
     await ports.drafts.delete(input.userId, input.draftId);
     const replayed = await submitText({
+      dateTimeHints: draft.dateTimeHints ?? [],
       userId: input.userId,
       chatId: draft.chatId,
       text: draft.source.sourceText,

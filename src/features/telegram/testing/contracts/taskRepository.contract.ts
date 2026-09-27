@@ -19,6 +19,17 @@ export function describeTaskRepositoryContract(
       await expect(repo().get("user_1", "task_missing")).resolves.toBeNull();
     });
 
+    it("preserves and isolates related album message ids", async () => {
+      const ids = [3, 5];
+      const task = makeTask({ source: makeSource({ relatedMessageIds: ids }) });
+      await repo().create(task);
+      ids.push(7);
+      const found = await repo().get("user_1", task.id);
+      expect(found?.source.relatedMessageIds).toEqual([3, 5]);
+      (found?.source.relatedMessageIds as number[]).push(9);
+      expect((await repo().get("user_1", task.id))?.source.relatedMessageIds).toEqual([3, 5]);
+    });
+
     it("rejects a duplicate id with AlreadyExistsError", async () => {
       await repo().create(makeTask());
       await expect(repo().create(makeTask({ title: "Другое" }))).rejects.toThrow(AlreadyExistsError);

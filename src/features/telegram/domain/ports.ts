@@ -43,6 +43,7 @@ export interface IntentParser {
     now: Instant;
     timezone: Timezone;
     source: SourceRef;
+    dateTimeHints: readonly Instant[];
   }): Promise<Intent>;
 }
 

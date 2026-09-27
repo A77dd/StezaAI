@@ -61,6 +61,8 @@ export type SourceRef = {
   readonly sourceType: SourceType;
   readonly sourceChatId: number | null;
   readonly sourceMessageId: number | null;
+  /** Additional album message ids, ascending by Telegram message id. */
+  readonly relatedMessageIds: readonly number[];
   readonly sourceText: string;
   readonly sourceAuthor: string | null;
   readonly sourceTimestamp: Instant | null;
@@ -310,6 +312,8 @@ export type Draft = {
   readonly chatId: number;
   readonly intent: Intent | null;
   readonly source: SourceRef;
+  /** Transport date entities retained while timezone confirmation is pending. */
+  readonly dateTimeHints?: readonly Instant[];
   readonly createdAt: Instant;
   readonly expiresAt: Instant;
   readonly kind: DraftKind;

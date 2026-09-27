@@ -90,6 +90,7 @@ export function createInMemoryServices(input: InMemoryServicesInput): BotService
     memory,
     reminders,
     transcription: input.transcription ?? createStubTranscription([]),
+    voiceFileDownload: input.voiceFileDownload ?? null,
     callbacks,
     deduper: input.deduper ?? createInMemoryUpdateDeduper({ clock }),
     drafts,

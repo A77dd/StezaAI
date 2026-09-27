@@ -17,7 +17,7 @@ import type {
 } from "../domain";
 import type { PersonalFlow } from "../domain/useCases";
 import type { Logger } from "./logger";
-import type { UpdateDeduper } from "./ports";
+import type { TelegramFileDownloadPort, UpdateDeduper } from "./ports";
 import type { PromptTracker } from "./promptTracker";
 
 /**
@@ -40,6 +40,8 @@ export type BotServices = {
   readonly memory: MemoryRepository;
   readonly reminders: ReminderQueue;
   readonly transcription: TranscriptionPort;
+  /** Null until a host explicitly provides secure Telegram file retrieval. */
+  readonly voiceFileDownload: TelegramFileDownloadPort | null;
   readonly callbacks: CallbackStore;
   readonly logger: Logger;
   readonly deduper: UpdateDeduper;

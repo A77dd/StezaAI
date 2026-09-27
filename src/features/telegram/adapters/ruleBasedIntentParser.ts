@@ -464,7 +464,7 @@ function buildTitle(original: string, spans: readonly Span[]): string {
 
 export function createRuleBasedIntentParser(): IntentParser {
   return {
-    async parse({ text, now, timezone }): Promise<Intent> {
+    async parse({ text, now, timezone, dateTimeHints }): Promise<Intent> {
       // Checked before trimming so padding cannot smuggle in a huge message.
       if (text.length > MAX_INTENT_TEXT_LENGTH) {
         throw new InvalidIntentError(
@@ -515,12 +515,12 @@ export function createRuleBasedIntentParser(): IntentParser {
       return {
         kind,
         title: buildTitle(original, removable),
-        deadline: deadline?.value ?? null,
+        deadline: dateTimeHints[0] ?? deadline?.value ?? null,
         durationMinutes: duration?.value ?? defaultMinutes,
         priority,
         participants: kind === "meeting" ? findParticipants(original) : [],
         confidence:
-          deadline !== undefined || duration !== undefined
+          dateTimeHints.length > 0 || deadline !== undefined || duration !== undefined
             ? CONFIDENCE_KIND_AND_DETAIL
             : CONFIDENCE_KIND_ONLY,
       };

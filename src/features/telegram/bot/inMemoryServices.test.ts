@@ -34,6 +34,7 @@ describe("createInMemoryServices", () => {
         "settings",
         "tasks",
         "transcription",
+        "voiceFileDownload",
       ].sort(),
     );
   });

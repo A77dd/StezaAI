@@ -135,6 +135,7 @@ export function createApplyTaskEdit(ports: ApplyTaskEditPorts) {
 
     const settings = await requireSettings(ports, input.userId);
     const reparsed = await ports.intentParser.parse({
+      dateTimeHints: [],
       text: input.text,
       now: ports.clock.now(),
       timezone: settings.timezone,

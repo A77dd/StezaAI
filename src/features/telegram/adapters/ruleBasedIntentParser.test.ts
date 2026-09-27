@@ -18,16 +18,23 @@ describeIntentParserContract("ruleBasedIntentParser", () => ({
   port: createRuleBasedIntentParser(),
 }));
 
-function parse(text: string, overrides: { now?: string; timezone?: string } = {}): Promise<Intent> {
+function parse(text: string, overrides: { now?: string; timezone?: string; dateTimeHints?: readonly string[] } = {}): Promise<Intent> {
   return createRuleBasedIntentParser().parse({
     text,
     now: overrides.now ?? NOW,
     timezone: overrides.timezone ?? MOSCOW,
     source: makeSource({ sourceText: text }),
+    dateTimeHints: overrides.dateTimeHints ?? [],
   });
 }
 
 describe("ruleBasedIntentParser: required examples", () => {
+  it("uses the first Telegram date_time hint over a conflicting text deadline", async () => {
+    const intent = await parse("Посмотри договор до завтра", {
+      dateTimeHints: ["2026-10-02T10:15:00.000Z", "2026-10-03T10:15:00.000Z"],
+    });
+    expect(intent.deadline).toBe("2026-10-02T10:15:00.000Z");
+  });
   it("parses a task with a weekday deadline and a rough duration", async () => {
     await expect(parse("Нужно до пятницы подготовить презентацию, часа на два")).resolves.toEqual({
       kind: "task",
@@ -453,6 +460,7 @@ describe("ruleBasedIntentParser: input validation and purity", () => {
 
   it("ignores the source (the parser never invents slots or reads chat context)", async () => {
     const a = await createRuleBasedIntentParser().parse({
+      dateTimeHints: [],
       text: "Подготовить презентацию до пятницы",
       now: NOW,
       timezone: MOSCOW,

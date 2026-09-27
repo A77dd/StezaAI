@@ -14,6 +14,21 @@ import {
 const NOW = "2026-09-28T06:10:00.000Z"; // Monday 09:10 Europe/Moscow
 
 describe("setTimezone", () => {
+  it("keeps forwarded date_time hints through timezone confirmation", async () => {
+    const ports = createTestPersonalFlowPorts({}, NOW);
+    await ports.settings.upsert(makeSettings({ timezoneConfirmed: false }));
+    const gated = await createSubmitText(ports)({
+      userId: "user_1",
+      chatId: 1001,
+      text: "Посмотри договор до завтра",
+      source: makeSource({ sourceType: "forwarded_message" }),
+      dateTimeHints: ["2026-10-02T10:15:00.000Z"],
+    });
+    if (gated.kind !== "timezone_required") throw new Error("expected timezone gate");
+    const replayed = await createSetTimezone(ports)({ userId: "user_1", tz: "Europe/Moscow", draftId: gated.draftId });
+    if (replayed.kind !== "proposed" && replayed.kind !== "no_slots") throw new Error("expected task");
+    expect(replayed.task.deadline).toBe("2026-10-02T10:15:00.000Z");
+  });
   it("validates and confirms the timezone", async () => {
     const ports = createTestPersonalFlowPorts({}, NOW);
     await ports.settings.upsert(makeSettings({ timezone: "UTC", timezoneConfirmed: false }));

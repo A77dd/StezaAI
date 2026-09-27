@@ -1,5 +1,5 @@
 import { InvalidIntentError } from "../index";
-import type { DraftId, Intent, SlotProposal, SourceRef, Task, UserId } from "../index";
+import type { DraftId, Instant, Intent, SlotProposal, SourceRef, Task, UserId } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 import { CLARIFY_THRESHOLD, createTaskAndPropose, requireSettings, saveDraft } from "./shared";
 import type { SlotSearchSummary } from "./shared";
@@ -9,6 +9,7 @@ export type SubmitTextInput = {
   readonly chatId: number;
   readonly text: string;
   readonly source: SourceRef;
+  readonly dateTimeHints?: readonly Instant[];
 };
 
 export type SubmitTextResult =
@@ -44,6 +45,7 @@ export function createSubmitText(
         chatId: input.chatId,
         intent: null,
         source: { ...input.source, sourceText: input.text },
+        dateTimeHints: input.dateTimeHints ?? [],
         kind: "timezone",
       });
       return { kind: "timezone_required", draftId: draft.id };
@@ -56,6 +58,7 @@ export function createSubmitText(
         now: ports.clock.now(),
         timezone: settings.timezone,
         source: input.source,
+        dateTimeHints: input.dateTimeHints ?? [],
       });
     } catch (error) {
       if (error instanceof InvalidIntentError) {

@@ -22,3 +22,8 @@ export interface UpdateDeduper {
    */
   release(updateId: number): Promise<void>;
 }
+
+/** Transport-only file retrieval after getFile has supplied a path. */
+export interface TelegramFileDownloadPort {
+  download(filePath: string): Promise<Uint8Array>;
+}

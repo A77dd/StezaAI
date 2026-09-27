@@ -17,6 +17,7 @@ export function makeSource(overrides: Partial<SourceRef> = {}): SourceRef {
     sourceType: "direct_message",
     sourceChatId: 1001,
     sourceMessageId: 1,
+    relatedMessageIds: [],
     sourceText: "Нужно подготовить презентацию",
     sourceAuthor: null,
     sourceTimestamp: null,

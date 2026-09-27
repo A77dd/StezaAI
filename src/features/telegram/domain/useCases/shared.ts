@@ -108,6 +108,7 @@ export async function saveDraft(
     readonly chatId: number;
     readonly intent: Intent | null;
     readonly source: SourceRef;
+    readonly dateTimeHints?: readonly Instant[];
     readonly kind: DraftKind;
   },
 ): Promise<Draft> {
@@ -118,6 +119,7 @@ export async function saveDraft(
     chatId: input.chatId,
     intent: input.intent,
     source: input.source,
+    ...(input.dateTimeHints === undefined ? {} : { dateTimeHints: input.dateTimeHints }),
     createdAt: now,
     expiresAt: addMinutes(now, DRAFT_TTL_HOURS * MINUTES_PER_HOUR),
     kind: input.kind,

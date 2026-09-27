@@ -1,11 +1,8 @@
 import type { Composer } from "grammy";
-import { addMinutes, PENDING_INPUT_TTL_MINUTES } from "../../domain";
 import type { SourceRef } from "../../domain";
 import type { BotContext } from "../../bot";
-import { sendCard } from "../../bot";
-import { askInputView } from "../../render";
 import { tryApplyPendingInput } from "./pendingInput";
-import { sendSubmitOutcome } from "./outcomes";
+import { submitMessage } from "./submitMessage";
 
 function sourceOf(ctx: BotContext, text: string): SourceRef {
   const message = ctx.message;
@@ -14,25 +11,12 @@ function sourceOf(ctx: BotContext, text: string): SourceRef {
     sourceType: "direct_message",
     sourceChatId: message.chat.id,
     sourceMessageId: message.message_id,
+    relatedMessageIds: [],
     sourceText: text,
     sourceAuthor: null,
     sourceTimestamp: new Date(message.date * 1000).toISOString(),
     hiddenOrigin: false,
   };
-}
-
-async function askTimezone(ctx: BotContext, userId: string, chatId: number, draftId: string): Promise<void> {
-  const viewCtx = ctx.viewContext(await ctx.loadSettings());
-  const prompt = await sendCard(ctx, askInputView({ kind: "timezone" }, viewCtx));
-  await ctx.services.pendingInputs.save({
-    userId,
-    chatId,
-    promptMessageId: prompt.message_id,
-    purpose: "timezone",
-    refId: draftId,
-    expiresAt: addMinutes(ctx.services.clock.now(), PENDING_INPUT_TTL_MINUTES),
-  });
-  ctx.services.promptTracker.remember(userId, chatId, { promptMessageId: prompt.message_id, purpose: "timezone" });
 }
 
 /**
@@ -65,13 +49,6 @@ export function registerPrivateText(composer: Composer<BotContext>): void {
 
     if (await tryApplyPendingInput(ctx, userId, chatId, text)) return;
 
-    const result = await ctx.services.personalFlow.submitText({ userId, chatId, text, source: sourceOf(ctx, text) });
-    if (result.kind === "timezone_required") {
-      await askTimezone(ctx, userId, chatId, result.draftId);
-      return;
-    }
-
-    const viewCtx = ctx.viewContext(await ctx.loadSettings());
-    await sendSubmitOutcome(ctx, userId, result, viewCtx);
+    await submitMessage(ctx, { text, source: sourceOf(ctx, text), dateTimeHints: [] });
   });
 }
