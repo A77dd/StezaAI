@@ -103,7 +103,9 @@ async function handleSettingsTimezone(ctx: BotContext, data: string): Promise<vo
   const result = await ctx.services.personalFlow.setTimezone({ userId: owner.userId, tz: resolved.payload.tz, draftId });
   if (pending?.purpose === "timezone" && target.kind === "chat") {
     await ctx.services.pendingInputs.consumeByPrompt(owner.userId, target.chatId, target.messageId);
-    ctx.services.promptTracker.consume(owner.userId, target.chatId);
+    if (ctx.services.promptTracker.peek(owner.userId, target.chatId)?.promptMessageId === target.messageId) {
+      ctx.services.promptTracker.consume(owner.userId, target.chatId);
+    }
   }
 
   if (result.kind === "timezone_set") {

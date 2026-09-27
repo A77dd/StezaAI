@@ -57,6 +57,27 @@ describe("personal flow: timezone gating", () => {
     expect(tasks).toHaveLength(1);
   });
 
+  it("does not clear a newer prompt when an older timezone preset is pressed", async () => {
+    const h = makeHarness();
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+    const oldTimezonePrompt = h.kit.fake.messages.last(CHAT_ID)!.message;
+
+    await h.deliver(h.kit.updates.command("settings", undefined, { from: ALEX }));
+    const settings = h.kit.fake.messages.last(CHAT_ID)!.message;
+    await h.kit.press(h.bot, settings, { text: "Изменить рабочие часы" });
+    const currentPrompt = h.kit.fake.messages.last(CHAT_ID)!.message;
+
+    await h.kit.press(h.bot, oldTimezonePrompt, { text: "Europe/Moscow" });
+    await h.deliver(h.kit.updates.privateText("10:00-19:00 пн-пт", { from: ALEX }));
+
+    expect(currentPrompt.message_id).not.toBe(oldTimezonePrompt.message_id);
+    expect((await h.services.settings.get(USER_ID))?.workingHours).toEqual({
+      isoDays: [1, 2, 3, 4, 5],
+      start: "10:00",
+      end: "19:00",
+    });
+  });
+
   it("rejects an unknown timezone explicitly instead of silently accepting it", async () => {
     const h = makeHarness();
     await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
