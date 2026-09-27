@@ -116,10 +116,17 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
 
     await h.kit.press(h.bot, original, { text: "Другое время" });
     const refreshed = h.kit.fake.messages.get(CHAT_ID, original.message_id)!.message;
+    const currentMarkup = structuredClone(refreshed.reply_markup);
+    const editsBeforeStalePress = h.kit.fake.callsTo("editMessageText").length;
     await h.deliver(h.kit.updates.callbackQuery(refreshed, staleData));
 
     expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "proposed", bookingId: null });
-    expect(expectRenderedText(h.kit.fake.lastCall("editMessageText")!)).toContain("Эта кнопка недоступна");
+    expect(h.kit.fake.callsTo("editMessageText")).toHaveLength(editsBeforeStalePress);
+    expect(h.kit.fake.messages.get(CHAT_ID, original.message_id)!.message.reply_markup).toEqual(currentMarkup);
+    expect(h.kit.fake.lastCall("answerCallbackQuery")?.payload).toMatchObject({
+      text: "Эта кнопка недоступна. Попробуй начать заново.",
+      show_alert: true,
+    });
   });
 
   it("keeps a fresh actionable proposal when a calendar conflict appears before confirmation", async () => {

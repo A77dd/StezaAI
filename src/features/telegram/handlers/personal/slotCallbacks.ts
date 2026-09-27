@@ -43,9 +43,6 @@ async function nextSlotsCard(ctx: BotContext, userId: string, taskId: string, vi
 }
 
 async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
-  // Answer immediately for idempotency: double-press shows no spinner
-  await answerCallback(ctx);
-
   const owner = ownerOf(ctx);
   const resolved = await ctx.services.callbacks.resolve(data, owner);
   if (resolved.action !== "slot.pick") throw new Error("slot.pick handler resolved a different action");
@@ -78,6 +75,7 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
     case "booked": {
       const rendered = taskProposalView({ state: "booked", task: result.task, slot: result.booking.slot }, viewCtx);
       await editCard(ctx, target, rendered);
+      await answerCallback(ctx);
       return;
     }
     case "already_booked":
@@ -86,16 +84,18 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       const task = await requireTask(ctx, owner.userId, result.booking.taskId);
       const rendered = taskProposalView({ state: "booked", task, slot: result.booking.slot }, viewCtx);
       await editCard(ctx, target, rendered);
+      await answerCallback(ctx);
       return;
     }
     case "slot_taken": {
       const task = await requireTask(ctx, owner.userId, result.proposal.taskId);
       await editCard(ctx, target, proposalCard({ kind: "proposed", task, proposal: result.proposal }, viewCtx));
+      await answerCallback(ctx);
       return;
     }
     case "no_such_slot": {
       const notice = noticeForKind("unavailable", viewCtx);
-      await editCard(ctx, target, notice.message);
+      // The callback may target an older proposal message. Keep the current card intact.
       await answerCallback(ctx, notice.text, { alert: true });
       return;
     }
