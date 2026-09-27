@@ -31,7 +31,15 @@ export function richEscape(value: string): string {
 
 export type RichCell =
   | { readonly kind: "action"; readonly button: ActionButtonSpec }
+  | { readonly kind: "url"; readonly label: string; readonly url: string }
   | { readonly kind: "disabled"; readonly label: string };
+
+export function urlCell(label: string, url: string): RichCell {
+  if (!URL.canParse(url) || new URL(url).protocol !== "https:") {
+    throw new RenderError("A rich url button must be an absolute https URL");
+  }
+  return { kind: "url", label, url };
+}
 
 export function disabledCell(label: string): RichCell {
   return { kind: "disabled", label };
@@ -80,6 +88,9 @@ export function createRichDocument(): RichDocument {
       assertRowSize(cells.length);
       const rendered = cells.map((cell) => {
         if (cell.kind === "disabled") return disabled(cell.label);
+        if (cell.kind === "url") {
+          return `<tg-button type="url" url="${richEscape(cell.url)}">${richEscape(cell.label)}</tg-button>`;
+        }
         const index = actions.length;
         actions.push(cell.button);
         const style = cell.button.style === undefined ? "" : ` style="${cell.button.style}"`;

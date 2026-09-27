@@ -23,11 +23,16 @@ describe("personal flow: commands", () => {
 
     await h.deliver(h.kit.updates.command("start", undefined, { from: ALEX }));
 
-    const sent = expectCall(h.kit, "sendMessage", { chat_id: CHAT_ID });
-    expect(expectRenderedText(sent)).toContain("Привет, Alex!");
-    const labels = buttonLabels(sent);
-    expect(labels).toContain("Подключить календарь");
-    expect(labels).toContain("Свободное время сегодня");
+    const sent = expectCall(h.kit, "sendRichMessage", { chat_id: CHAT_ID });
+    const html = (sent.payload.rich_message as { html: string }).html;
+    expect(html).toContain("Привет, Alex!");
+    // Quick actions are buttons INSIDE the rich body now.
+    expect(html).toContain(">📅 Подключить календарь</tg-button>");
+    expect(html).toContain(">⚙️ Настроить профиль</tg-button>");
+    expect(html).toContain("tg-slideshow");
+    // The legal footer with two underlined placeholder links.
+    expect(html).toContain("<footer>");
+    expect(html).toContain('href="https://t.me/steza_test_bot"');
 
     const settings = await h.services.settings.get(USER_ID);
     expect(settings?.timezoneConfirmed).toBe(false);

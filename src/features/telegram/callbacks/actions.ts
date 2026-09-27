@@ -32,6 +32,9 @@ export type CallbackPayloads = {
   "slot.other": { readonly taskId: string };
   "calendar.month": { readonly taskId: string; readonly year: number; readonly month: number };
   "calendar.day": { readonly taskId: string; readonly year: number; readonly month: number; readonly day: number };
+  "welcome.providers": Record<string, never>;
+  "welcome.main": Record<string, never>;
+  "welcome.connect": { readonly provider: string };
   "task.edit": { readonly taskId: string };
   "intent.choose": { readonly draftId: string; readonly kind: (typeof INTENT_KINDS)[number] };
   "context.choose": { readonly draftId: string; readonly choice: (typeof CONTEXT_CHOICES)[number] };
@@ -178,6 +181,21 @@ function isNoop(payload: unknown): payload is CallbackPayloads["noop"] {
   return isPlainRecord(payload) && Object.keys(payload).length === 0;
 }
 
+function isEmptyPayload(payload: unknown): payload is Record<string, never> {
+  return isPlainRecord(payload) && Object.keys(payload).length === 0;
+}
+
+const PROVIDER_PATTERN = /^[a-z0-9_-]{1,32}$/;
+
+function isWelcomeConnect(payload: unknown): payload is CallbackPayloads["welcome.connect"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["provider"]) &&
+    typeof payload.provider === "string" &&
+    PROVIDER_PATTERN.test(payload.provider)
+  );
+}
+
 const MIN_YEAR = 2000;
 const MAX_YEAR = 2100;
 const MONTHS_PER_YEAR = 12;
@@ -223,6 +241,9 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "slot.other": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "calendar.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarMonth },
   "calendar.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarDay },
+  "welcome.providers": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
+  "welcome.main": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
+  "welcome.connect": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isWelcomeConnect },
   "task.edit": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "intent.choose": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isIntentChoose },
   "context.choose": { singleUse: true, ttlMs: DAY_MS, scope: "chat", validate: isContextChoose },

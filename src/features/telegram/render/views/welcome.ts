@@ -2,7 +2,7 @@ import { actionButton } from "../buttons";
 import { fill, fillPlain } from "../catalog";
 import { BLANK_LINE, join, text } from "../html";
 import { row } from "../keyboard";
-import { createRichDocument } from "../rich";
+import { createRichDocument, richEscape, type RichCell } from "../rich";
 import type { RenderedMessage, RenderedRichHtmlMessage } from "../rendered";
 import { renderMessage } from "../renderMessage";
 import type { ViewContext } from "./context";
@@ -38,14 +38,40 @@ export function welcomeView(input: WelcomeInput, ctx: ViewContext): RenderedMess
 }
 
 /**
- * `/start` as a Rich Message (Bot API 10.3): the same greeting, the three
- * ways to start and the calendar hint, plus the same quick-action keyboard
- * attached below the rich body (the presenter binds `reply_markup` for rich
- * cards too).
+ * `/start` as a Rich Message (Bot API 10.3): carousel placeholder, the
+ * greeting with the three ways to start, the legal footer, and the quick
+ * actions as buttons INSIDE the message body. The profile button opens the
+ * Mini App when one is configured; until then it is a placeholder url button.
+ * All interactive state changes re-render this same message (press →
+ * re-render → answer), the pattern the rich-buttons ecosystem is built on.
  */
 export function welcomeRichView(input: WelcomeInput, ctx: ViewContext): RenderedRichHtmlMessage {
+  return welcomeRichState(input, ctx, null);
+}
+
+/** The provider-choice state: same card, the calendar providers as buttons. */
+export function welcomeProvidersRichView(input: WelcomeInput, ctx: ViewContext): RenderedRichHtmlMessage {
+  return welcomeRichState(input, ctx, "providers");
+}
+
+function welcomeRichState(
+  input: WelcomeInput,
+  ctx: ViewContext,
+  state: "providers" | null,
+): RenderedRichHtmlMessage {
   const { welcome } = ctx.catalog;
   const doc = createRichDocument();
+
+  // Carousel placeholder (tg-slideshow keeps markdown parsing inside, so the
+  // media blocks stay `![alt](url)` lines). Real artwork lands with the
+  // Mini App; the urls here are public placeholders.
+  doc.raw(
+    "<tg-slideshow>\n"
+    + "![Расписание недели](https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1)\n"
+    + "![Поиск свободных окон](https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2)\n"
+    + "</tg-slideshow>",
+  );
+
   doc.heading(
     input.firstName === null
       ? welcome.greeting
@@ -53,18 +79,52 @@ export function welcomeRichView(input: WelcomeInput, ctx: ViewContext): Rendered
   );
   doc.line(welcome.intro);
   for (const way of welcome.ways) doc.line(`• ${way}`);
-  if (!input.calendarConnected) doc.line(welcome.calendarHint);
-  const connect = input.calendarConnected
-    ? null
-    : row(
-        actionButton(welcome.connectCalendar, "settings.toggle", { key: "calendar", value: CALENDAR_CONNECT }, "primary"),
-      );
-  const app = miniAppButton(ctx, ctx.catalog.common.openMiniApp);
+
+  if (state === "providers") {
+    doc.line(welcome.providersTitle);
+    for (const provider of welcome.providers) {
+      doc.buttonRow([providerCell(provider.label, "welcome.connect", { provider: provider.id }, "success")]);
+    }
+    doc.buttonRow([providerCell(welcome.back, "welcome.providers.back", {}, undefined)]);
+  } else if (input.calendarConnected) {
+    doc.line(welcome.calendarConnectedNote);
+    doc.buttonRow([urlCellForProfile(ctx)]);
+  } else {
+    doc.buttonRow([
+      providerCell(welcome.connectCalendar, "welcome.providers", {}, "primary"),
+      urlCellForProfile(ctx),
+    ]);
+  }
+
+  // Legal footer: small gray text with underlined links (rendered by the
+  // client); both documents are placeholders pointing to t.me for now.
+  const legalUrl = `https://t.me/${ctx.botUsername}`;
+  doc.raw(
+    `<footer>${richEscape(welcome.legal)
+      .replace("{doc1}", `<a href="${legalUrl}">${richEscape(welcome.legalDoc1)}</a>`)
+      .replace("{doc2}", `<a href="${legalUrl}">${richEscape(welcome.legalDoc2)}</a>`)}</footer>`,
+  );
+
   const built = doc.build();
-  return {
-    kind: "rich_html",
-    html: built.html,
-    actions: built.actions,
-    keyboard: compactKeyboard([connect, row(tryInlineButton(ctx)), app === null ? null : row(app)]),
-  };
+  return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
 }
+
+function providerCell(
+  label: string,
+  action: "welcome.providers" | "welcome.providers.back" | "welcome.connect" | "welcome.profile",
+  payload: Record<string, unknown>,
+  style?: "primary" | "success" | "danger",
+): RichCell {
+  return {
+    kind: "action",
+    button: actionButton(label, action as never, payload as never, style) as never,
+  } as RichCell;
+}
+
+function urlCellForProfile(ctx: ViewContext): RichCell {
+  // The Mini App is not built yet (Task F): the profile button is a
+  // placeholder url button until `ctx.miniAppUrl` exists.
+  return { kind: "url", label: ctx.catalog.welcome.profileButton, url: `https://t.me/${ctx.botUsername}` };
+}
+
+

@@ -20,7 +20,7 @@ describe("welcomeView", () => {
       parseMode: "HTML",
       linkPreview: "disabled",
       keyboard: [
-        [{ kind: "action", text: "Подключить календарь", action: "settings.toggle", payload: { key: "calendar", value: "connect" }, style: "primary" }],
+        [{ kind: "action", text: "📅 Подключить календарь", action: "settings.toggle", payload: { key: "calendar", value: "connect" }, style: "primary" }],
         [{ kind: "switch_inline", text: "Свободное время сегодня", query: "свободное время сегодня", mode: "current_chat" }],
         [{ kind: "web_app", text: "Открыть планировщик", url: "https://app.example.com/mini" }],
       ],
@@ -55,6 +55,6 @@ describe("welcomeView", () => {
     const message = welcomeView({ firstName: "Anna", calendarConnected: false }, makeEnViewContext());
 
     expect(message.kind === "text" && message.text.startsWith("<b>Hi, Anna!</b>\n\nI find time")).toBe(true);
-    expect(message.keyboard?.[0]?.[0]?.text).toBe("Connect calendar");
+    expect(message.keyboard?.[0]?.[0]?.text).toBe("📅 Connect calendar");
   });
 });

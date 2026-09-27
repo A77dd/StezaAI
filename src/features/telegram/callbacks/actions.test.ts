@@ -26,6 +26,9 @@ describe("CALLBACK_ACTIONS registry", () => {
         "slot.other",
         "slot.pick",
         "task.edit",
+    "welcome.connect",
+    "welcome.main",
+    "welcome.providers",
       ].sort(),
     );
   });

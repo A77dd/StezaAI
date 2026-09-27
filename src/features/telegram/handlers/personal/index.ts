@@ -9,6 +9,7 @@ import { registerSettingsCallbacks } from "./settingsCallbacks";
 import { registerSlotCallbacks } from "./slotCallbacks";
 import { registerTaskEditCallback } from "./taskEditFlow";
 import { registerVoice } from "./voice";
+import { registerWelcomeCallbacks } from "./welcomeCallbacks";
 
 /**
  * The personal task flow (ADR 0002 scenario A / Task 7): `/start`, `/help`,
@@ -32,6 +33,7 @@ export function registerPersonalFlow(): Composer<BotContext> {
   registerIntentCallbacks(scoped);
   registerSettingsCallbacks(scoped);
   registerDataCallbacks(scoped);
+  registerWelcomeCallbacks(scoped);
 
   return personal;
 }

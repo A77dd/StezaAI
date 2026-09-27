@@ -39,6 +39,19 @@ export type Catalog = {
     readonly ways: readonly string[];
     readonly calendarHint: string;
     readonly connectCalendar: string;
+    /** The rich card's in-body profile button (opens the Mini App). */
+    readonly profileButton: string;
+    /** Shown instead of `calendarHint` once a calendar is connected. */
+    readonly calendarConnectedNote: string;
+    /** The provider-choice state: title and back button. */
+    readonly providersTitle: string;
+    readonly back: string;
+    /** Calendar providers to connect, in order; ids go into the callback payload. */
+    readonly providers: readonly { readonly id: string; readonly label: string }[];
+    /** `Продолжая пользоваться ботом, вы соглашаетесь с {doc1} и {doc2}.` */
+    readonly legal: string;
+    readonly legalDoc1: string;
+    readonly legalDoc2: string;
   };
   readonly help: {
     readonly title: string;

@@ -24,12 +24,17 @@
 <h1>Превью Rich-сообщения с календарём (Bot API 10.3, &lt;tg-button&gt;)</h1>
 <div class="phone">
   <div class="bubble"><div class="label">0. /start — приветствие (Rich) с кнопками быстрых действий</div>
-  <b>Привет, Arttur!</b>
+  <tg-slideshow>
+![Расписание недели](https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1)
+![Поиск свободных окон](https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2)
+</tg-slideshow>
+<b>Привет, Arttur!</b>
 Я помогу найти время для задач и поставить его в календарь.
 • Напиши задачу, например «подготовить презентацию до пятницы, часа на два»
 • Перешли сообщение — предложу, что с ним сделать
 • В группе ответь на сообщение и упомяни меня — время подберу только тебе
-Календарь пока не подключён. Подключи его, и я учту твои занятые часы.</div>
+<tg-button-row><tg-button type="callback_data" style="primary" data="#">📅 Подключить календарь</tg-button><tg-button type="url" url="https://t.me/steza_test_bot">⚙️ Настроить профиль</tg-button></tg-button-row>
+<footer>Продолжая пользоваться ботом, вы соглашаетесь с <a href="https://t.me/steza_test_bot">документ 1</a> и <a href="https://t.me/steza_test_bot">документ 2</a>.</footer></div>
   <div class="bubble"><div class="label">1. Карточка предложения — месяц с днями-кнопками</div>
   <b>Подготовить презентацию</b>
 сент. 2026
