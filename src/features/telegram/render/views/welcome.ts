@@ -62,15 +62,14 @@ function welcomeRichState(
   const { welcome } = ctx.catalog;
   const doc = createRichDocument();
 
-  // Carousel placeholder (tg-slideshow keeps markdown parsing inside, so the
-  // media blocks stay `![alt](url)` lines). Real artwork lands with the
-  // Mini App; the urls here are public placeholders.
-  doc.raw(
-    "<tg-slideshow>\n"
-    + "![Расписание недели](https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1)\n"
-    + "![Поиск свободных окон](https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2)\n"
-    + "</tg-slideshow>",
-  );
+  // Carousel placeholder: `<tg-slideshow>` takes `<img src>` children in the
+  // Rich HTML representation (the markdown `![]()` form belongs to the
+  // markdown representation only). Real artwork lands with the Mini App.
+  doc.slideshow([
+    "https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1",
+    "https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2",
+    "https://placehold.co/600x340/707579/ffffff.png?text=Steza+3",
+  ]);
 
   doc.heading(
     input.firstName === null
@@ -78,7 +77,7 @@ function welcomeRichState(
       : fillPlain(welcome.greetingNamed, { name: input.firstName.slice(0, NAME_MAX_LENGTH) }),
   );
   doc.line(welcome.intro);
-  for (const way of welcome.ways) doc.line(`• ${way}`);
+  doc.list(welcome.ways);
 
   if (state === "providers") {
     doc.line(welcome.providersTitle);

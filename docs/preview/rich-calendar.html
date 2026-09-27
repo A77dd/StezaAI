@@ -18,26 +18,27 @@
   tg-button[type="callback_data"][style="primary"] { background: #3390ec; color: #fff; }
   tg-button[type="callback_data"][style="success"] { background: #4fae4e; color: #fff; }
   tg-button[type="disabled"] { color: #a2acb4; background: #f4f4f5; }
+  h3 { font-size: 15px; margin: 6px 0 2px; }
+  p { margin: 4px 0; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  footer { font-size: 12px; color: #707579; margin-top: 8px; }
+  footer a { color: #168acd; }
+  tg-slideshow img { width: 100%; border-radius: 10px; display: block; margin: 6px 0; }
   .note { font-size: 13px; color: #707579; margin-top: 16px; }
 </style></head>
 <body>
 <h1>Превью Rich-сообщения с календарём (Bot API 10.3, &lt;tg-button&gt;)</h1>
 <div class="phone">
   <div class="bubble"><div class="label">0. /start — приветствие (Rich) с кнопками быстрых действий</div>
-  <tg-slideshow>
-![Расписание недели](https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1)
-![Поиск свободных окон](https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2)
-</tg-slideshow>
-<b>Привет, Arttur!</b>
-Я помогу найти время для задач и поставить его в календарь.
-• Напиши задачу, например «подготовить презентацию до пятницы, часа на два»
-• Перешли сообщение — предложу, что с ним сделать
-• В группе ответь на сообщение и упомяни меня — время подберу только тебе
+  <tg-slideshow><img src="https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1"/><img src="https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2"/><img src="https://placehold.co/600x340/707579/ffffff.png?text=Steza+3"/></tg-slideshow>
+<h3>Привет, Arttur!</h3>
+<p>Я помогу найти время для задач и поставить его в календарь.</p>
+<ul><li>Напиши задачу, например «подготовить презентацию до пятницы, часа на два»</li><li>Перешли сообщение — предложу, что с ним сделать</li><li>В группе ответь на сообщение и упомяни меня — время подберу только тебе</li></ul>
 <tg-button-row><tg-button type="callback_data" style="primary" data="#">📅 Подключить календарь</tg-button><tg-button type="url" url="https://t.me/steza_test_bot">⚙️ Настроить профиль</tg-button></tg-button-row>
 <footer>Продолжая пользоваться ботом, вы соглашаетесь с <a href="https://t.me/steza_test_bot">документ 1</a> и <a href="https://t.me/steza_test_bot">документ 2</a>.</footer></div>
   <div class="bubble"><div class="label">1. Карточка предложения — месяц с днями-кнопками</div>
-  <b>Подготовить презентацию</b>
-сент. 2026
+  <h3>Подготовить презентацию</h3>
+<p>сент. 2026</p>
 <tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
 <tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
 <tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
@@ -47,8 +48,8 @@
 <tg-button-row><tg-button type="disabled">‹</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">›</tg-button></tg-button-row>
 <tg-button-row><tg-button type="callback_data" data="#">Изменить</tg-button><tg-button type="callback_data" data="#">Другое время</tg-button></tg-button-row></div>
   <div class="bubble"><div class="label">2. После нажатия на день — слоты дня кнопками</div>
-  <b>Подготовить презентацию</b>
-сент. 2026
+  <h3>Подготовить презентацию</h3>
+<p>сент. 2026</p>
 <tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
 <tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
 <tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
@@ -60,8 +61,8 @@
 <tg-button-row><tg-button type="callback_data" style="success" data="#">чт, 16:00–17:00</tg-button></tg-button-row>
 <tg-button-row><tg-button type="callback_data" data="#">‹ К календарю</tg-button></tg-button-row></div>
   <div class="bubble"><div class="label">3. После выбора слота — забронировано (правка того же сообщения)</div>
-  <b>Подготовить презентацию</b>
-чт, 11:00–12:00
+  <h3>Подготовить презентацию</h3>
+<p>чт, 11:00–12:00</p>
 <tg-button-row><tg-button type="disabled">Забронировано ✓</tg-button></tg-button-row></div>
 </div>
 <p class="note">Кнопки в превью стилизованы CSS под Telegram и не нажимаются: настоящий интерактив —

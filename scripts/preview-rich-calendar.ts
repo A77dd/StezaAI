@@ -65,6 +65,12 @@ const telegramCss = `
   tg-button[type="callback_data"][style="primary"] { background: #3390ec; color: #fff; }
   tg-button[type="callback_data"][style="success"] { background: #4fae4e; color: #fff; }
   tg-button[type="disabled"] { color: #a2acb4; background: #f4f4f5; }
+  h3 { font-size: 15px; margin: 6px 0 2px; }
+  p { margin: 4px 0; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  footer { font-size: 12px; color: #707579; margin-top: 8px; }
+  footer a { color: #168acd; }
+  tg-slideshow img { width: 100%; border-radius: 10px; display: block; margin: 6px 0; }
   .note { font-size: 13px; color: #707579; margin-top: 16px; }
 `;
 

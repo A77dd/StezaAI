@@ -48,10 +48,17 @@ export function disabledCell(label: string): RichCell {
 export type RichDocument = {
   /** Appends a ready-made Rich HTML fragment (already escaped by the caller). */
   raw(html: string): void;
-  /** `<b>` heading block. */
+  /** `<h3>` section heading block. */
   heading(text: string): void;
-  /** Plain text block. */
+  /** `<p>` paragraph block. */
   line(text: string): void;
+  /** `<ul><li>` list block. */
+  list(items: readonly string[]): void;
+  /**
+   * `<tg-slideshow>` media block with `<img src>` children (Rich HTML style;
+   * markdown image lines are parsed only in the markdown representation).
+   */
+  slideshow(urls: readonly string[]): void;
   /** One row of 1-8 buttons; action cells become placeholders in `build()`. */
   buttonRow(cells: readonly RichCell[]): void;
   build(): RichHtmlDoc;
@@ -79,10 +86,23 @@ export function createRichDocument(): RichDocument {
       blocks.push(html);
     },
     heading(text) {
-      blocks.push(`<b>${richEscape(text)}</b>`);
+      blocks.push(`<h3>${richEscape(text)}</h3>`);
     },
     line(text) {
-      blocks.push(richEscape(text));
+      blocks.push(`<p>${richEscape(text)}</p>`);
+    },
+    list(items) {
+      if (items.length === 0) throw new RenderError("A rich list needs at least one item");
+      blocks.push(`<ul>${items.map((item) => `<li>${richEscape(item)}</li>`).join("")}</ul>`);
+    },
+    slideshow(urls) {
+      if (urls.length === 0) throw new RenderError("A rich slideshow needs at least one image");
+      for (const url of urls) {
+        if (!URL.canParse(url) || new URL(url).protocol !== "https:") {
+          throw new RenderError("Slideshow media must be absolute https URLs");
+        }
+      }
+      blocks.push(`<tg-slideshow>${urls.map((url) => `<img src="${richEscape(url)}"/>`).join("")}</tg-slideshow>`);
     },
     buttonRow(cells) {
       assertRowSize(cells.length);
