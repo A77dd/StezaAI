@@ -26,7 +26,10 @@ async function setUpRichUser(ports: ReturnType<typeof createTestPersonalFlowPort
     expiresAt: "2026-09-29T06:10:00.000Z",
   };
   await ports.proposals.save("user_1", proposal);
-  const booked = await createConfirmSlot(ports)({ userId: "user_1", taskId: scheduledTask.id, slotIndex: 0 });
+  const booked = await createConfirmSlot(ports)({
+    userId: "user_1", taskId: scheduledTask.id, slotIndex: 0,
+    slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z",
+  });
   if (booked.kind !== "booked") throw new Error("expected booked");
 
   const openTask = makeTask({ id: "task_open", status: "proposed" });

@@ -6,7 +6,12 @@ import type { CallbackAction, CallbackPayload } from "../callbacks";
 const LONG_ID = `id_${"x".repeat(96)}`;
 
 export const SAMPLE_CALLBACK_PAYLOADS: { readonly [A in CallbackAction]: CallbackPayload<A> } = {
-  "slot.pick": { taskId: LONG_ID, slotIndex: 2 },
+  "slot.pick": {
+    taskId: LONG_ID,
+    slotIndex: 2,
+    slotStart: "2026-09-28T09:30:00.000Z",
+    slotEnd: "2026-09-28T10:30:00.000Z",
+  },
   "slot.other": { taskId: LONG_ID },
   "task.edit": { taskId: LONG_ID },
   "intent.choose": { draftId: LONG_ID, kind: "follow_up" },

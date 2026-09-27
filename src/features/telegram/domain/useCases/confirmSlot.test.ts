@@ -13,6 +13,10 @@ const SLOTS: readonly Slot[] = [
   { start: "2026-09-28T13:00:00.000Z", end: "2026-09-28T14:00:00.000Z" },
 ];
 
+function confirmationInput(slotIndex: number, slot: Slot = SLOTS[slotIndex]!) {
+  return { userId: "user_1", taskId: "task_1", slotIndex, slotStart: slot.start, slotEnd: slot.end };
+}
+
 async function setUpProposedTask(
   ports: ReturnType<typeof createTestPersonalFlowPorts>,
   overrides: { slots?: readonly Slot[]; intensity?: "low" | "normal" | "high" } = {},
@@ -38,7 +42,7 @@ describe("confirmSlot", () => {
     await setUpProposedTask(ports);
     const confirmSlot = createConfirmSlot(ports);
 
-    const result = await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
+    const result = await confirmSlot(confirmationInput(0));
 
     expect(result.kind).toBe("booked");
     if (result.kind !== "booked") throw new Error("expected booked");
@@ -57,7 +61,7 @@ describe("confirmSlot", () => {
     await setUpProposedTask(ports, { intensity });
     const confirmSlot = createConfirmSlot(ports);
 
-    await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
+    await confirmSlot(confirmationInput(0));
 
     const reminders = await ports.reminders.exportForUser("user_1");
     expect(reminders).toHaveLength(2);
@@ -75,7 +79,7 @@ describe("confirmSlot", () => {
     await setUpProposedTask(ports, { slots: [closeSlot] });
     const confirmSlot = createConfirmSlot(ports);
 
-    await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
+    await confirmSlot(confirmationInput(0, closeSlot));
 
     const reminders = await ports.reminders.exportForUser("user_1");
     expect(reminders.map((reminder) => reminder.kind)).toEqual(["check_in"]);
@@ -86,7 +90,7 @@ describe("confirmSlot", () => {
     await setUpProposedTask(ports, { slots: [SLOTS[0]!] });
     const confirmSlot = createConfirmSlot(ports);
 
-    const result = await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 2 });
+    const result = await confirmSlot(confirmationInput(2));
 
     expect(result).toEqual({ kind: "no_such_slot" });
     await expect(ports.tasks.get("user_1", "task_1")).resolves.toMatchObject({ status: "proposed" });
@@ -97,8 +101,8 @@ describe("confirmSlot", () => {
     await setUpProposedTask(ports);
     const confirmSlot = createConfirmSlot(ports);
 
-    const first = await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
-    const second = await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
+    const first = await confirmSlot(confirmationInput(0));
+    const second = await confirmSlot(confirmationInput(0));
 
     expect(first.kind).toBe("booked");
     expect(second.kind).toBe("already_booked");
@@ -112,8 +116,8 @@ describe("confirmSlot", () => {
     const confirmSlot = createConfirmSlot(ports);
 
     const [a, b] = await Promise.all([
-      confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 }),
-      confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 1 }),
+      confirmSlot(confirmationInput(0)),
+      confirmSlot(confirmationInput(1)),
     ]);
 
     const outcomes = [a, b];
@@ -136,7 +140,7 @@ describe("confirmSlot", () => {
     (ports.calendar as InMemoryCalendar).addBusyInterval("user_1", SLOTS[0]!);
     const confirmSlot = createConfirmSlot(ports);
 
-    const result = await confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 });
+    const result = await confirmSlot(confirmationInput(0));
 
     expect(result.kind).toBe("slot_taken");
     if (result.kind !== "slot_taken") throw new Error("expected slot_taken");
@@ -170,7 +174,7 @@ describe("confirmSlot", () => {
     );
     const confirmSlot = createConfirmSlot(failingPorts);
 
-    await expect(confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 })).rejects.toBe(boom);
+    await expect(confirmSlot(confirmationInput(0))).rejects.toBe(boom);
     await expect(ports.tasks.get("user_1", "task_1")).resolves.toMatchObject({ status: "proposed" });
   });
 
@@ -187,6 +191,6 @@ describe("confirmSlot", () => {
     });
     const confirmSlot = createConfirmSlot(ports);
 
-    await expect(confirmSlot({ userId: "user_1", taskId: "task_1", slotIndex: 0 })).rejects.toThrow(/chat/i);
+    await expect(confirmSlot(confirmationInput(0))).rejects.toThrow(/chat/i);
   });
 });

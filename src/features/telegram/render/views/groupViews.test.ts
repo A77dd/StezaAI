@@ -84,8 +84,8 @@ describe("groupSlotsView", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "+ Завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0 }, style: "success" },
-          { kind: "action", text: "+ Пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1 }, style: "success" },
+          { kind: "action", text: "+ Завтра 10:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 0, slotStart: TOMORROW_SLOT.start, slotEnd: TOMORROW_SLOT.end }, style: "success" },
+          { kind: "action", text: "+ Пт 11:00", action: "slot.pick", payload: { taskId: "task_2", slotIndex: 1, slotStart: FRIDAY_SLOT.start, slotEnd: FRIDAY_SLOT.end }, style: "success" },
         ],
         [{ kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_2" } }],
       ],

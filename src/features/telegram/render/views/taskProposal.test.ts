@@ -38,8 +38,8 @@ describe("taskProposalView: proposed", () => {
       linkPreview: "disabled",
       keyboard: [
         [
-          { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 0 }, style: "success" },
-          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 1 }, style: "success" },
+          { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 0, slotStart: TODAY_SLOT.start, slotEnd: TODAY_SLOT.end }, style: "success" },
+          { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "task_1", slotIndex: 1, slotStart: TOMORROW_SLOT.start, slotEnd: TOMORROW_SLOT.end }, style: "success" },
         ],
         [
           { kind: "action", text: "Другое время", action: "slot.other", payload: { taskId: "task_1" }, style: "primary" },
@@ -56,7 +56,7 @@ describe("taskProposalView: proposed", () => {
     expect(labels(message)).toEqual([["Пт 11:00"], ["Другое время", "Изменить"]]);
     expect(message.keyboard?.[0]?.[0]).toMatchObject({
       action: "slot.pick",
-      payload: { taskId: "task_1", slotIndex: 0 },
+      payload: { taskId: "task_1", slotIndex: 0, slotStart: FRIDAY_SLOT.start, slotEnd: FRIDAY_SLOT.end },
       style: "success",
     });
   });

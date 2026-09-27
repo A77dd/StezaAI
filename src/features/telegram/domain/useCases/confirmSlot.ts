@@ -11,7 +11,6 @@ import type {
   NotificationIntensity,
   Slot,
   SlotProposal,
-  StoredSlotProposal,
   Task,
   TaskId,
   UserId,
@@ -23,6 +22,8 @@ export type ConfirmSlotInput = {
   readonly userId: UserId;
   readonly taskId: TaskId;
   readonly slotIndex: number;
+  readonly slotStart: string;
+  readonly slotEnd: string;
 };
 
 export type ConfirmSlotResult =
@@ -56,8 +57,7 @@ async function resolveAlreadyBooked(
   ports: ConfirmSlotPorts,
   userId: UserId,
   taskId: TaskId,
-  slotIndex: number,
-  stored: StoredSlotProposal | null,
+  requestedSlot: Slot,
 ): Promise<ConfirmSlotResult> {
   // The transition that claims "scheduled" happens before the booking is
   // created, so a concurrent winner may not have set `bookingId` yet: wait
@@ -81,12 +81,8 @@ async function resolveAlreadyBooked(
   if (booking === null) {
     throw new NotFoundError(`Booking ${task.bookingId} does not exist`);
   }
-  const requested = stored?.slots[slotIndex];
-  const sameSlot =
-    requested !== undefined && requested.start === booking.slot.start && requested.end === booking.slot.end;
-  return requested === undefined || sameSlot
-    ? { kind: "already_booked", booking }
-    : { kind: "already_booked_other_slot", booking };
+  const sameSlot = requestedSlot.start === booking.slot.start && requestedSlot.end === booking.slot.end;
+  return sameSlot ? { kind: "already_booked", booking } : { kind: "already_booked_other_slot", booking };
 }
 
 /** Proposes fresh slots after `after` (the conflicting slot's end) and persists them, even if empty. */
@@ -148,7 +144,7 @@ async function scheduleReminders(ports: ConfirmSlotPorts, userId: UserId, task: 
  */
 export function createConfirmSlot(ports: ConfirmSlotPorts) {
   return async function confirmSlot(input: ConfirmSlotInput): Promise<ConfirmSlotResult> {
-    const { userId, taskId, slotIndex } = input;
+    const { userId, taskId } = input;
     const task = await ports.tasks.get(userId, taskId);
     if (task === null) {
       throw new NotFoundError(`Task ${taskId} does not exist`);
@@ -157,15 +153,16 @@ export function createConfirmSlot(ports: ConfirmSlotPorts) {
     // proposal before this call finishes, so it is captured now for later.
     const stored = await ports.proposals.get(userId, taskId);
 
+    const requestedSlot: Slot = { start: input.slotStart, end: input.slotEnd };
     if (task.status === "scheduled") {
-      return resolveAlreadyBooked(ports, userId, task.id, slotIndex, stored);
+      return resolveAlreadyBooked(ports, userId, task.id, requestedSlot);
     }
 
     if (stored === null) {
       throw new NotFoundError(`No slot proposal exists for task ${taskId}`);
     }
-    const slot = stored.slots[slotIndex];
-    if (slot === undefined) {
+    const slot = stored.slots[input.slotIndex];
+    if (slot === undefined || slot.start !== requestedSlot.start || slot.end !== requestedSlot.end) {
       return { kind: "no_such_slot" };
     }
 
@@ -177,7 +174,7 @@ export function createConfirmSlot(ports: ConfirmSlotPorts) {
         const latest = await ports.tasks.get(userId, taskId);
         if (latest === null) throw new NotFoundError(`Task ${taskId} does not exist`);
         if (latest.status === "scheduled") {
-          return resolveAlreadyBooked(ports, userId, latest.id, slotIndex, stored);
+          return resolveAlreadyBooked(ports, userId, latest.id, requestedSlot);
         }
       }
       throw error;

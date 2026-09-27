@@ -73,8 +73,8 @@ describe("slots", () => {
     const buttons = slotPickButtons("t1", [TODAY_SLOT, TOMORROW_SLOT], (slot) => slotStartLabel(slot, ctx));
 
     expect(buttons).toEqual([
-      { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 0 }, style: "success" },
-      { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 1 }, style: "success" },
+      { kind: "action", text: "Сегодня 16:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 0, slotStart: TODAY_SLOT.start, slotEnd: TODAY_SLOT.end }, style: "success" },
+      { kind: "action", text: "Завтра 10:00", action: "slot.pick", payload: { taskId: "t1", slotIndex: 1, slotStart: TOMORROW_SLOT.start, slotEnd: TOMORROW_SLOT.end }, style: "success" },
     ]);
   });
 
@@ -82,9 +82,9 @@ describe("slots", () => {
     const buttons = slotPickButtons("t1", [TODAY_SLOT, TODAY_SLOT, TODAY_SLOT], () => "same slot");
 
     expect(buttons.map((button) => (button.kind === "action" ? button.payload : null))).toEqual([
-      { taskId: "t1", slotIndex: 0 },
-      { taskId: "t1", slotIndex: 1 },
-      { taskId: "t1", slotIndex: 2 },
+      { taskId: "t1", slotIndex: 0, slotStart: TODAY_SLOT.start, slotEnd: TODAY_SLOT.end },
+      { taskId: "t1", slotIndex: 1, slotStart: TODAY_SLOT.start, slotEnd: TODAY_SLOT.end },
+      { taskId: "t1", slotIndex: 2, slotStart: TODAY_SLOT.start, slotEnd: TODAY_SLOT.end },
     ]);
   });
 

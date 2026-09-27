@@ -24,7 +24,7 @@ describe("sendCard: keyboards", () => {
     body: text("Выбери"),
     keyboard: keyboard(
       row(
-        actionButton("Поставить", "slot.pick", { taskId: "task_1", slotIndex: 0 }, "success"),
+        actionButton("Поставить", "slot.pick", { taskId: "task_1", slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" }, "success"),
         actionButton("Другое время", "slot.other", { taskId: "task_1" }),
       ),
       row(urlButton("Сайт", "https://example.com/plan"), webAppButton("Открыть", "https://app.example.com/mini")),
@@ -110,7 +110,7 @@ describe("sendCard: keyboards", () => {
           body: text("Выбери"),
           keyboard: keyboard(
             row(
-              actionButton("Поставить", "slot.pick", { taskId: "task_1", slotIndex: 1 }),
+              actionButton("Поставить", "slot.pick", { taskId: "task_1", slotIndex: 1, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" }),
               actionButton("Другое", "slot.other", { taskId: "task_1" }),
             ),
           ),

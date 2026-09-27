@@ -75,17 +75,21 @@ describe("payload validators", () => {
 
   it("slot.pick accepts slot indexes 0-2 only", () => {
     const { validate } = CALLBACK_ACTIONS["slot.pick"];
+    const interval = { slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" };
     for (const slotIndex of [0, 1, 2]) {
-      expect(validate({ taskId: "task_1", slotIndex })).toBe(true);
+      expect(validate({ taskId: "task_1", slotIndex, ...interval })).toBe(true);
     }
     for (const slotIndex of [-1, 3, 1.5, "1", null, undefined, Number.NaN]) {
-      expect(validate({ taskId: "task_1", slotIndex })).toBe(false);
+      expect(validate({ taskId: "task_1", slotIndex, ...interval })).toBe(false);
     }
-    expect(validate({ taskId: "task_1" })).toBe(false);
+    expect(validate({ taskId: "task_1", slotIndex: 0 })).toBe(false);
+    expect(validate({ taskId: "task_1", slotIndex: 0, ...interval, slotStart: "not-an-instant" })).toBe(false);
   });
 
   it.each(["slot.pick", "slot.other", "task.edit"] as const)("%s rejects a missing, empty or non-string taskId", (action) => {
-    const base = action === "slot.pick" ? { slotIndex: 0 } : {};
+    const base = action === "slot.pick"
+      ? { slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" }
+      : {};
     const { validate } = CALLBACK_ACTIONS[action];
     expect(validate({ ...base, taskId: "task_1" })).toBe(true);
     for (const taskId of [undefined, "", 5, null, {}, "x".repeat(201)]) {

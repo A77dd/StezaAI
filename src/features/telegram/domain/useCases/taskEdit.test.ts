@@ -97,7 +97,10 @@ describe("applyTaskEdit", () => {
     };
     await ports.proposals.save("user_1", proposal);
     const confirmSlot = createConfirmSlot(ports);
-    const booked = await confirmSlot({ userId: "user_1", taskId: task.id, slotIndex: 0 });
+    const booked = await confirmSlot({
+      userId: "user_1", taskId: task.id, slotIndex: 0,
+      slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z",
+    });
     expect(booked.kind).toBe("booked");
 
     const beginTaskEdit = createBeginTaskEdit(ports);

@@ -23,7 +23,12 @@ const DATA_DELETE_DECISIONS = ["confirm", "cancel"] as const;
 const TIMEZONE_PATTERN = /^[A-Za-z0-9_/+-]{1,64}$/;
 
 export type CallbackPayloads = {
-  "slot.pick": { readonly taskId: string; readonly slotIndex: 0 | 1 | 2 };
+  "slot.pick": {
+    readonly taskId: string;
+    readonly slotIndex: 0 | 1 | 2;
+    readonly slotStart: string;
+    readonly slotEnd: string;
+  };
   "slot.other": { readonly taskId: string };
   "task.edit": { readonly taskId: string };
   "intent.choose": { readonly draftId: string; readonly kind: (typeof INTENT_KINDS)[number] };
@@ -91,12 +96,18 @@ function isTaskPayload(payload: unknown): payload is CallbackPayloads["slot.othe
   return isPlainRecord(payload) && hasOnlyKeys(payload, ["taskId"]) && isId(payload.taskId);
 }
 
+function isInstant(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value));
+}
+
 function isSlotPick(payload: unknown): payload is CallbackPayloads["slot.pick"] {
   return (
     isPlainRecord(payload) &&
-    hasOnlyKeys(payload, ["taskId", "slotIndex"]) &&
+    hasOnlyKeys(payload, ["taskId", "slotIndex", "slotStart", "slotEnd"]) &&
     isId(payload.taskId) &&
-    (payload.slotIndex === 0 || payload.slotIndex === 1 || payload.slotIndex === 2)
+    (payload.slotIndex === 0 || payload.slotIndex === 1 || payload.slotIndex === 2) &&
+    isInstant(payload.slotStart) &&
+    isInstant(payload.slotEnd)
   );
 }
 

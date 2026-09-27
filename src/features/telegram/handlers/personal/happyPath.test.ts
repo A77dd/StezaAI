@@ -105,6 +105,21 @@ describe("personal flow: the core scenario (private text -> proposal -> confirme
     expect(h.kit.fake.callsTo("answerCallbackQuery")).toHaveLength(2);
   });
 
+  it("does not let a stale slot button book a different slot after requesting other times", async () => {
+    const h = makeHarness();
+    await confirmTimezone(h);
+    await h.deliver(h.kit.updates.privateText(TASK_TEXT, { from: ALEX }));
+    const original = h.kit.fake.messages.last(CHAT_ID)!.message;
+    const staleData = lastSlotButtonData(original as { reply_markup?: { inline_keyboard: { callback_data?: string }[][] } });
+
+    await h.kit.press(h.bot, original, { text: "Другое время" });
+    const refreshed = h.kit.fake.messages.get(CHAT_ID, original.message_id)!.message;
+    await h.deliver(h.kit.updates.callbackQuery(refreshed, staleData));
+
+    expect((await h.services.tasks.listByUser(USER_ID))[0]).toMatchObject({ status: "proposed", bookingId: null });
+    expect(expectRenderedText(h.kit.fake.lastCall("editMessageText")!)).toContain("Эта кнопка недоступна");
+  });
+
   it("re-renders a fresh proposal after a transient calendar failure and reports the failure", async () => {
     const baseScheduler = createSlotScheduler();
     let schedulerCalls = 0;

@@ -79,7 +79,11 @@ describe("createPersonalFlow", () => {
     assertNoCallbackTokensOrTelegramTypes(proposed);
 
     if (proposed.kind === "proposed") {
-      const confirmed = await flow.confirmSlot({ userId: "user_1", taskId: proposed.task.id, slotIndex: 0 });
+      const slot = proposed.proposal.slots[0]!;
+      const confirmed = await flow.confirmSlot({
+        userId: "user_1", taskId: proposed.task.id, slotIndex: 0,
+        slotStart: slot.start, slotEnd: slot.end,
+      });
       assertNoCallbackTokensOrTelegramTypes(confirmed);
     }
 

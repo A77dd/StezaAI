@@ -58,6 +58,8 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
       userId: owner.userId,
       taskId: resolved.payload.taskId,
       slotIndex: resolved.payload.slotIndex,
+      slotStart: resolved.payload.slotStart,
+      slotEnd: resolved.payload.slotEnd,
     });
   } catch (error) {
     // The callback token is single-use. Restore an actionable card before

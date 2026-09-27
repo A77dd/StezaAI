@@ -7,7 +7,7 @@ import type { MessageView } from "./messageView";
 import { renderMessage } from "./renderMessage";
 import { TEXT_LIMIT } from "./limits";
 
-const pick = actionButton("Поставить", "slot.pick", { taskId: "t1", slotIndex: 0 }, "primary");
+const pick = actionButton("Поставить", "slot.pick", { taskId: "t1", slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" }, "primary");
 
 describe("renderMessage", () => {
   it("renders a full card in a fixed order", () => {

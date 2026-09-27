@@ -95,7 +95,7 @@ export function slotPickButtons(
     actionButton(
       label(slot),
       "slot.pick",
-      { taskId, slotIndex: slotIndex(index) },
+      { taskId, slotIndex: slotIndex(index), slotStart: slot.start, slotEnd: slot.end },
       "success",
     ),
   );

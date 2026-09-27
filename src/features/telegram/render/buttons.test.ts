@@ -13,11 +13,11 @@ import type { ButtonSpec } from "./buttonSpec";
 
 describe("actionButton", () => {
   it("describes an action and its payload, not a callback string", () => {
-    expect(actionButton("Поставить", "slot.pick", { taskId: "t1", slotIndex: 0 })).toEqual({
+    expect(actionButton("Поставить", "slot.pick", { taskId: "t1", slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" })).toEqual({
       kind: "action",
       text: "Поставить",
       action: "slot.pick",
-      payload: { taskId: "t1", slotIndex: 0 },
+      payload: { taskId: "t1", slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" },
     });
   });
 
@@ -147,7 +147,7 @@ describe("disabledButton", () => {
 
 describe("action payload validation", () => {
   it("fails where the button is built when the registry rejects the payload", () => {
-    expect(() => actionButton("x", "slot.pick", { taskId: "", slotIndex: 0 })).toThrow(RenderError);
+    expect(() => actionButton("x", "slot.pick", { taskId: "", slotIndex: 0, slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" })).toThrow(RenderError);
     expect(() => actionButton("x", "slot.other", { taskId: "t", extra: 1 } as never)).toThrow(RenderError);
     expect(() => actionButton("x", "noop", { a: 1 } as never)).toThrow(RenderError);
   });
