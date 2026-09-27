@@ -1,7 +1,7 @@
 import type { BotContext } from "../../bot";
 import { editCard, sendCard } from "../../bot";
 import { fill, noticeForKind, renderMessage, settingsView, text } from "../../render";
-import type { ViewContext } from "../../render";
+import type { RenderedMessage, ViewContext } from "../../render";
 import { proposalCard, sendSubmitOutcome } from "./outcomes";
 
 /**
@@ -100,10 +100,15 @@ async function applyTaskEditReply(
     await sendCard(ctx, noticeForKind("expired", viewCtx).message);
     return;
   }
-  const rendered =
-    result.kind === "nothing_changed"
+  let rendered: RenderedMessage;
+  if (result.kind === "nothing_changed") {
+    const retryable = await ctx.services.personalFlow.getRetryableProposal({ userId, taskId: result.task.id });
+    rendered = retryable === null
       ? renderMessage({ body: text(viewCtx.catalog.personal.taskEditNoChange) })
-      : proposalCard(result, viewCtx);
+      : proposalCard({ kind: "proposed", ...retryable }, viewCtx);
+  } else {
+    rendered = proposalCard(result, viewCtx);
+  }
   if (cardMessageId === undefined) {
     // Should not happen (the card message id is always remembered alongside
     // the prompt), but a missing one is not a reason to lose the outcome.

@@ -68,17 +68,21 @@ describe("personal flow: task.edit", () => {
     expect(remindersAfter.filter((reminder) => reminder.status === "pending")).toHaveLength(0);
   });
 
-  it("reports when the reply changed nothing, editing the original card in place", async () => {
+  it("preserves an actionable proposal with fresh slot tokens when the reply changed nothing", async () => {
     const h = makeHarness();
     const card = await proposeTask(h);
+    const oldData = (card.reply_markup!.inline_keyboard[0]![0] as { callback_data: string }).callback_data;
     await h.kit.press(h.bot, card, { text: "Изменить" });
 
     await h.deliver(h.kit.updates.privateText("хм ладно", { from: ALEX }));
 
-    expectCall(h.kit, "editMessageText", {
-      chat_id: CHAT_ID,
-      message_id: card.message_id,
-      text: "Ничего не изменилось.",
-    });
+    const edited = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID, message_id: card.message_id });
+    expect(expectRenderedText(edited)).toContain("Подготовить презентацию");
+    const refreshed = h.kit.fake.messages.get(CHAT_ID, card.message_id)!.message;
+    const freshData = (refreshed.reply_markup!.inline_keyboard[0]![0] as { callback_data: string }).callback_data;
+    expect(freshData).not.toBe(oldData);
+
+    await h.kit.press(h.bot, refreshed, { data: freshData });
+    expect((await h.services.tasks.listByUser(USER_ID))[0]?.status).toBe("scheduled");
   });
 });
