@@ -151,6 +151,12 @@ export type UserSettings = {
   readonly userId: UserId;
   /** The Bot API does not expose a timezone, so it is stored explicitly. */
   readonly timezone: Timezone;
+  /**
+   * Whether the user has explicitly confirmed `timezone` (as opposed to it
+   * still being the `UTC` default). Business rule: no slot is proposed until
+   * this is `true`, so a task is never scheduled at the wrong local time.
+   */
+  readonly timezoneConfirmed: boolean;
   readonly locale: Locale;
   readonly workingHours: WorkingHours;
   readonly defaultBlockMinutes: number;
@@ -272,3 +278,64 @@ export type NewReminder = Omit<
   Reminder,
   "status" | "attempts" | "lastError" | "leasedUntil" | "nextAttemptAt"
 >;
+
+// --- Drafts, proposals and pending input -------------------------------------
+
+/** How long a `Draft` lives before it stops being resolvable (a use-case concern). */
+export const DRAFT_TTL_HOURS = 24;
+/** How long a stored `SlotProposal` lives before it is considered stale. */
+export const PROPOSAL_TTL_HOURS = 24;
+/** How long the bot waits for a free-text answer after prompting for one. */
+export const PENDING_INPUT_TTL_MINUTES = 30;
+
+export type DraftId = string;
+
+export const DRAFT_KINDS = ["intent", "timezone", "clarify", "group_choice"] as const;
+export type DraftKind = (typeof DRAFT_KINDS)[number];
+
+/**
+ * A parsed-but-not-yet-acted-on piece of user input, kept just long enough for
+ * the user to resolve it with a button or a follow-up message:
+ * - `timezone`: the timezone is not confirmed yet; `intent` is `null` because
+ *   parsing was skipped (the deadline math needs a confirmed timezone first).
+ *   The raw text is replayed through `submitText` once the timezone is set.
+ * - `clarify`: the parser's confidence was too low; `intent` is what it found.
+ * - `intent`: a fully parsed intent waiting on a kind choice (for example an
+ *   `info` classification the user may want to keep as a task instead).
+ * - `group_choice`: reserved for the group/forward flows (a later task).
+ */
+export type Draft = {
+  readonly id: DraftId;
+  readonly userId: UserId;
+  readonly chatId: number;
+  readonly intent: Intent | null;
+  readonly source: SourceRef;
+  readonly createdAt: Instant;
+  readonly expiresAt: Instant;
+  readonly kind: DraftKind;
+};
+
+/** A `SlotProposal` as the `ProposalRepository` stores it, with its lifetime. */
+export type StoredSlotProposal = SlotProposal & {
+  readonly createdAt: Instant;
+  readonly expiresAt: Instant;
+};
+
+export const PENDING_INPUT_PURPOSES = ["task_edit", "working_hours", "timezone"] as const;
+export type PendingInputPurpose = (typeof PENDING_INPUT_PURPOSES)[number];
+
+/**
+ * A free-text answer the bot expects after prompting the user in `chatId`
+ * (editing a task, typing working hours, typing a timezone name). Keyed by the
+ * prompt message so an answer to an old prompt can never be misapplied.
+ * `refId` is the id the answer applies to (a task id for `task_edit`; unused
+ * placeholder ids are fine for the other purposes).
+ */
+export type PendingInput = {
+  readonly userId: UserId;
+  readonly chatId: number;
+  readonly promptMessageId: number;
+  readonly purpose: PendingInputPurpose;
+  readonly refId: string;
+  readonly expiresAt: Instant;
+};

@@ -11,12 +11,14 @@ const MINUTES_PER_DAY = 24 * 60;
  *
  * The timezone is `UTC` on purpose: the Bot API gives no timezone and a guess
  * (for example from `language_code`) would silently schedule at wrong local
- * times. Flows must ask the user to confirm a timezone before proposing slots.
+ * times. Flows must ask the user to confirm a timezone before proposing slots,
+ * which is why `timezoneConfirmed` starts `false`.
  */
 export function createDefaultSettings(userId: UserId, locale: Locale): UserSettings {
   return {
     userId,
     timezone: "UTC",
+    timezoneConfirmed: false,
     locale,
     workingHours: { isoDays: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" },
     defaultBlockMinutes: 30,

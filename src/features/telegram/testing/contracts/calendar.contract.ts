@@ -26,6 +26,33 @@ export function describeCalendarPortContract(
       await expect(calendar().getBusyIntervals("user_2", day)).resolves.toEqual([]);
     });
 
+    describe("getBlock", () => {
+      it("returns the booking for its owner", async () => {
+        const booking = await calendar().createBlock(input);
+        await expect(calendar().getBlock("user_1", booking.id)).resolves.toEqual(booking);
+      });
+
+      it("returns null for an unknown booking and for one owned by another user", async () => {
+        const booking = await calendar().createBlock(input);
+        await expect(calendar().getBlock("user_1", "booking_missing")).resolves.toBeNull();
+        await expect(calendar().getBlock("user_2", booking.id)).resolves.toBeNull();
+      });
+
+      it("returns null once the booking is deleted", async () => {
+        const booking = await calendar().createBlock(input);
+        await calendar().deleteBlock("user_1", booking.id);
+        await expect(calendar().getBlock("user_1", booking.id)).resolves.toBeNull();
+      });
+
+      it("returns a copy: mutating the result never changes stored state", async () => {
+        const booking = await calendar().createBlock(input);
+        const read = await calendar().getBlock("user_1", booking.id);
+        if (read === null) throw new Error("expected a booking");
+        (read.slot as Mutable<Interval>).start = "2026-09-28T00:00:00.000Z";
+        await expect(calendar().getBlock("user_1", booking.id)).resolves.toMatchObject({ slot });
+      });
+    });
+
     it("only returns busy intervals that overlap the requested range, sorted by start", async () => {
       const later = iv("2026-09-28T09:00:00.000Z", "2026-09-28T10:00:00.000Z");
       await calendar().createBlock({ ...input, taskId: "task_2", slot: later });

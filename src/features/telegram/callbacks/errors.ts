@@ -68,3 +68,15 @@ export class CallbackReplayedError extends TelegramLayerError {
     super("callback_replayed", message, options);
   }
 }
+
+/**
+ * The token, owner and expiry all checked out, but the PAYLOAD stored behind
+ * it fails the action's validator (a corrupted row: a bad migration, manual
+ * data edit, or a bug elsewhere). Distinct from `CallbackMalformedError`,
+ * which is about the client-sent `callback_data` string, not stored state.
+ */
+export class CallbackPayloadCorruptedError extends TelegramLayerError {
+  constructor(message = "Stored callback payload is corrupted", options?: ErrorOptions) {
+    super("callback_payload_corrupted", message, options);
+  }
+}

@@ -5,7 +5,8 @@ import { CALLBACK_ACTIONS } from "./actions";
 import type { CallbackAction } from "./actions";
 
 const ACTIONS = Object.keys(CALLBACK_ACTIONS) as CallbackAction[];
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 describe("CALLBACK_ACTIONS registry", () => {
@@ -15,8 +16,10 @@ describe("CALLBACK_ACTIONS registry", () => {
         "checkin.answer",
         "checkin.reason",
         "context.choose",
+        "data.delete",
         "intent.choose",
         "noop",
+        "settings.timezone",
         "settings.toggle",
         "slot.other",
         "slot.pick",
@@ -44,6 +47,8 @@ describe("CALLBACK_ACTIONS registry", () => {
     ["checkin.answer", true, 7 * DAY_MS, "user"],
     ["checkin.reason", true, 7 * DAY_MS, "user"],
     ["settings.toggle", false, 30 * DAY_MS, "user"],
+    ["settings.timezone", false, 30 * DAY_MS, "user"],
+    ["data.delete", true, 15 * MINUTE_MS, "user"],
     ["noop", false, 30 * DAY_MS, "user"],
   ] as const)("%s: singleUse=%s ttl=%s scope=%s", (action, singleUse, ttlMs, scope) => {
     expect(CALLBACK_ACTIONS[action]).toMatchObject({ singleUse, ttlMs, scope });
@@ -138,10 +143,65 @@ describe("payload validators", () => {
     expect(validate({})).toBe(false);
   });
 
+  it("settings.toggle bounds value at 200 characters", () => {
+    const { validate } = CALLBACK_ACTIONS["settings.toggle"];
+    expect(validate({ key: "calendar", value: "x".repeat(200) })).toBe(true);
+    expect(validate({ key: "calendar", value: "x".repeat(201) })).toBe(false);
+  });
+
+  it("settings.timezone accepts an IANA-charset name up to 64 characters", () => {
+    const { validate } = CALLBACK_ACTIONS["settings.timezone"];
+    for (const tz of ["Europe/Moscow", "America/New_York", "UTC", "Etc/GMT+3"]) {
+      expect(validate({ tz })).toBe(true);
+    }
+    expect(validate({ tz: "x".repeat(64) })).toBe(true);
+    expect(validate({ tz: "x".repeat(65) })).toBe(false);
+    expect(validate({ tz: "" })).toBe(false);
+    expect(validate({ tz: "Europe Moscow" })).toBe(false);
+    expect(validate({ tz: "Europe/Moscow; DROP TABLE" })).toBe(false);
+    expect(validate({})).toBe(false);
+    expect(validate({ tz: "Europe/Moscow", extra: 1 })).toBe(false);
+  });
+
+  it("data.delete accepts confirm and cancel only", () => {
+    const { validate } = CALLBACK_ACTIONS["data.delete"];
+    expect(validate({ decision: "confirm" })).toBe(true);
+    expect(validate({ decision: "cancel" })).toBe(true);
+    expect(validate({ decision: "maybe" })).toBe(false);
+    expect(validate({})).toBe(false);
+  });
+
   it("noop accepts only the empty object", () => {
     const { validate } = CALLBACK_ACTIONS.noop;
     expect(validate({})).toBe(true);
     expect(validate({ a: 1 })).toBe(false);
     expect(validate(null)).toBe(false);
+  });
+
+  describe("id charset (no whitespace or newlines)", () => {
+    it.each(["slot.pick", "slot.other", "task.edit"] as const)("%s rejects a taskId with whitespace", (action) => {
+      const base = action === "slot.pick" ? { slotIndex: 0 } : {};
+      const { validate } = CALLBACK_ACTIONS[action];
+      expect(validate({ ...base, taskId: "task 1" })).toBe(false);
+      expect(validate({ ...base, taskId: "task\n1" })).toBe(false);
+      expect(validate({ ...base, taskId: "task\t1" })).toBe(false);
+      expect(validate({ ...base, taskId: " task_1" })).toBe(false);
+      expect(validate({ ...base, taskId: "task_1 " })).toBe(false);
+    });
+
+    it("intent.choose and context.choose reject a draftId with whitespace", () => {
+      expect(CALLBACK_ACTIONS["intent.choose"].validate({ draftId: "draft 1", kind: "task" })).toBe(false);
+      expect(CALLBACK_ACTIONS["context.choose"].validate({ draftId: "draft\n1", choice: "personal" })).toBe(false);
+    });
+  });
+
+  describe("plain-object requirement (rejects non-plain objects)", () => {
+    const NON_PLAIN = [new Date(), /re/u, new Map(), Object.create(null), new (class Foo {})()];
+
+    it.each(ACTIONS)("%s rejects arrays, Date, RegExp, Map, null-prototype and class instances", (action) => {
+      for (const value of NON_PLAIN) {
+        expect(CALLBACK_ACTIONS[action].validate(value)).toBe(false);
+      }
+    });
   });
 });

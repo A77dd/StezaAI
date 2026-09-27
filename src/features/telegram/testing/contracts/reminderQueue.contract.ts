@@ -234,6 +234,38 @@ export function describeReminderQueueContract(
       });
     });
 
+    describe("exportForUser", () => {
+      it("returns every reminder of the user, in every status, ordered by dueAt then id", async () => {
+        await queue().schedule(newReminder({ id: "reminder_b", dueAt: "2026-09-24T07:00:00.000Z" }));
+        await queue().schedule(newReminder({ id: "reminder_a", dueAt: "2026-09-24T07:00:00.000Z" }));
+        await queue().schedule(newReminder({ id: "reminder_c", dueAt: "2026-09-24T06:00:00.000Z" }));
+        await queue().schedule(newReminder({ id: "reminder_other", userId: "user_2" }));
+        await queue().markSent("reminder_a");
+
+        const exported = await queue().exportForUser("user_1");
+        expect(exported.map((reminder) => reminder.id)).toEqual(["reminder_c", "reminder_a", "reminder_b"]);
+        expect(exported.find((reminder) => reminder.id === "reminder_a")?.status).toBe("sent");
+      });
+
+      it("returns an empty array for a user with no reminders", async () => {
+        await expect(queue().exportForUser("user_nobody")).resolves.toEqual([]);
+      });
+    });
+
+    describe("deleteAllForUser", () => {
+      it("hard-deletes every reminder of the user regardless of status and reports how many", async () => {
+        await queue().schedule(newReminder({ id: "reminder_1" }));
+        await queue().schedule(newReminder({ id: "reminder_2" }));
+        await queue().markSent("reminder_2");
+        await queue().schedule(newReminder({ id: "reminder_3", userId: "user_2" }));
+
+        await expect(queue().deleteAllForUser("user_1")).resolves.toBe(2);
+        await expect(queue().exportForUser("user_1")).resolves.toEqual([]);
+        await expect(queue().exportForUser("user_2")).resolves.toHaveLength(1);
+        await expect(queue().deleteAllForUser("user_1")).resolves.toBe(0);
+      });
+    });
+
     it("returns copies: mutating results or inputs never changes stored state", async () => {
       const input = newReminder();
       const scheduled = await queue().schedule(input);

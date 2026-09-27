@@ -6,6 +6,7 @@ import {
   CallbackExpiredError,
   CallbackMalformedError,
   CallbackNotFoundError,
+  CallbackPayloadCorruptedError,
   CallbackReplayedError,
   CallbackUnknownActionError,
   CallbackVersionError,
@@ -168,18 +169,18 @@ export function describeCallbackStoreContract(
         await expect(subject().store.resolve(data, OWNER)).resolves.toMatchObject({ action: "slot.other" });
       });
 
-      it("fails validation of a corrupted stored payload with CallbackMalformedError", async () => {
+      it("fails validation of a corrupted stored payload with CallbackPayloadCorruptedError", async () => {
         for (const action of ACTIONS) {
           const data = await issue(action);
           await subject().corruptPayload(data, "definitely not a payload");
-          await expect(subject().store.resolve(data, OWNER)).rejects.toThrow(CallbackMalformedError);
+          await expect(subject().store.resolve(data, OWNER)).rejects.toThrow(CallbackPayloadCorruptedError);
         }
       });
 
       it("does not consume a single-use token whose payload is corrupted", async () => {
         const data = await issue("slot.pick");
         await subject().corruptPayload(data, { taskId: "task_1", slotIndex: 9 });
-        await expect(subject().store.resolve(data, OWNER)).rejects.toThrow(CallbackMalformedError);
+        await expect(subject().store.resolve(data, OWNER)).rejects.toThrow(CallbackPayloadCorruptedError);
 
         await subject().corruptPayload(data, SAMPLE_CALLBACK_PAYLOADS["slot.pick"]);
         await expect(subject().store.resolve(data, OWNER)).resolves.toMatchObject({ action: "slot.pick" });
@@ -357,6 +358,16 @@ export function describeCallbackStoreContract(
         }
         await expect(subject().store.resolve(fresh, OWNER)).resolves.toMatchObject({ action: "noop" });
         await expect(subject().store.purgeExpired(subject().now())).resolves.toBe(0);
+      });
+
+      it("a consumed token still answers 'replayed' after purgeExpired runs (within the grace period)", async () => {
+        const data = await issue("slot.pick");
+        await subject().store.resolve(data, OWNER);
+
+        // Not yet past its expiry + grace: purging removes nothing of this token.
+        await subject().store.purgeExpired(subject().now());
+
+        await expect(subject().store.resolve(data, OWNER)).rejects.toThrow(CallbackReplayedError);
       });
     });
   });

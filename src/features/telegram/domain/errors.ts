@@ -1,3 +1,5 @@
+import type { TaskStatus } from "./types";
+
 /**
  * Typed errors of the Telegram interaction layer. Every error carries a
  * stable `code` so handlers can map it to user-facing copy without matching on
@@ -95,5 +97,19 @@ export class InvalidArgumentError extends TelegramLayerError {
 export class IntentParserUnavailableError extends TelegramLayerError {
   constructor(message: string, options?: ErrorOptions) {
     super("intent_parser_unavailable", message, options);
+  }
+}
+
+/**
+ * `TaskRepository.transition` was asked to move a task out of a status it is
+ * not currently in (a compare-and-set failure). Carries the task's actual
+ * `currentStatus` for the caller to react to, never any user text.
+ */
+export class InvalidTransitionError extends TelegramLayerError {
+  readonly currentStatus: TaskStatus;
+
+  constructor(currentStatus: TaskStatus, options?: ErrorOptions) {
+    super("invalid_transition", `Task is ${currentStatus}, not an allowed source status`, options);
+    this.currentStatus = currentStatus;
   }
 }

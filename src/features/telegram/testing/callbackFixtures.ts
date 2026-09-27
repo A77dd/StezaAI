@@ -14,5 +14,7 @@ export const SAMPLE_CALLBACK_PAYLOADS: { readonly [A in CallbackAction]: Callbac
   "checkin.answer": { checkInId: LONG_ID, outcome: "not_started" },
   "checkin.reason": { checkInId: LONG_ID, reason: CHECK_IN_REASONS[0] },
   "settings.toggle": { key: "notification_intensity", value: "quiet" },
+  "settings.timezone": { tz: "Europe/Moscow" },
+  "data.delete": { decision: "confirm" },
   noop: {},
 };

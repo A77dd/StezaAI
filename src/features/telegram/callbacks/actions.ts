@@ -13,9 +13,14 @@ const MINUTE_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
 const MAX_ID_LENGTH = 200;
+/** `settings.toggle.value` is free-ish text (for example a chosen working-hours preset); bounded like the rest. */
+const MAX_TOGGLE_VALUE_LENGTH = 200;
 const INTENT_KINDS = ["task", "meeting", "reminder", "follow_up", "info"] as const;
 const CONTEXT_CHOICES = ["personal", "group", "remember"] as const;
 const SETTINGS_KEYS = ["notification_intensity", "working_hours", "block_length", "calendar"] as const;
+const DATA_DELETE_DECISIONS = ["confirm", "cancel"] as const;
+/** IANA-ish charset for a timezone name; `assertValidTimezone` does the real validation. */
+const TIMEZONE_PATTERN = /^[A-Za-z0-9_/+-]{1,64}$/;
 
 export type CallbackPayloads = {
   "slot.pick": { readonly taskId: string; readonly slotIndex: 0 | 1 | 2 };
@@ -26,6 +31,8 @@ export type CallbackPayloads = {
   "checkin.answer": { readonly checkInId: string; readonly outcome: CheckInOutcome };
   "checkin.reason": { readonly checkInId: string; readonly reason: CheckInReason };
   "settings.toggle": { readonly key: (typeof SETTINGS_KEYS)[number]; readonly value?: string };
+  "settings.timezone": { readonly tz: string };
+  "data.delete": { readonly decision: (typeof DATA_DELETE_DECISIONS)[number] };
   noop: Record<string, never>;
 };
 
@@ -44,16 +51,36 @@ export type CallbackActionConfig<P> = {
 
 type PlainRecord = Readonly<Record<string, unknown>>;
 
+/**
+ * True only for object literals (`{}` or `Object.create(Object.prototype)`),
+ * never arrays, class instances, `Date`, `Map`, or `Object.create(null)`. A
+ * stored callback payload must be plain data, so a corrupted row (someone
+ * else's serialized object, a class instance from a buggy migration) is
+ * rejected here rather than accidentally satisfying a validator by shape.
+ */
 function isPlainRecord(value: unknown): value is PlainRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
 }
 
 function hasOnlyKeys(record: PlainRecord, allowed: readonly string[]): boolean {
   return Object.keys(record).every((key) => allowed.includes(key));
 }
 
+/** No whitespace or newlines: ids are opaque tokens (`task_1`, a UUID), never free text. */
+const ID_PATTERN = /^\S+$/u;
+
 function isId(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= MAX_ID_LENGTH;
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_ID_LENGTH &&
+    ID_PATTERN.test(value)
+  );
 }
 
 function isOneOf<T extends string>(values: readonly T[], value: unknown): value is T {
@@ -114,7 +141,23 @@ function isSettingsToggle(payload: unknown): payload is CallbackPayloads["settin
     isPlainRecord(payload) &&
     hasOnlyKeys(payload, ["key", "value"]) &&
     isOneOf(SETTINGS_KEYS, payload.key) &&
-    (payload.value === undefined || typeof payload.value === "string")
+    (payload.value === undefined ||
+      (typeof payload.value === "string" && payload.value.length <= MAX_TOGGLE_VALUE_LENGTH))
+  );
+}
+
+function isSettingsTimezone(payload: unknown): payload is CallbackPayloads["settings.timezone"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["tz"]) &&
+    typeof payload.tz === "string" &&
+    TIMEZONE_PATTERN.test(payload.tz)
+  );
+}
+
+function isDataDelete(payload: unknown): payload is CallbackPayloads["data.delete"] {
+  return (
+    isPlainRecord(payload) && hasOnlyKeys(payload, ["decision"]) && isOneOf(DATA_DELETE_DECISIONS, payload.decision)
   );
 }
 
@@ -131,6 +174,8 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "checkin.answer": { singleUse: true, ttlMs: 7 * DAY_MS, scope: "user", validate: isCheckInAnswer },
   "checkin.reason": { singleUse: true, ttlMs: 7 * DAY_MS, scope: "user", validate: isCheckInReason },
   "settings.toggle": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isSettingsToggle },
+  "settings.timezone": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isSettingsTimezone },
+  "data.delete": { singleUse: true, ttlMs: 15 * MINUTE_MS, scope: "user", validate: isDataDelete },
   noop: { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isNoop },
 } as const satisfies { readonly [A in CallbackAction]: CallbackActionConfig<CallbackPayload<A>> });
 

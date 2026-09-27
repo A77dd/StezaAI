@@ -1,5 +1,14 @@
 import { createDefaultSettings } from "../domain";
-import type { MemoryRecord, Reminder, SourceRef, Task, UserSettings } from "../domain";
+import type {
+  Draft,
+  MemoryRecord,
+  PendingInput,
+  Reminder,
+  SourceRef,
+  StoredSlotProposal,
+  Task,
+  UserSettings,
+} from "../domain";
 
 // Fake data only: builders for domain values used across telegram tests.
 
@@ -72,6 +81,42 @@ export function makeActualDurationRecord(
     kind: "actual_duration",
     taskId: "task_1",
     minutes: 45,
+    ...overrides,
+  };
+}
+
+export function makeDraft(overrides: Partial<Draft> = {}): Draft {
+  return {
+    id: "draft_1",
+    userId: "user_1",
+    chatId: 1001,
+    intent: null,
+    source: makeSource(),
+    createdAt: "2026-09-23T08:30:00.000Z",
+    expiresAt: "2026-09-24T08:30:00.000Z",
+    kind: "timezone",
+    ...overrides,
+  };
+}
+
+export function makeStoredProposal(overrides: Partial<StoredSlotProposal> = {}): StoredSlotProposal {
+  return {
+    taskId: "task_1",
+    slots: [{ start: "2026-09-24T07:00:00.000Z", end: "2026-09-24T08:00:00.000Z" }],
+    createdAt: "2026-09-23T08:30:00.000Z",
+    expiresAt: "2026-09-24T08:30:00.000Z",
+    ...overrides,
+  };
+}
+
+export function makePendingInput(overrides: Partial<PendingInput> = {}): PendingInput {
+  return {
+    userId: "user_1",
+    chatId: 1001,
+    promptMessageId: 501,
+    purpose: "task_edit",
+    refId: "task_1",
+    expiresAt: "2026-09-23T09:00:00.000Z",
     ...overrides,
   };
 }

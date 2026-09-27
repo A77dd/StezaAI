@@ -1,11 +1,26 @@
 import {
   AlreadyExistsError,
   compareByTimeThenId,
+  InvalidTransitionError,
   NotFoundError,
 } from "../domain";
-import type { Task, TaskPatch, TaskRepository } from "../domain";
+import type { Task, TaskPatch, TaskRepository, TaskStatus } from "../domain";
 
 const byCreation = compareByTimeThenId<Task>((task) => task.createdAt);
+
+/** Same merge rules as `update`: `undefined` skips a key, identity fields are re-applied last. */
+function applyPatch(existing: Task, patch: TaskPatch): Task {
+  const merged: Record<string, unknown> = { ...existing };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) merged[key] = structuredClone(value);
+  }
+  return {
+    ...merged,
+    id: existing.id,
+    userId: existing.userId,
+    createdAt: existing.createdAt,
+  } as Task;
+}
 
 /**
  * Process-local task store for tests, demos and the first version. State is
@@ -47,18 +62,24 @@ export function createInMemoryTaskRepository(): TaskRepository {
       if (existing === undefined) {
         throw new NotFoundError(`Task ${id} does not exist`);
       }
-      const merged: Record<string, unknown> = { ...existing };
-      for (const [key, value] of Object.entries(patch)) {
-        // `undefined` means "not provided"; clearing a field takes an explicit null.
-        if (value !== undefined) merged[key] = structuredClone(value);
+      const updated = applyPatch(existing, patch);
+      tasks.set(id, updated);
+      return structuredClone(updated);
+    },
+
+    // No `await` between the read and the write below, so two concurrent
+    // calls racing the same task never interleave: whichever call's body runs
+    // first (JS is single-threaded and this is all synchronous) completes the
+    // check-and-set before the other one's body starts.
+    async transition(userId, id, allowedFrom: readonly TaskStatus[], patch: TaskPatch) {
+      const existing = owned(userId, id);
+      if (existing === undefined) {
+        throw new NotFoundError(`Task ${id} does not exist`);
       }
-      // Identity fields are re-applied last so a patch can never rewrite them.
-      const updated = {
-        ...merged,
-        id: existing.id,
-        userId: existing.userId,
-        createdAt: existing.createdAt,
-      } as Task;
+      if (!allowedFrom.includes(existing.status)) {
+        throw new InvalidTransitionError(existing.status);
+      }
+      const updated = applyPatch(existing, patch);
       tasks.set(id, updated);
       return structuredClone(updated);
     },

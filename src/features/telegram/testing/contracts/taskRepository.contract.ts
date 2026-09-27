@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AlreadyExistsError, NotFoundError } from "../../domain";
+import { AlreadyExistsError, InvalidTransitionError, NotFoundError } from "../../domain";
 import type { Task, TaskRepository } from "../../domain";
 import { makeSource, makeTask } from "../domainFixtures";
 import { captureRejection, useSubject } from "./harness";
@@ -87,6 +87,69 @@ export function describeTaskRepositoryContract(
           userId: "user_1",
           createdAt: "2026-09-23T08:30:00.000Z",
         });
+      });
+    });
+
+    describe("transition", () => {
+      it("applies the patch atomically when the current status is allowed", async () => {
+        await repo().create(makeTask({ status: "proposed" }));
+
+        const updated = await repo().transition("user_1", "task_1", ["proposed"], {
+          status: "scheduled",
+          bookingId: "booking_1",
+        });
+
+        expect(updated).toMatchObject({ status: "scheduled", bookingId: "booking_1" });
+        await expect(repo().get("user_1", "task_1")).resolves.toEqual(updated);
+      });
+
+      it("throws InvalidTransitionError carrying the current status when it is not allowed", async () => {
+        await repo().create(makeTask({ status: "inbox" }));
+
+        const error = await captureRejection(
+          repo().transition("user_1", "task_1", ["proposed"], { status: "scheduled" }),
+        );
+
+        expect(error).toBeInstanceOf(InvalidTransitionError);
+        expect((error as InvalidTransitionError).currentStatus).toBe("inbox");
+        expect(error.message).not.toMatch(/презентац/i);
+        await expect(repo().get("user_1", "task_1")).resolves.toMatchObject({ status: "inbox" });
+      });
+
+      it("accepts several allowed source statuses", async () => {
+        await repo().create(makeTask({ status: "scheduled" }));
+        await expect(
+          repo().transition("user_1", "task_1", ["proposed", "scheduled"], { status: "proposed" }),
+        ).resolves.toMatchObject({ status: "proposed" });
+      });
+
+      it("throws NotFoundError for an unknown task or one owned by another user", async () => {
+        await repo().create(makeTask());
+        await expect(
+          repo().transition("user_1", "task_missing", ["inbox"], { status: "proposed" }),
+        ).rejects.toThrow(NotFoundError);
+        await expect(
+          repo().transition("user_2", "task_1", ["inbox"], { status: "proposed" }),
+        ).rejects.toThrow(NotFoundError);
+      });
+
+      it("of two concurrent transitions from the same status, exactly one wins", async () => {
+        await repo().create(makeTask({ status: "proposed" }));
+
+        const outcomes = await Promise.allSettled([
+          repo().transition("user_1", "task_1", ["proposed"], { status: "scheduled", bookingId: "a" }),
+          repo().transition("user_1", "task_1", ["proposed"], { status: "scheduled", bookingId: "b" }),
+        ]);
+
+        const fulfilled = outcomes.filter((outcome) => outcome.status === "fulfilled");
+        const rejected = outcomes.filter((outcome) => outcome.status === "rejected");
+        expect(fulfilled).toHaveLength(1);
+        expect(rejected).toHaveLength(1);
+        expect(rejected[0]?.reason).toBeInstanceOf(InvalidTransitionError);
+
+        const final = await repo().get("user_1", "task_1");
+        expect(final?.status).toBe("scheduled");
+        expect(["a", "b"]).toContain(final?.bookingId);
       });
     });
 

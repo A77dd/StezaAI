@@ -127,5 +127,23 @@ export function createInMemoryReminderQueue(): ReminderQueue {
     async cancelForTask(userId, taskId) {
       return cancelWhere((reminder) => reminder.userId === userId && reminder.taskId === taskId);
     },
+
+    async exportForUser(userId) {
+      return [...reminders.values()]
+        .filter((reminder) => reminder.userId === userId)
+        .sort(byDueTime)
+        .map((reminder) => ({ ...reminder }));
+    },
+
+    async deleteAllForUser(userId) {
+      let removed = 0;
+      for (const [id, reminder] of reminders) {
+        if (reminder.userId === userId) {
+          reminders.delete(id);
+          removed += 1;
+        }
+      }
+      return removed;
+    },
   };
 }

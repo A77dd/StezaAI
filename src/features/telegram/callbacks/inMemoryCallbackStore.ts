@@ -5,8 +5,8 @@ import type { CallbackAction, CallbackPayload } from "./actions";
 import { decodeCallbackData, encodeCallbackData } from "./codec";
 import {
   CallbackExpiredError,
-  CallbackMalformedError,
   CallbackNotFoundError,
+  CallbackPayloadCorruptedError,
   CallbackReplayedError,
 } from "./errors";
 import type { CallbackStore, ResolvedCallback, TokenGenerator } from "./ports";
@@ -65,7 +65,7 @@ export function createInMemoryCallbackStore(options: InMemoryCallbackStoreOption
     if (parseInstant(clock.now()) >= record.expiresAtMs) throw new CallbackExpiredError();
     if (record.consumed) throw new CallbackReplayedError();
     if (!config.validate(record.payload)) {
-      throw new CallbackMalformedError("Stored callback payload is invalid");
+      throw new CallbackPayloadCorruptedError();
     }
     if (config.singleUse) record.consumed = true;
     return {

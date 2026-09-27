@@ -7,6 +7,7 @@ describe("createDefaultSettings", () => {
     expect(createDefaultSettings("user_1", "ru")).toEqual({
       userId: "user_1",
       timezone: "UTC",
+      timezoneConfirmed: false,
       locale: "ru",
       workingHours: { isoDays: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" },
       defaultBlockMinutes: 30,

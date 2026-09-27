@@ -61,6 +61,11 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
       external.set(userId, [...(external.get(userId) ?? []), { ...interval }]);
     },
 
+    async getBlock(userId, bookingId) {
+      const block = blocks.get(bookingId);
+      return block !== undefined && block.userId === userId ? structuredClone(block) : null;
+    },
+
     async getBusyIntervals(userId, range) {
       assertValidInterval(range);
       const busy = [

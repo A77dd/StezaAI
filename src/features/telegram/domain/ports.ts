@@ -1,16 +1,20 @@
 import type {
   BlockBooking,
   BookingId,
+  Draft,
+  DraftId,
   Instant,
   Intent,
   Interval,
   MemoryRecord,
   NewReminder,
+  PendingInput,
   Reminder,
   ReminderId,
   Slot,
   SlotSearchResult,
   SourceRef,
+  StoredSlotProposal,
   Task,
   TaskId,
   TaskStatus,
@@ -67,6 +71,8 @@ export interface SlotScheduler {
 export interface CalendarPort {
   /** Busy intervals of the user that overlap `range`, sorted by start. */
   getBusyIntervals(userId: UserId, range: Interval): Promise<Interval[]>;
+  /** `null` for an unknown booking or one owned by another user. */
+  getBlock(userId: UserId, bookingId: BookingId): Promise<BlockBooking | null>;
   /** Throws `SlotConflictError` if the slot overlaps an existing block. */
   createBlock(input: {
     userId: UserId;
@@ -100,6 +106,22 @@ export interface TaskRepository {
   get(userId: UserId, id: TaskId): Promise<Task | null>;
   /** Throws `NotFoundError` for an unknown task or one owned by another user. */
   update(userId: UserId, id: TaskId, patch: TaskPatch): Promise<Task>;
+  /**
+   * Atomic compare-and-set: applies `patch` (same semantics as `update`) only
+   * if the task's current status is one of `allowedFrom`, and reports the new
+   * status atomically so a concurrent transition can never be lost silently.
+   * Throws `NotFoundError` for an unknown task or one owned by another user
+   * (checked first), then `InvalidTransitionError` when the current status is
+   * not in `allowedFrom`. Of two concurrent calls racing the same task from
+   * the same source status, exactly one succeeds; the other sees the status
+   * the winner left behind.
+   */
+  transition(
+    userId: UserId,
+    id: TaskId,
+    allowedFrom: readonly TaskStatus[],
+    patch: TaskPatch,
+  ): Promise<Task>;
   /** Ordered by `createdAt`, then `id`. */
   listByUser(userId: UserId, filter?: { status?: TaskStatus }): Promise<Task[]>;
   /** Returns how many tasks were removed. */
@@ -174,6 +196,15 @@ export interface ReminderQueue {
    * reminders for the same task id are untouched (returns 0 for them).
    */
   cancelForTask(userId: UserId, taskId: TaskId): Promise<number>;
+  /** All of the user's reminders, in every status, ordered by `dueAt` then `id`, for `/export`. */
+  exportForUser(userId: UserId): Promise<Reminder[]>;
+  /**
+   * Hard-deletes every reminder of the user regardless of status (used by
+   * `/deleteme`). Unlike `cancelForUser` (a business cancellation that only
+   * touches `pending` rows and keeps history), this erases everything.
+   * Returns how many were removed.
+   */
+  deleteAllForUser(userId: UserId): Promise<number>;
 }
 
 export interface MemoryRepository {
@@ -182,5 +213,58 @@ export interface MemoryRepository {
   /** In insertion order. */
   listByUser(userId: UserId): Promise<MemoryRecord[]>;
   /** Returns how many records were removed. */
+  deleteAllForUser(userId: UserId): Promise<number>;
+}
+
+/**
+ * Short-lived drafts (see `Draft`). `save` is an upsert (the id always comes
+ * from an `IdGenerator`, so collisions are not a normal case). Adapters own an
+ * injected `Clock` and treat a draft whose `expiresAt` has passed exactly like
+ * a missing one in `get`, so callers never see a stale draft as valid.
+ */
+export interface DraftRepository {
+  save(draft: Draft): Promise<Draft>;
+  /** `null` for an unknown draft, one owned by another user, or an expired one. */
+  get(userId: UserId, id: DraftId): Promise<Draft | null>;
+  /** Idempotent: deleting a draft that does not exist (or belongs to someone else) is a no-op. */
+  delete(userId: UserId, id: DraftId): Promise<void>;
+  /** Returns how many drafts were removed. */
+  deleteAllForUser(userId: UserId): Promise<number>;
+  /** Removes drafts whose `expiresAt <= now`. Returns how many. */
+  purgeExpired(now: Instant): Promise<number>;
+}
+
+/**
+ * The current slot proposal offered for a task (see `StoredSlotProposal`), one
+ * per task. `save` is an upsert. Adapters own an injected `Clock` and treat an
+ * expired proposal exactly like a missing one in `get`.
+ */
+export interface ProposalRepository {
+  save(userId: UserId, proposal: StoredSlotProposal): Promise<StoredSlotProposal>;
+  /** `null` for an unknown proposal, one owned by another user, or an expired one. */
+  get(userId: UserId, taskId: TaskId): Promise<StoredSlotProposal | null>;
+  /** Idempotent: deleting a proposal that does not exist is a no-op. */
+  delete(userId: UserId, taskId: TaskId): Promise<void>;
+  /** Returns how many proposals were removed. */
+  deleteAllForUser(userId: UserId): Promise<number>;
+  /** Removes proposals whose `expiresAt <= now`. Returns how many. */
+  purgeExpired(now: Instant): Promise<number>;
+}
+
+/**
+ * A pending free-text answer expected from the user after a prompt (see
+ * `PendingInput`). `save` is an upsert keyed by `(userId, chatId,
+ * promptMessageId)`. Adapters own an injected `Clock`.
+ */
+export interface PendingInputRepository {
+  save(input: PendingInput): Promise<PendingInput>;
+  /**
+   * Atomically reads and removes the pending input for that prompt, so an
+   * answer can be applied at most once. Returns `null` when there is none, it
+   * belongs to another user, or it has expired (an expired one is still
+   * removed).
+   */
+  takeByPrompt(userId: UserId, chatId: number, promptMessageId: number): Promise<PendingInput | null>;
+  /** Returns how many pending inputs were removed. */
   deleteAllForUser(userId: UserId): Promise<number>;
 }
