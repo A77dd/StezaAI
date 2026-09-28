@@ -37,6 +37,10 @@ export type CallbackPayloads = {
   "welcome.main": Record<string, never>;
   "welcome.connect": { readonly provider: string };
   "task.edit": { readonly taskId: string };
+  "meeting.reminder": { readonly taskId: string; readonly enabled: boolean };
+  "meeting.cancel": { readonly taskId: string };
+  "meeting.details": { readonly taskId: string };
+  "meeting.time": { readonly taskId: string };
   "intent.choose": { readonly draftId: string; readonly kind: (typeof INTENT_KINDS)[number] };
   "context.choose": { readonly draftId: string; readonly choice: (typeof CONTEXT_CHOICES)[number] };
   "checkin.answer": { readonly checkInId: string; readonly outcome: CheckInOutcome };
@@ -100,6 +104,10 @@ function isOneOf<T extends string>(values: readonly T[], value: unknown): value 
 
 function isTaskPayload(payload: unknown): payload is CallbackPayloads["slot.other"] {
   return isPlainRecord(payload) && hasOnlyKeys(payload, ["taskId"]) && isId(payload.taskId);
+}
+
+function isMeetingReminder(payload: unknown): payload is CallbackPayloads["meeting.reminder"] {
+  return isPlainRecord(payload) && hasOnlyKeys(payload, ["taskId", "enabled"]) && isId(payload.taskId) && typeof payload.enabled === "boolean";
 }
 
 function isInstant(value: unknown): value is string {
@@ -247,6 +255,10 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "welcome.main": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
   "welcome.connect": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isWelcomeConnect },
   "task.edit": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "meeting.reminder": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isMeetingReminder },
+  "meeting.cancel": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "meeting.details": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "meeting.time": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "intent.choose": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isIntentChoose },
   "context.choose": { singleUse: true, ttlMs: DAY_MS, scope: "chat", validate: isContextChoose },
   "checkin.answer": { singleUse: true, ttlMs: 7 * DAY_MS, scope: "user", validate: isCheckInAnswer },

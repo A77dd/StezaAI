@@ -6,6 +6,9 @@
  * `createPersonalFlow` composes all of them for a handler layer to consume.
  */
 export * from "./cancelTask";
+export * from "./bookMeeting";
+export * from "./addMeetingDetails";
+export * from "./rescheduleMeeting";
 export * from "./chooseIntent";
 export * from "./confirmSlot";
 export * from "./deleteUserData";
@@ -20,6 +23,8 @@ export * from "./taskEdit";
 export * from "./updateSettings";
 
 import { createCancelTask } from "./cancelTask";
+import { createAddMeetingDetails } from "./addMeetingDetails";
+import { createRescheduleMeeting } from "./rescheduleMeeting";
 import { createChooseIntent } from "./chooseIntent";
 import { createConfirmSlot } from "./confirmSlot";
 import { createDeleteUserData } from "./deleteUserData";
@@ -52,6 +57,8 @@ export function createPersonalFlow(ports: PersonalFlowPorts) {
     beginTaskEdit: createBeginTaskEdit(ports),
     applyTaskEdit: createApplyTaskEdit(ports),
     cancelTask: createCancelTask(ports),
+    addMeetingDetails: createAddMeetingDetails(ports),
+    rescheduleMeeting: createRescheduleMeeting(ports),
     setTimezone: createSetTimezone(ports),
     setNotificationIntensity: createSetNotificationIntensity(ports),
     setBlockLength: createSetBlockLength(ports),

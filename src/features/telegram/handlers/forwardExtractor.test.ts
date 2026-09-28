@@ -22,8 +22,8 @@ describe("forward extraction", () => {
     const hidden = updates.forwardedText("x", { kind: "hidden_user", name: "Private sender" }).message;
     const chat = createGroupChat();
     const fromChat = updates.forwardedText("x", { kind: "chat", chat }).message;
-    expect(extractForwardedMessage(hidden)?.source).toMatchObject({ sourceChatId: null, sourceAuthor: "Private sender", hiddenOrigin: true });
-    expect(extractForwardedMessage(fromChat)?.source).toMatchObject({ sourceChatId: chat.id, sourceAuthor: chat.title, hiddenOrigin: false });
+    expect(extractForwardedMessage(hidden)?.source).toMatchObject({ sourceChatId: ALEX.id, originChatId: null, sourceAuthor: "Private sender", hiddenOrigin: true });
+    expect(extractForwardedMessage(fromChat)?.source).toMatchObject({ sourceChatId: ALEX.id, originChatId: chat.id, sourceAuthor: chat.title, hiddenOrigin: false });
   });
 
   it("preserves channel identity and extracts caption date_time entities", () => {
@@ -37,7 +37,7 @@ describe("forward extraction", () => {
       caption_entities: [{ type: "date_time" as const, offset: 0, length: 7, unix_time: 1_800_000_000, date_time_format: "d" as const }],
     };
     const extracted = extractForwardedMessage(withCaption);
-    expect(extracted?.source).toMatchObject({ sourceChatId: channel.id, sourceAuthor: channel.title, hiddenOrigin: false });
+    expect(extracted?.source).toMatchObject({ sourceChatId: ALEX.id, originChatId: channel.id, sourceAuthor: channel.title, hiddenOrigin: false });
     expect(extracted?.text).toBe("Встреча завтра");
     expect(extracted?.dateTimeHints).toEqual([new Date(1_800_000_000_000).toISOString()]);
   });

@@ -107,9 +107,9 @@ async function scheduleReminders(ports: ConfirmSlotPorts, userId: UserId, task: 
     throw new InvalidArgumentError(`Task ${task.id} has no source chat to notify`);
   }
   const now = ports.clock.now();
-  const leadMinutes = REMINDER_LEAD_MINUTES[settings.notificationIntensity];
+  const leadMinutes = task.kind === "meeting" ? 60 : REMINDER_LEAD_MINUTES[settings.notificationIntensity];
   const blockStartAt = addMinutes(slot.start, -leadMinutes);
-  if (parseInstant(blockStartAt) > parseInstant(now)) {
+  if (task.meetingReminderEnabled !== false && parseInstant(blockStartAt) > parseInstant(now)) {
     await ports.reminders.schedule({
       id: ports.ids.next("reminder"),
       userId,
@@ -119,7 +119,7 @@ async function scheduleReminders(ports: ConfirmSlotPorts, userId: UserId, task: 
       dueAt: blockStartAt,
     });
   }
-  await ports.reminders.schedule({
+  if (task.kind !== "meeting") await ports.reminders.schedule({
     id: ports.ids.next("reminder"),
     userId,
     chatId,

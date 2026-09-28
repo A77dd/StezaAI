@@ -1,15 +1,20 @@
-import type { SlotProposal, SlotSearchResult, Task } from "../../domain";
+import { addMinutes, PENDING_INPUT_TTL_MINUTES } from "../../domain";
+import type { Slot, SlotProposal, SlotSearchResult, Task } from "../../domain";
 import type { BotContext } from "../../bot";
-import { describeError, sendCard } from "../../bot";
+import { describeError, editCard, sendCard } from "../../bot";
 import {
   noticeForKind,
   personalClarifyView,
   personalInfoOnlyView,
   richCalendarMonthView,
   taskProposalView,
+  meetingBookedView,
+  renderMessage,
+  text,
 } from "../../render";
 import { initialCalendarMonth } from "../../render";
 import type { RenderedMessage, ViewContext } from "../../render";
+import type { MessageTarget } from "../../bot";
 import type { SubmitTextResult } from "../../domain/useCases";
 
 /**
@@ -60,7 +65,62 @@ export async function sendSubmitOutcome(
     case "proposed":
     case "no_slots":
       await sendProposalCard(ctx, outcome, viewCtx);
+      return;
+    case "meeting_booked": {
+      await sendMeetingBookedOutcome(ctx, userId, outcome.task, outcome.booking.slot, viewCtx);
+      return;
+    }
+    case "meeting_conflict": {
+      await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingConflict) }));
+      if (outcome.proposal.slots.length === 0) {
+        await sendCard(ctx, taskProposalView({ state: "no_slots", task: outcome.task, search: outcome.search }, viewCtx));
+      } else {
+        await sendProposalCard(ctx, { kind: "proposed", task: outcome.task, proposal: outcome.proposal }, viewCtx);
+      }
+      return;
+    }
   }
+}
+
+export async function sendMeetingBookedOutcome(
+  ctx: BotContext,
+  userId: string,
+  task: Task,
+  slot: Slot,
+  viewCtx: ViewContext,
+  target?: MessageTarget,
+): Promise<void> {
+  const chatId = target?.kind === "chat" ? target.chatId : ctx.chat?.id;
+  if (chatId === undefined) throw new Error("Meeting details need a Telegram chat");
+  let promptMessageId: number;
+  if (target !== undefined) {
+    if (target.kind !== "chat") throw new Error("Meeting details need a private chat card");
+    await editCard(ctx, target, meetingBookedView({ task, slot }, viewCtx));
+    promptMessageId = target.messageId;
+  } else {
+    promptMessageId = (await sendCard(ctx, meetingBookedView({ task, slot }, viewCtx))).message_id;
+  }
+  const expiresAt = addMinutes(ctx.services.clock.now(), PENDING_INPUT_TTL_MINUTES);
+  await ctx.services.pendingInputs.save({
+    userId, chatId, promptMessageId, purpose: "meeting_details", refId: task.id, expiresAt,
+  });
+  ctx.services.promptTracker.remember(userId, chatId, { promptMessageId, purpose: "meeting_details", cardMessageId: promptMessageId });
+  const timer = setTimeout(() => {
+    void (async () => {
+      const pending = await ctx.services.pendingInputs.peekByPrompt(userId, chatId, promptMessageId);
+      if (pending === null) return;
+      const currentPrompt = ctx.services.promptTracker.peek(userId, chatId);
+      if (currentPrompt?.purpose !== "meeting_details" || currentPrompt.promptMessageId !== promptMessageId) {
+        await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, promptMessageId);
+        return;
+      }
+      const nudge = await sendCard(ctx, meetingBookedView({ task, slot, quietFollowUp: true }, viewCtx), { chatId, silent: true });
+      await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, promptMessageId);
+      await ctx.services.pendingInputs.save({ userId, chatId, promptMessageId: nudge.message_id, purpose: "meeting_details", refId: task.id, expiresAt });
+      ctx.services.promptTracker.remember(userId, chatId, { promptMessageId: nudge.message_id, purpose: "meeting_details", cardMessageId: promptMessageId });
+    })().catch(() => ctx.services.logger.error("meeting.details_nudge_failed"));
+  }, 5 * 60 * 1000);
+  timer.unref?.();
 }
 
 /**

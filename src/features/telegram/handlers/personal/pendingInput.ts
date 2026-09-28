@@ -1,6 +1,7 @@
+import { addMinutes, PENDING_INPUT_TTL_MINUTES } from "../../domain";
 import type { BotContext } from "../../bot";
 import { editCard, sendCard } from "../../bot";
-import { fill, noticeForKind, renderMessage, settingsView, text } from "../../render";
+import { fill, meetingBookedView, noticeForKind, renderMessage, settingsView, text, lines } from "../../render";
 import type { RenderedMessage, ViewContext } from "../../render";
 import { proposalCard, sendSubmitOutcome } from "./outcomes";
 
@@ -53,6 +54,45 @@ export async function tryApplyPendingInput(
       await applyTaskEditReply(ctx, userId, chatId, remembered.promptMessageId, remembered.cardMessageId, messageText, viewCtx);
       ctx.services.promptTracker.consume(userId, chatId);
       return true;
+    case "meeting_details": {
+      const task = await ctx.services.personalFlow.addMeetingDetails({ userId, taskId: pending.refId, details: messageText });
+      await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, remembered.promptMessageId);
+      ctx.services.promptTracker.consume(userId, chatId);
+      const booking = task.bookingId === null ? null : await ctx.services.calendar.getBlock(userId, task.bookingId);
+      if (booking === null || remembered.cardMessageId === undefined) {
+        await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingDetailsAdded) }));
+        return true;
+      }
+      await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task, slot: booking.slot }, viewCtx));
+      return true;
+    }
+    case "meeting_time": {
+      const result = await ctx.services.personalFlow.rescheduleMeeting({ userId, taskId: pending.refId, text: messageText });
+      await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, remembered.promptMessageId);
+      ctx.services.promptTracker.consume(userId, chatId);
+      if (result.kind === "moved") {
+        await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingTimeChanged) }));
+        if (remembered.cardMessageId !== undefined) {
+          await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task: result.task, slot: result.booking.slot }, viewCtx));
+        }
+        return true;
+      }
+      const task = await ctx.services.tasks.get(userId, pending.refId);
+      const booking = task === null || task.bookingId === null ? null : await ctx.services.calendar.getBlock(userId, task.bookingId);
+      const message = result.kind === "time_conflict" ? viewCtx.catalog.task.meetingTimeConflict : viewCtx.catalog.task.meetingTimeMissing;
+      const prompt = await sendCard(ctx, renderMessage({ body: lines(text(message), text(viewCtx.catalog.task.meetingTimePrompt)) }));
+      await ctx.services.pendingInputs.save({
+        userId, chatId, promptMessageId: prompt.message_id, purpose: "meeting_time", refId: pending.refId,
+        expiresAt: addMinutes(ctx.services.clock.now(), PENDING_INPUT_TTL_MINUTES),
+      });
+      ctx.services.promptTracker.remember(userId, chatId, {
+        promptMessageId: prompt.message_id, purpose: "meeting_time", cardMessageId: remembered.cardMessageId,
+      });
+      if (task !== null && booking !== null && remembered.cardMessageId !== undefined) {
+        await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task, slot: booking.slot }, viewCtx));
+      }
+      return true;
+    }
   }
 }
 

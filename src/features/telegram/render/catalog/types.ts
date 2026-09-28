@@ -93,6 +93,25 @@ export type Catalog = {
     readonly noSlotsBeforeDeadline: string;
     /** The whole sentence for a search that looked this many days ahead and found nothing. */
     readonly noSlotsHorizon: (days: number) => string;
+    readonly meetingSaved: string;
+    readonly meetingDetailsPrompt: string;
+    readonly meetingDetailsAdded: string;
+    readonly meetingNoDetails: string;
+    readonly meetingAddDetails: string;
+    readonly meetingEditTime: string;
+    readonly meetingDelete: string;
+    readonly meetingReminderOn: string;
+    readonly meetingReminderOff: string;
+    readonly hiddenForwardAuthor: string;
+    readonly meetingLink: string;
+    readonly openMeeting: string;
+    readonly meetingDetailsLabel: string;
+    readonly meetingFromUsername: string;
+    readonly meetingConflict: string;
+    readonly meetingTimePrompt: string;
+    readonly meetingTimeMissing: string;
+    readonly meetingTimeConflict: string;
+    readonly meetingTimeChanged: string;
   };
   readonly forward: {
     /** `{title}`; no `info`: information is asked about, not scheduled. */

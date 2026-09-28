@@ -39,6 +39,10 @@ export type Intent = {
   readonly title: string;
   readonly deadline: Instant | null;
   readonly durationMinutes: number | null;
+  /** An explicit meeting start, distinct from a task deadline. */
+  readonly scheduledStartAt?: Instant | null;
+  /** A meeting link extracted from the message, when present. */
+  readonly meetingUrl?: string | null;
   readonly priority: Priority;
   readonly participants: readonly string[];
   /** 0..1, how sure the parser is about `kind` and the extracted fields. */
@@ -59,12 +63,17 @@ export type SourceType = (typeof SOURCE_TYPES)[number];
 /** Where a task came from. `hiddenOrigin` is explicit for privacy-hidden forwards. */
 export type SourceRef = {
   readonly sourceType: SourceType;
+  /** Chat where the user sent this context to the bot; reminder destination. */
   readonly sourceChatId: number | null;
+  /** Original chat/channel of a forward, when Telegram exposes it. */
+  readonly originChatId?: number | null;
   readonly sourceMessageId: number | null;
   /** Additional album message ids, ascending by Telegram message id. */
   readonly relatedMessageIds: readonly number[];
   readonly sourceText: string;
   readonly sourceAuthor: string | null;
+  /** Public Telegram handle when the original forward exposes one. */
+  readonly sourceAuthorUsername?: string | null;
   readonly sourceTimestamp: Instant | null;
   readonly hiddenOrigin: boolean;
 };
@@ -81,6 +90,10 @@ export type Task = {
   readonly kind: IntentKind;
   readonly deadline: Instant | null;
   readonly durationMinutes: number | null;
+  /** Optional meeting details and link extracted from a forwarded invitation. */
+  readonly description?: string | null;
+  readonly meetingUrl?: string | null;
+  readonly meetingReminderEnabled?: boolean;
   readonly priority: Priority;
   readonly source: SourceRef;
   readonly status: TaskStatus;
@@ -329,7 +342,7 @@ export type StoredSlotProposal = SlotProposal & {
   readonly expiresAt: Instant;
 };
 
-export const PENDING_INPUT_PURPOSES = ["task_edit", "working_hours", "timezone"] as const;
+export const PENDING_INPUT_PURPOSES = ["task_edit", "working_hours", "timezone", "meeting_details", "meeting_time"] as const;
 export type PendingInputPurpose = (typeof PENDING_INPUT_PURPOSES)[number];
 
 /**

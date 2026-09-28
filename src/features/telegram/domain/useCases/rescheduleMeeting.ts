@@ -1,0 +1,49 @@
+import { addMinutes, NotFoundError, SlotConflictError } from "../index";
+import type { BlockBooking, Slot, Task, TaskId, UserId } from "../index";
+import type { PersonalFlowPorts } from "./ports";
+
+export type RescheduleMeetingResult =
+  | { readonly kind: "moved"; readonly task: Task; readonly booking: BlockBooking }
+  | { readonly kind: "time_missing" }
+  | { readonly kind: "time_conflict" };
+
+/** Updates an existing meeting only after parsing an explicit free future time. */
+export function createRescheduleMeeting(
+  ports: Pick<PersonalFlowPorts, "tasks" | "settings" | "calendar" | "reminders" | "intentParser" | "clock" | "ids">,
+) {
+  return async function rescheduleMeeting(input: { readonly userId: UserId; readonly taskId: TaskId; readonly text: string }): Promise<RescheduleMeetingResult> {
+    const task = await ports.tasks.get(input.userId, input.taskId);
+    if (task === null || task.kind !== "meeting" || task.bookingId === null) throw new NotFoundError(`Booked meeting ${input.taskId} does not exist`);
+    const settings = await ports.settings.get(input.userId);
+    if (settings === null) throw new NotFoundError(`User ${input.userId} has no settings`);
+    const intent = await ports.intentParser.parse({
+      text: `Встреча ${input.text}`,
+      now: ports.clock.now(),
+      timezone: settings.timezone,
+      source: task.source,
+      dateTimeHints: [],
+    });
+    if (intent.scheduledStartAt == null || Date.parse(intent.scheduledStartAt) <= Date.parse(ports.clock.now())) return { kind: "time_missing" };
+    const duration = task.durationMinutes ?? settings.defaultBlockMinutes;
+    const slot: Slot = { start: intent.scheduledStartAt, end: addMinutes(intent.scheduledStartAt, duration) };
+    const current = await ports.calendar.getBlock(input.userId, task.bookingId);
+    if (current === null) throw new NotFoundError(`Booking ${task.bookingId} does not exist`);
+    if (slot.start === current.slot.start && slot.end === current.slot.end) return { kind: "moved", task, booking: current };
+    if ((await ports.calendar.getBusyIntervals(input.userId, slot)).length > 0) return { kind: "time_conflict" };
+
+    let booking: BlockBooking;
+    try {
+      booking = await ports.calendar.updateBlock(input.userId, task.bookingId, slot);
+    } catch (error) {
+      if (error instanceof SlotConflictError) return { kind: "time_conflict" };
+      throw error;
+    }
+    await ports.reminders.cancelForTask(input.userId, task.id);
+    const updated = await ports.tasks.update(input.userId, task.id, { durationMinutes: duration, meetingReminderEnabled: task.meetingReminderEnabled !== false });
+    const reminderAt = addMinutes(slot.start, -60);
+    if (updated.meetingReminderEnabled !== false && Date.parse(reminderAt) > Date.parse(ports.clock.now()) && task.source.sourceChatId !== null) {
+      await ports.reminders.schedule({ id: ports.ids.next("reminder"), userId: input.userId, chatId: task.source.sourceChatId, taskId: task.id, kind: "block_start", dueAt: reminderAt });
+    }
+    return { kind: "moved", task: updated, booking };
+  };
+}

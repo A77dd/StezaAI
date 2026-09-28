@@ -9,10 +9,11 @@ import {
   richCalendarDayView,
   richCalendarMonthView,
   taskProposalView,
+  meetingBookedView,
 } from "../../render";
 import type { ViewContext } from "../../render";
 import { peekCallbackAction } from "./callbackRouting";
-import { proposalCard } from "./outcomes";
+import { proposalCard, sendMeetingBookedOutcome } from "./outcomes";
 
 /** `slot.pick`: confirms a proposed slot, and `slot.other`: proposes fresh ones. */
 export function registerSlotCallbacks(composer: Composer<BotContext>): void {
@@ -101,6 +102,11 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
 
   switch (result.kind) {
     case "booked": {
+      if (result.task.kind === "meeting") {
+        await sendMeetingBookedOutcome(ctx, owner.userId, result.task, result.booking.slot, viewCtx, target);
+        await answerCallback(ctx);
+        return;
+      }
       const rendered = isRichSource(ctx)
         ? richBookedView({ task: result.task, slot: result.booking.slot }, viewCtx)
         : taskProposalView({ state: "booked", task: result.task, slot: result.booking.slot }, viewCtx);
@@ -112,6 +118,11 @@ async function handleSlotPick(ctx: BotContext, data: string): Promise<void> {
     case "already_booked_other_slot": {
       // Idempotent double-press: show the booking that actually won, not an error.
       const task = await requireTask(ctx, owner.userId, result.booking.taskId);
+      if (task.kind === "meeting") {
+        await editCard(ctx, target, meetingBookedView({ task, slot: result.booking.slot }, viewCtx));
+        await answerCallback(ctx);
+        return;
+      }
       const rendered = isRichSource(ctx)
         ? richBookedView({ task, slot: result.booking.slot }, viewCtx)
         : taskProposalView({ state: "booked", task, slot: result.booking.slot }, viewCtx);

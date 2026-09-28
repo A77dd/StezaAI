@@ -29,6 +29,15 @@ function parse(text: string, overrides: { now?: string; timezone?: string; dateT
 }
 
 describe("ruleBasedIntentParser: required examples", () => {
+  it("extracts an explicit local meeting start time separately from a deadline", async () => {
+    const intent = await parse("Давайте согласуем с вами встречу. В пятницу в 17:00. Вот ссылка на встречу: https://meet.example.test/room");
+    expect(intent).toMatchObject({
+      kind: "meeting",
+      scheduledStartAt: "2026-09-25T14:00:00.000Z",
+      deadline: null,
+    });
+  });
+
   it("uses the first Telegram date_time hint over a conflicting text deadline", async () => {
     const intent = await parse("Посмотри договор до завтра", {
       dateTimeHints: ["2026-10-02T10:15:00.000Z", "2026-10-03T10:15:00.000Z"],

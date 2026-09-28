@@ -11,6 +11,7 @@ export * from "./demo";
 export * from "./help";
 export * from "./helpRich";
 export * from "./inlineCards";
+export * from "./meeting";
 export * from "./notices";
 export * from "./personalClarify";
 export * from "./reminder";

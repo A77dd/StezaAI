@@ -35,6 +35,15 @@ async function handleTaskEdit(ctx: BotContext, data: string): Promise<void> {
   }
   const viewCtx = ctx.viewContext(await ctx.loadSettings());
 
+  const remembered = ctx.services.promptTracker.peek(owner.userId, target.chatId);
+  if (remembered?.purpose === "meeting_details") {
+    const pendingDetails = await ctx.services.pendingInputs.peekByPrompt(owner.userId, target.chatId, remembered.promptMessageId);
+    if (pendingDetails?.refId === resolved.payload.taskId) {
+      await ctx.services.pendingInputs.consumeByPrompt(owner.userId, target.chatId, remembered.promptMessageId);
+      ctx.services.promptTracker.consume(owner.userId, target.chatId);
+    }
+  }
+
   const prompt = await sendCard(ctx, askInputView({ kind: "task_edit" }, viewCtx));
   await ctx.services.personalFlow.beginTaskEdit({
     userId: owner.userId,

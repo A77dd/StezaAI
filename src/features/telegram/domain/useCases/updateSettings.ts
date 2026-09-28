@@ -29,7 +29,7 @@ export type SetTimezoneResult = { readonly kind: "timezone_set"; readonly settin
 
 type SetTimezonePorts = Pick<
   PersonalFlowPorts,
-  "settings" | "drafts" | "tasks" | "proposals" | "calendar" | "scheduler" | "intentParser" | "clock" | "ids"
+  "settings" | "drafts" | "tasks" | "proposals" | "calendar" | "scheduler" | "intentParser" | "reminders" | "clock" | "ids"
 >;
 
 /**

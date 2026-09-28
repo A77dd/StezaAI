@@ -1,8 +1,9 @@
-import { InvalidIntentError } from "../index";
+import { InvalidIntentError, parseInstant } from "../index";
 import type { DraftId, Instant, Intent, SlotProposal, SourceRef, Task, UserId } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 import { CLARIFY_THRESHOLD, createTaskAndPropose, requireSettings, saveDraft } from "./shared";
 import type { SlotSearchSummary } from "./shared";
+import { createBookMeeting } from "./bookMeeting";
 
 export type SubmitTextInput = {
   readonly userId: UserId;
@@ -18,7 +19,8 @@ export type SubmitTextResult =
   | { readonly kind: "needs_clarification"; readonly draftId: DraftId; readonly intent: Intent }
   | { readonly kind: "info_only"; readonly draftId: DraftId }
   | { readonly kind: "proposed"; readonly task: Task; readonly proposal: SlotProposal; readonly search: SlotSearchSummary }
-  | { readonly kind: "no_slots"; readonly task: Task; readonly search: SlotSearchSummary };
+  | { readonly kind: "no_slots"; readonly task: Task; readonly search: SlotSearchSummary }
+  | Awaited<ReturnType<ReturnType<typeof createBookMeeting>>>;
 
 /**
  * The entry point of the personal-task scenario: turns free text into either
@@ -33,7 +35,7 @@ export type SubmitTextResult =
 export function createSubmitText(
   ports: Pick<
     PersonalFlowPorts,
-    "settings" | "drafts" | "tasks" | "proposals" | "calendar" | "scheduler" | "intentParser" | "clock" | "ids"
+    "settings" | "drafts" | "tasks" | "proposals" | "calendar" | "scheduler" | "intentParser" | "reminders" | "clock" | "ids"
   >,
 ) {
   return async function submitText(input: SubmitTextInput): Promise<SubmitTextResult> {
@@ -92,6 +94,13 @@ export function createSubmitText(
         kind: "clarify",
       });
       return { kind: "needs_clarification", draftId: draft.id, intent };
+    }
+
+    if (
+      input.source.sourceType === "forwarded_message" && intent.kind === "meeting" && intent.scheduledStartAt != null &&
+      parseInstant(intent.scheduledStartAt) > parseInstant(ports.clock.now())
+    ) {
+      return createBookMeeting(ports)({ userId: input.userId, intent, source: input.source });
     }
 
     const outcome = await createTaskAndPropose(ports, { userId: input.userId, intent, source: input.source });

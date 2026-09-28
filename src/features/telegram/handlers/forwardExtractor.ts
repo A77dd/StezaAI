@@ -12,23 +12,25 @@ export function extractForwardedMessage(message: Message): ExtractedForward | nu
   if (origin === undefined) return null;
   const text = message.text ?? message.caption ?? "";
 
-  let sourceChatId: number | null;
+  let originChatId: number | null;
   let sourceAuthor: string | null;
+  let sourceAuthorUsername: string | null = null;
   switch (origin.type) {
     case "user":
-      sourceChatId = origin.sender_user.id;
+      originChatId = origin.sender_user.id;
       sourceAuthor = [origin.sender_user.first_name, origin.sender_user.last_name].filter(Boolean).join(" ");
+      sourceAuthorUsername = origin.sender_user.username ?? null;
       break;
     case "hidden_user":
-      sourceChatId = null;
+      originChatId = null;
       sourceAuthor = origin.sender_user_name;
       break;
     case "chat":
-      sourceChatId = origin.sender_chat.id;
+      originChatId = origin.sender_chat.id;
       sourceAuthor = origin.author_signature ?? ("title" in origin.sender_chat ? origin.sender_chat.title : origin.sender_chat.first_name) ?? null;
       break;
     case "channel":
-      sourceChatId = origin.chat.id;
+      originChatId = origin.chat.id;
       sourceAuthor = origin.author_signature ?? origin.chat.title;
       break;
   }
@@ -43,11 +45,13 @@ export function extractForwardedMessage(message: Message): ExtractedForward | nu
     dateTimeHints,
     source: {
       sourceType: "forwarded_message",
-      sourceChatId,
+      sourceChatId: message.chat.id,
+      originChatId,
       sourceMessageId: message.message_id,
       relatedMessageIds: [],
       sourceText: text,
       sourceAuthor,
+      sourceAuthorUsername,
       sourceTimestamp: new Date(origin.date * 1000).toISOString(),
       hiddenOrigin: origin.type === "hidden_user",
     },

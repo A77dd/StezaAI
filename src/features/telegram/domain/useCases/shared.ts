@@ -153,6 +153,7 @@ export async function createTaskAndPropose(
     kind: input.intent.kind,
     deadline: input.intent.deadline,
     durationMinutes: input.intent.durationMinutes,
+    ...(input.intent.meetingUrl === undefined ? {} : { meetingUrl: input.intent.meetingUrl }),
     priority: input.intent.priority,
     source: input.source,
     status: "inbox",

@@ -23,7 +23,7 @@ npm run dev:bot          # or: node scripts/start-bot-polling.js
 
 ### 1.2 Meeting-like forward
 1. Forward: «Встреча с командой завтра в 15:00 про бюджет»
-2. **Expected**: Card with «Похоже, нужно запланировать...» + slots
+2. **Expected**: when an explicit future time is clear and free, the meeting is booked immediately; the card shows the time, optional link, reminder toggle, time-change action, and delete action
 
 ### 1.3 Reminder-like forward
 1. Forward: «Не забудь позвонить маме»
@@ -35,7 +35,7 @@ npm run dev:bot          # or: node scripts/start-bot-polling.js
 
 ### 1.5 Hidden origin (forwarded from user who hides forwards)
 1. Forward from user with «Hide forwards» privacy setting
-3. **Expected**: Source shows as «Пересланное сообщение» without author name
+3. **Expected**: meeting capture still works when time is clear; the card notes that Telegram did not provide the sender's `@username`
 
 ---
 
@@ -153,10 +153,24 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 
 - **No real STT**: Uses `StubTranscription` — returns `TranscriptionUnavailableError`
 - **No calendar integration**: In-memory calendar only
-- **No reminders scheduler**: Tasks booked but no `block_start`/`check_in` sent
+- **No reminder worker**: Reminders can be queued but `block_start`/`check_in` messages are not dispatched
 - **No group handling**: Privacy mode, mentions, Guest Mode — not yet implemented
 - **No inline mode**: `inline_query` not registered
 - **No webhook route**: `src/app/api/telegram/webhook/route.ts` not yet created
+
+## 8.1. Forwarded meeting with a clear time
+
+The interaction uses in-memory calendar and reminder adapters. The five-minute details follow-up uses a local process timer and is not durable across restart. A one-hour reminder is queued, but a worker is not configured to deliver it.
+
+1. Forward a future invitation with a time and optional meeting URL.
+2. **Expected:** the bot adds it to the local calendar immediately and shows a meeting card. The reminder is enabled by default and can be toggled; the other actions change the time or delete the event.
+3. Send one more text message with context. **Expected:** the text is added to the event details and the original card updates.
+4. Leave the bot idle for five minutes. **Expected:** it sends a quiet follow-up with an **Добавить информацию** button.
+5. Repeat with a hidden sender. **Expected:** the card has a small note that the sender's `@username` could not be obtained; the event still belongs to the user.
+6. Occupy the requested interval in the in-memory calendar and repeat. **Expected:** no existing block changes; the bot proposes free slots after the requested interval.
+7. Press **Изменить время** and send a free future time. **Expected:** the existing event moves and its reminder is recalculated. Send a busy time instead; **expected:** the old event remains in place and the bot asks for another time.
+
+The local runtime still uses a deterministic parser stand-in. This check does not validate LLM interpretation or a connected external calendar. See [ADR 0004](../decisions/0004-forwarded-meeting-capture.md).
 
 ---
 

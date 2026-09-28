@@ -4,6 +4,7 @@ import { registerCommands } from "./commands";
 import { registerDataCallbacks } from "./dataCallbacks";
 import { registerForwarded } from "./forwarded";
 import { registerIntentCallbacks } from "./intentCallbacks";
+import { registerMeetingCallbacks } from "./meetingCallbacks";
 import { registerPrivateText } from "./privateText";
 import { registerSettingsCallbacks } from "./settingsCallbacks";
 import { registerSlotCallbacks } from "./slotCallbacks";
@@ -29,6 +30,7 @@ export function registerPersonalFlow(): Composer<BotContext> {
   registerCommands(scoped);
   registerPrivateText(scoped);
   registerSlotCallbacks(scoped);
+  registerMeetingCallbacks(scoped);
   registerTaskEditCallback(scoped);
   registerIntentCallbacks(scoped);
   registerSettingsCallbacks(scoped);

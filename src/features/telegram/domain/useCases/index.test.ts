@@ -33,6 +33,8 @@ describe("createPersonalFlow", () => {
     expect(Object.keys(flow).sort()).toEqual(
       [
         "applyTaskEdit",
+        "addMeetingDetails",
+        "rescheduleMeeting",
         "beginTaskEdit",
         "cancelTask",
         "chooseIntent",

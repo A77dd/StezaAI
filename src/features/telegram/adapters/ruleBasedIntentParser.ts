@@ -273,6 +273,48 @@ function findDeadline(text: string, now: Instant, timezone: string): Found<Insta
   return best;
 }
 
+const CLOCK_TIME_SOURCE = String.raw`${START}(?:в\s+)?([01]?\d|2[0-3])[:.]([0-5]\d)${END}`;
+
+/** Finds an explicit local meeting start in common Russian chat phrasing. */
+function findMeetingStart(text: string, now: Instant, timezone: string, hints: readonly Instant[]): Instant | undefined {
+  if (hints.length > 0) return hints[0];
+  const today = toZonedParts(now, timezone);
+  const relativeDays = [
+    { word: "сегодня", offset: 0 },
+    { word: "завтра", offset: 1 },
+    { word: "послезавтра", offset: 2 },
+  ];
+  for (const { word, offset } of relativeDays) {
+    const dayMatch = new RegExp(`${START}${word}${END}`, "giu").exec(text);
+    if (dayMatch === null) continue;
+    const timeMatch = regex(CLOCK_TIME_SOURCE).exec(text.slice(dayMatch.index + dayMatch[0].length));
+    if (timeMatch === null || timeMatch.index > 20) continue;
+    return fromZoned({
+      year: today.year,
+      month: today.month,
+      day: today.day + offset,
+      hour: Number(timeMatch[1]),
+      minute: Number(timeMatch[2]),
+    }, timezone);
+  }
+  for (const day of WEEKDAYS) {
+    const dayPattern = regex(String.raw`${START}(?:(?:в|во|на)\s+)?(?:${day.genitive}|${day.dative}|${day.accusative})${END}`);
+    const dayMatch = dayPattern.exec(text);
+    if (dayMatch === null) continue;
+    const timeMatch = regex(CLOCK_TIME_SOURCE).exec(text.slice(dayMatch.index + dayMatch[0].length));
+    if (timeMatch === null || timeMatch.index > 20) continue;
+    const daysAhead = ((day.isoWeekday - today.isoWeekday + 6) % 7) + 1;
+    return fromZoned({
+      year: today.year,
+      month: today.month,
+      day: today.day + daysAhead,
+      hour: Number(timeMatch[1]),
+      minute: Number(timeMatch[2]),
+    }, timezone);
+  }
+  return undefined;
+}
+
 // --- Kind -----------------------------------------------------------------------
 
 const VERB_FORMS = [
@@ -490,7 +532,10 @@ export function createRuleBasedIntentParser(): IntentParser {
         };
       }
 
-      const deadline = findDeadline(original, now, timezone);
+      const scheduledStartAt = kind === "meeting" ? findMeetingStart(original, now, timezone, dateTimeHints) : undefined;
+      const meetingUrl = kind === "meeting" ? original.match(/https?:\/\/[^\s<>]+/iu)?.[0]?.replace(/[),.]+$/u, "") : undefined;
+      const participants = kind === "meeting" ? findParticipants(original) : [];
+      const deadline = scheduledStartAt === undefined ? findDeadline(original, now, timezone) : undefined;
       const relativeOffsets = findRelativeOffsets(original);
       const duration = findDuration(original, relativeOffsets);
       const { priority, spans: prioritySpans } = findPriority(original);
@@ -514,13 +559,17 @@ export function createRuleBasedIntentParser(): IntentParser {
 
       return {
         kind,
-        title: buildTitle(original, removable),
+        title: kind === "meeting" && scheduledStartAt !== undefined
+          ? finishTitle(participants.length > 0 ? `Встреча с ${participants[0]}` : "Встреча")
+          : buildTitle(original, meetingUrl === undefined ? removable : [...removable, { start: original.indexOf(meetingUrl), end: original.indexOf(meetingUrl) + meetingUrl.length }]),
         deadline: dateTimeHints[0] ?? deadline?.value ?? null,
-        durationMinutes: duration?.value ?? defaultMinutes,
+        durationMinutes: duration?.value ?? (scheduledStartAt === undefined ? defaultMinutes : null),
+        ...(scheduledStartAt === undefined ? {} : { scheduledStartAt }),
+        ...(meetingUrl === undefined ? {} : { meetingUrl }),
         priority,
-        participants: kind === "meeting" ? findParticipants(original) : [],
+        participants,
         confidence:
-          dateTimeHints.length > 0 || deadline !== undefined || duration !== undefined
+          scheduledStartAt !== undefined || dateTimeHints.length > 0 || deadline !== undefined || duration !== undefined
             ? CONFIDENCE_KIND_AND_DETAIL
             : CONFIDENCE_KIND_ONLY,
       };

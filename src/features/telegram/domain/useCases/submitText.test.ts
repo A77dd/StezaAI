@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { toZonedParts } from "../index";
-import type { Intent, IntentParser } from "../index";
+import type { Intent, IntentParser, Slot } from "../index";
 import { makeSettings, makeSource } from "../../testing/domainFixtures";
 import { createTestPersonalFlowPorts } from "../../testing/personalFlowHarness";
 import { createSubmitText } from "./submitText";
+import type { InMemoryCalendar } from "../../adapters";
 
 const MONDAY_MORNING = "2026-09-28T06:10:00.000Z"; // Monday 09:10 Europe/Moscow
 
@@ -134,6 +135,72 @@ describe("submitText", () => {
       taskId: result.task.id,
       slots: result.proposal.slots,
     });
+  });
+
+  it("books a forwarded meeting immediately when the parser extracts an explicit start", async () => {
+    const startAt = "2026-09-25T14:00:00.000Z";
+    const ports = createTestPersonalFlowPorts({
+      intentParser: stubParser({
+        kind: "meeting",
+        title: "Встреча с Марией",
+        deadline: null,
+        durationMinutes: null,
+        scheduledStartAt: startAt,
+        meetingUrl: "https://meet.example.test/room",
+        priority: "normal",
+        participants: ["Мария"],
+        confidence: 0.95,
+      }),
+    }, "2026-09-23T08:30:00.000Z");
+    await ports.settings.upsert(makeSettings({ timezoneConfirmed: true, defaultBlockMinutes: 60 }));
+    const submitText = createSubmitText(ports);
+    const source = makeSource({ sourceType: "forwarded_message", sourceChatId: 77 });
+
+    const result = await submitText({
+      userId: "user_1",
+      chatId: 1001,
+      text: "Давайте согласуем с вами встречу. В пятницу в 17:00. Ссылка: https://meet.example.test/room",
+      source,
+    });
+
+    expect(result.kind).toBe("meeting_booked");
+    if (result.kind !== "meeting_booked") throw new Error("expected meeting_booked");
+    expect(result.task).toMatchObject({
+      title: "Встреча с Марией",
+      kind: "meeting",
+      status: "scheduled",
+      bookingId: result.booking.id,
+      meetingUrl: "https://meet.example.test/room",
+    });
+    expect(result.booking.slot).toEqual({ start: startAt, end: "2026-09-25T15:00:00.000Z" });
+    await expect(ports.reminders.exportForUser("user_1")).resolves.toContainEqual(
+      expect.objectContaining({ kind: "block_start", dueAt: "2026-09-25T13:00:00.000Z" }),
+    );
+  });
+
+  it("does not overwrite a busy meeting interval and proposes alternatives after it", async () => {
+    const startAt = "2026-09-25T14:00:00.000Z";
+    const ports = createTestPersonalFlowPorts({
+      intentParser: stubParser({
+        kind: "meeting", title: "Встреча с Марией", deadline: null, durationMinutes: 60,
+        scheduledStartAt: startAt, priority: "normal", participants: ["Мария"], confidence: 0.95,
+      }),
+    }, "2026-09-23T08:30:00.000Z");
+    await ports.settings.upsert(makeSettings({ timezoneConfirmed: true, defaultBlockMinutes: 60 }));
+    const conflict: Slot = { start: startAt, end: "2026-09-25T15:00:00.000Z" };
+    (ports.calendar as InMemoryCalendar).addBusyInterval("user_1", conflict);
+
+    const result = await createSubmitText(ports)({
+      userId: "user_1", chatId: 1001, text: "В пятницу встреча в 17:00",
+      source: makeSource({ sourceType: "forwarded_message" }),
+    });
+
+    expect(result.kind).toBe("meeting_conflict");
+    if (result.kind !== "meeting_conflict") throw new Error("expected meeting_conflict");
+    expect(result.task.status).toBe("proposed");
+    expect(result.proposal.slots.length).toBeGreaterThan(0);
+    expect(Date.parse(result.proposal.slots[0]!.start)).toBeGreaterThanOrEqual(Date.parse(conflict.end));
+    await expect(ports.calendar.getBusyIntervals("user_1", conflict)).resolves.toEqual([conflict]);
   });
 
   it("returns no_slots with a reason when the deadline leaves no room, and keeps the task in inbox", async () => {
