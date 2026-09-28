@@ -177,6 +177,20 @@ export function toZonedParts(instant: Instant, timezone: string): ZonedParts {
   return { ...parts, isoWeekday: utcDay === 0 ? 7 : utcDay };
 }
 
+/**
+ * Monday 00:00 of the week `instant` falls into, in the given timezone. The
+ * week starts on Monday (ISO), matching the calendar grids.
+ */
+export function startOfWeek(instant: Instant, timezone: string): Instant {
+  const parts = toZonedParts(instant, timezone);
+  const daysSinceMonday = parts.isoWeekday - 1;
+  const monday = fromZoned(
+    { year: parts.year, month: parts.month, day: parts.day, hour: 0, minute: 0 },
+    timezone,
+  );
+  return addMinutes(monday, -daysSinceMonday * 24 * 60);
+}
+
 /** Local wall time interpreted as if it were UTC, in epoch milliseconds. */
 function wallAsUtc(parts: LocalDateTime): number {
   return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);

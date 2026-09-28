@@ -113,7 +113,7 @@ describe("ResolvedCallback typing", () => {
 
     if (resolved.action === "slot.pick") {
       expectTypeOf(resolved.payload).toEqualTypeOf<CallbackPayload<"slot.pick">>();
-      expectTypeOf(resolved.payload.slotIndex).toEqualTypeOf<0 | 1 | 2>();
+      expectTypeOf(resolved.payload.slotIndex).toEqualTypeOf<number>();
     }
     if (resolved.action === "checkin.reason") {
       expectTypeOf(resolved.payload.reason).toEqualTypeOf<CheckInReason>();

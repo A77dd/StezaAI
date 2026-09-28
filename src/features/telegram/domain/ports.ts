@@ -69,9 +69,21 @@ export interface SlotScheduler {
 }
 
 /** Calendar. A block is only created after explicit user confirmation. */
+/** One busy calendar event: the interval plus what the calendar knows about it. */
+export type BusyEvent = Interval & {
+  /** The event name, when the calendar returned one; external imports have none. */
+  readonly title?: string;
+  /** The user's own booked meeting this event came from, when it did. */
+  readonly taskId?: TaskId;
+};
+
 export interface CalendarPort {
-  /** Busy intervals of the user that overlap `range`, sorted by start. */
-  getBusyIntervals(userId: UserId, range: Interval): Promise<Interval[]>;
+  /**
+   * Busy intervals of the user that overlap `range`, sorted by start. A busy
+   * event carries its name and task only when the calendar actually knows
+   * them (the user's own blocks); external imports have neither.
+   */
+  getBusyIntervals(userId: UserId, range: Interval): Promise<BusyEvent[]>;
   /** `null` for an unknown booking or one owned by another user. */
   getBlock(userId: UserId, bookingId: BookingId): Promise<BlockBooking | null>;
   /** Throws `SlotConflictError` if the slot overlaps an existing block. */

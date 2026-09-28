@@ -1,12 +1,21 @@
 import { addMinutes, SlotConflictError } from "../index";
-import type { BlockBooking, Intent, Slot, SourceRef, Task, UserId } from "../index";
+import type { BlockBooking, BusyEvent, Intent, Slot, SourceRef, Task, UserId } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 import { computeProposal, storeProposal } from "./shared";
 import type { SlotSearchSummary } from "./shared";
 
 export type BookMeetingResult =
   | { readonly kind: "meeting_booked"; readonly task: Task; readonly booking: BlockBooking }
-  | { readonly kind: "meeting_conflict"; readonly task: Task; readonly proposal: import("../index").SlotProposal; readonly search: SlotSearchSummary };
+  | {
+      readonly kind: "meeting_conflict";
+      readonly task: Task;
+      readonly proposal: import("../index").SlotProposal;
+      readonly search: SlotSearchSummary;
+      /** The events the requested time collided with, as the calendar returned them. */
+      readonly busy: readonly BusyEvent[];
+      /** The requested (busy) slot, for the conflict card and negotiation text. */
+      readonly requested: Slot;
+    };
 
 /** Books a clearly-timed forwarded meeting at once; a conflict becomes a choice of nearby slots. */
 export function createBookMeeting(
@@ -27,7 +36,8 @@ export function createBookMeeting(
     };
     await ports.tasks.create(task);
 
-    const makeConflict = async (): Promise<BookMeetingResult> => {
+    type ConflictDraft = Omit<Extract<BookMeetingResult, { kind: "meeting_conflict" }>, "busy" | "requested">;
+    const makeConflict = async (): Promise<ConflictDraft> => {
       const outcome = await computeProposal(ports, { userId: input.userId, task, now: slot.end });
       const proposal = outcome.kind === "proposed" ? outcome.proposal : { taskId: task.id, slots: [] };
       await storeProposal(ports, input.userId, proposal);
@@ -36,7 +46,7 @@ export function createBookMeeting(
     };
 
     const busy = await ports.calendar.getBusyIntervals(input.userId, slot);
-    if (busy.length > 0) return makeConflict();
+    if (busy.length > 0) return { ...(await makeConflict()), busy, requested: slot };
 
     await ports.tasks.transition(input.userId, task.id, ["inbox"], { status: "scheduled" });
     let booking: BlockBooking;
@@ -44,7 +54,9 @@ export function createBookMeeting(
       booking = await ports.calendar.createBlock({ userId: input.userId, taskId: task.id, title: task.title, slot });
     } catch (error) {
       await ports.tasks.transition(input.userId, task.id, ["scheduled"], { status: "inbox" });
-      if (error instanceof SlotConflictError) return makeConflict();
+      if (error instanceof SlotConflictError) {
+        return { ...(await makeConflict()), busy: await ports.calendar.getBusyIntervals(input.userId, slot), requested: slot };
+      }
       throw error;
     }
     const booked = await ports.tasks.update(input.userId, task.id, { bookingId: booking.id });

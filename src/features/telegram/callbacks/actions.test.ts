@@ -21,6 +21,11 @@ expect([...ACTIONS].sort()).toEqual(
         "data.delete",
         "intent.choose",
         "meeting.cancel",
+    "meeting.conflict.accept",
+    "meeting.conflict.keep",
+    "meeting.conflict.move",
+    "meeting.conflict.move.confirm",
+    "meeting.conflict.slots",
     "meeting.reschedule.day",
     "meeting.reschedule.hour",
     "meeting.reschedule.month",
@@ -86,13 +91,13 @@ describe("payload validators", () => {
     expect(CALLBACK_ACTIONS[action].validate(extra)).toBe(false);
   });
 
-  it("slot.pick accepts slot indexes 0-2 only", () => {
+  it("slot.pick accepts any non-negative integer index (the proposal validates the range)", () => {
     const { validate } = CALLBACK_ACTIONS["slot.pick"];
     const interval = { slotStart: "2026-09-28T09:30:00.000Z", slotEnd: "2026-09-28T10:30:00.000Z" };
-    for (const slotIndex of [0, 1, 2]) {
+    for (const slotIndex of [0, 1, 2, 4, 10]) {
       expect(validate({ taskId: "task_1", slotIndex, ...interval })).toBe(true);
     }
-    for (const slotIndex of [-1, 3, 1.5, "1", null, undefined, Number.NaN]) {
+    for (const slotIndex of [-1, 1.5, "1", null, undefined, Number.NaN]) {
       expect(validate({ taskId: "task_1", slotIndex, ...interval })).toBe(false);
     }
     expect(validate({ taskId: "task_1", slotIndex: 0 })).toBe(false);

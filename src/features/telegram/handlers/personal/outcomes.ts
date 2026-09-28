@@ -10,6 +10,7 @@ import {
   taskProposalView,
   meetingBookedRichView,
   meetingBookedView,
+  meetingConflictRichView,
   renderMessage,
   text,
 } from "../../render";
@@ -72,11 +73,24 @@ export async function sendSubmitOutcome(
       return;
     }
     case "meeting_conflict": {
-      await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingConflict) }));
-      if (outcome.proposal.slots.length === 0) {
-        await sendCard(ctx, taskProposalView({ state: "no_slots", task: outcome.task, search: outcome.search }, viewCtx));
-      } else {
-        await sendProposalCard(ctx, { kind: "proposed", task: outcome.task, proposal: outcome.proposal }, viewCtx);
+      // The approved conflict card: both events on one timeline + the three
+      // actions. The HTML notice + proposal card stay as the fallback.
+      try {
+        await sendCard(
+          ctx,
+          meetingConflictRichView(
+            { task: outcome.task, requested: outcome.requested, busy: outcome.busy, proposalSlots: outcome.proposal.slots },
+            viewCtx,
+          ),
+        );
+      } catch (error) {
+        ctx.log.warn("meeting.conflict_rich_fallback", describeError(error));
+        await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingConflict) }));
+        if (outcome.proposal.slots.length === 0) {
+          await sendCard(ctx, taskProposalView({ state: "no_slots", task: outcome.task, search: outcome.search }, viewCtx));
+        } else {
+          await sendProposalCard(ctx, { kind: "proposed", task: outcome.task, proposal: outcome.proposal }, viewCtx);
+        }
       }
       return;
     }

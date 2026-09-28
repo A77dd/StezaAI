@@ -25,13 +25,27 @@ const TIMEZONE_PATTERN = /^[A-Za-z0-9_/+-]{1,64}$/;
 export type CallbackPayloads = {
   "slot.pick": {
     readonly taskId: string;
-    readonly slotIndex: 0 | 1 | 2;
+    /** The slot's index in the stored proposal; the use-case validates it against the proposal. */
+    readonly slotIndex: number;
     readonly slotStart: string;
     readonly slotEnd: string;
   };
   "slot.other": { readonly taskId: string };
   "calendar.month": { readonly taskId: string; readonly year: number; readonly month: number };
   "calendar.day": { readonly taskId: string; readonly year: number; readonly month: number; readonly day: number };
+  "meeting.conflict.accept": {
+    readonly taskId: string;
+    readonly slotIndex: number;
+    readonly slotStart: string;
+    readonly slotEnd: string;
+    /** The originally requested (busy) time, for the negotiation text. */
+    readonly requestedStart: string;
+    readonly requestedEnd: string;
+  };
+  "meeting.conflict.slots": { readonly taskId: string };
+  "meeting.conflict.keep": { readonly taskId: string; readonly requestedStart: string; readonly requestedEnd: string };
+  "meeting.conflict.move": { readonly taskId: string; readonly existingTaskId: string; readonly proposedStart: string };
+  "meeting.conflict.move.confirm": { readonly taskId: string; readonly existingTaskId: string; readonly proposedStart: string };
   "meeting.reschedule.month": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number };
   "meeting.reschedule.day": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number; readonly day: number };
   "meeting.reschedule.hour": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number; readonly day: number; readonly hour: number };
@@ -117,15 +131,23 @@ function isInstant(value: unknown): value is string {
   return typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value));
 }
 
-function isSlotPick(payload: unknown): payload is CallbackPayloads["slot.pick"] {
+function isSlotPickLike(payload: unknown, keys: readonly string[]): boolean {
   return (
     isPlainRecord(payload) &&
-    hasOnlyKeys(payload, ["taskId", "slotIndex", "slotStart", "slotEnd"]) &&
+    hasOnlyKeys(payload, keys) &&
     isId(payload.taskId) &&
-    (payload.slotIndex === 0 || payload.slotIndex === 1 || payload.slotIndex === 2) &&
+    typeof payload.slotIndex === "number" &&
+    Number.isInteger(payload.slotIndex) &&
+    payload.slotIndex >= 0 &&
     isInstant(payload.slotStart) &&
-    isInstant(payload.slotEnd)
+    isInstant(payload.slotEnd) &&
+    (!keys.includes("requestedStart") || isInstant(payload.requestedStart)) &&
+    (!keys.includes("requestedEnd") || isInstant(payload.requestedEnd))
   );
+}
+
+function isSlotPick(payload: unknown): payload is CallbackPayloads["slot.pick"] {
+  return isSlotPickLike(payload, ["taskId", "slotIndex", "slotStart", "slotEnd"]);
 }
 
 function isIntentChoose(payload: unknown): payload is CallbackPayloads["intent.choose"] {
@@ -249,6 +271,30 @@ function isRescheduleHour(payload: unknown): payload is CallbackPayloads["meetin
   );
 }
 
+function isConflictAccept(payload: unknown): payload is CallbackPayloads["meeting.conflict.accept"] {
+  return isSlotPickLike(payload, ["taskId", "slotIndex", "slotStart", "slotEnd", "requestedStart", "requestedEnd"]);
+}
+
+function isConflictKeep(payload: unknown): payload is CallbackPayloads["meeting.conflict.keep"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["taskId", "requestedStart", "requestedEnd"]) &&
+    isId(payload.taskId) &&
+    isInstant(payload.requestedStart) &&
+    isInstant(payload.requestedEnd)
+  );
+}
+
+function isConflictMove(payload: unknown): payload is CallbackPayloads["meeting.conflict.move"] {
+  return (
+    isPlainRecord(payload) &&
+    hasOnlyKeys(payload, ["taskId", "existingTaskId", "proposedStart"]) &&
+    isId(payload.taskId) &&
+    isId(payload.existingTaskId) &&
+    isInstant(payload.proposedStart)
+  );
+}
+
 function isWelcomeConnect(payload: unknown): payload is CallbackPayloads["welcome.connect"] {
   return (
     isPlainRecord(payload) &&
@@ -303,6 +349,11 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "slot.other": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "calendar.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarMonth },
   "calendar.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarDay },
+  "meeting.conflict.accept": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isConflictAccept },
+  "meeting.conflict.slots": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
+  "meeting.conflict.keep": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isConflictKeep },
+  "meeting.conflict.move": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isConflictMove },
+  "meeting.conflict.move.confirm": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isConflictMove },
   "meeting.reschedule.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleMonth },
   "meeting.reschedule.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleDay },
   "meeting.reschedule.hour": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleHour },

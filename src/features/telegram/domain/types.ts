@@ -142,6 +142,8 @@ export type BlockBooking = {
   readonly taskId: TaskId;
   readonly userId: UserId;
   readonly slot: Slot;
+  /** The event name the calendar stores for this block. */
+  readonly title: string;
   readonly calendarEventId: string;
 };
 

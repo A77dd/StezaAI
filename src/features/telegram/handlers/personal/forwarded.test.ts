@@ -4,6 +4,7 @@ import { ALEX, createGroupChat } from "../../testing/participants";
 import { pressRich, richText } from "../../testing/richPress";
 import { registerPersonalFlow } from "./index";
 import type { Intent } from "../../domain";
+import type { InMemoryCalendar } from "../../adapters";
 
 afterEach(() => vi.useRealTimers());
 
@@ -102,6 +103,68 @@ describe("forwarded messages", () => {
     const edited = h.kit.fake.callsTo("editMessageText").at(-1);
     expect(edited?.payload.chat_id).toBe(ALEX.id);
     expect(edited?.payload.message_id).toBe(nudgeCard.message_id);
+  });
+
+  it("shows the conflict timeline for a busy requested time and keeps both when asked", async () => {
+    const intent: Intent = {
+      kind: "meeting", title: "Встреча с Марией", deadline: null, durationMinutes: 60,
+      scheduledStartAt: "2026-09-25T14:00:00.000Z", meetingUrl: "https://meet.example.test/room",
+      priority: "normal", participants: ["Мария"], confidence: 0.95,
+    };
+    const h = createPipelineHarness({
+      composers: [registerPersonalFlow()],
+      kit: { startAt: "2026-09-23T08:30:00.000Z" },
+      services: { intentParser: { parse: async () => intent } },
+    });
+    // An external busy event (no title): the calendar cannot name it.
+    (h.services.calendar as InMemoryCalendar).addBusyInterval(String(ALEX.id), {
+      start: "2026-09-25T13:30:00.000Z", end: "2026-09-25T14:30:00.000Z",
+    });
+    await h.services.personalFlow.startUser({ userId: String(ALEX.id), locale: "ru" });
+    await h.services.personalFlow.setTimezone({ userId: String(ALEX.id), tz: "Europe/Moscow" });
+
+    await h.deliver(h.kit.updates.forwardedText("Давайте согласуем встречу в пятницу в 17:00", { kind: "user", user: ALEX }));
+
+    // The conflict card: shared timeline with an unnamed busy bar.
+    const card = h.kit.fake.callsTo("sendRichMessage")[0]!;
+    expect((card.payload.rich_message as { html: string }).html).toContain("В это время уже есть событие");
+    expect((card.payload.rich_message as { html: string }).html).toContain("Занято · 16:30–17:30");
+    // Nothing was booked and no reminder was scheduled.
+    const task = (await h.services.tasks.listByUser(String(ALEX.id)))[0];
+    expect(task?.status).toBe("proposed");
+
+    // "Оставить оба события как есть" → the same card turns into the phrase.
+    await pressRich(h, ALEX.id, "Оставить оба события как есть");
+    const follow = h.kit.fake.callsTo("editMessageText").at(-1)!;
+    expect((follow.payload.rich_message as { html: string }).html).toContain("Давайте подберём другое время?");
+    expect((follow.payload.rich_message as { html: string }).html).toContain('type="copy_text"');
+    await expect(h.services.tasks.get(String(ALEX.id), task!.id)).resolves.toMatchObject({ status: "proposed", bookingId: null });
+  });
+
+  it("books the proposed slot from the conflict card and hands over the phrase", async () => {
+    const intent: Intent = {
+      kind: "meeting", title: "Встреча с Марией", deadline: null, durationMinutes: 60,
+      scheduledStartAt: "2026-09-25T14:00:00.000Z", priority: "normal", participants: ["Мария"], confidence: 0.95,
+    };
+    const h = createPipelineHarness({
+      composers: [registerPersonalFlow()],
+      kit: { startAt: "2026-09-23T08:30:00.000Z" },
+      services: { intentParser: { parse: async () => intent } },
+    });
+    (h.services.calendar as InMemoryCalendar).addBusyInterval(String(ALEX.id), {
+      start: "2026-09-25T13:30:00.000Z", end: "2026-09-25T14:30:00.000Z",
+    });
+    await h.services.personalFlow.startUser({ userId: String(ALEX.id), locale: "ru" });
+    await h.services.personalFlow.setTimezone({ userId: String(ALEX.id), tz: "Europe/Moscow" });
+
+    await h.deliver(h.kit.updates.forwardedText("Встреча в пятницу в 17:00", { kind: "user", user: ALEX }));
+    await pressRich(h, ALEX.id, /Поставить встречу на/);
+
+    const follow = h.kit.fake.callsTo("editMessageText").at(-1)!;
+    expect((follow.payload.rich_message as { html: string }).html).toContain("Встреча добавлена на");
+    expect((follow.payload.rich_message as { html: string }).html).toContain("Вам подойдёт");
+    const task = (await h.services.tasks.listByUser(String(ALEX.id)))[0];
+    expect(task).toMatchObject({ status: "scheduled" });
   });
 
   it("routes a visible forward through submitText with original provenance", async () => {

@@ -5,7 +5,7 @@ import {
   parseInstant,
   SlotConflictError,
 } from "../domain";
-import type { BlockBooking, CalendarPort, IdGenerator, Interval, UserId } from "../domain";
+import type { BlockBooking, BusyEvent, CalendarPort, IdGenerator, Interval, UserId } from "../domain";
 
 export type InMemoryCalendar = CalendarPort & {
   /**
@@ -68,14 +68,16 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
 
     async getBusyIntervals(userId, range) {
       assertValidInterval(range);
-      const busy = [
-        ...(external.get(userId) ?? []),
-        ...[...blocks.values()].filter((block) => block.userId === userId).map((block) => block.slot),
+      const busy: BusyEvent[] = [
+        ...(external.get(userId) ?? []).map((interval) => ({ ...interval })),
+        ...[...blocks.values()]
+          .filter((block) => block.userId === userId)
+          .map((block) => ({ start: block.slot.start, end: block.slot.end, title: block.title, taskId: block.taskId })),
       ];
       return busy
-        .filter((interval) => intervalsOverlap(interval, range))
+        .filter((event) => intervalsOverlap(event, range))
         .sort(compareIntervals)
-        .map((interval) => ({ ...interval }));
+        .map((event) => ({ ...event }));
     },
 
     async createBlock(input) {
@@ -86,6 +88,7 @@ export function createInMemoryCalendar(options: { ids: IdGenerator }): InMemoryC
         taskId: input.taskId,
         userId: input.userId,
         slot: { ...input.slot },
+        title: input.title,
         calendarEventId: options.ids.next("event"),
       };
       blocks.set(booking.id, booking);

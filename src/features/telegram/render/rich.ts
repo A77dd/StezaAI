@@ -32,7 +32,16 @@ export function richEscape(value: string): string {
 export type RichCell =
   | { readonly kind: "action"; readonly button: ActionButtonSpec }
   | { readonly kind: "url"; readonly label: string; readonly url: string }
+  | { readonly kind: "copy"; readonly label: string; readonly text: string }
   | { readonly kind: "disabled"; readonly label: string };
+
+/** `tg-button type="copy_text"`: the client copies `text` natively on tap. */
+export function copyCell(label: string, text: string): RichCell {
+  if (text.trim() === "" || text.length > 200) {
+    throw new RenderError("A rich copy button carries 1-200 characters of text");
+  }
+  return { kind: "copy", label, text };
+}
 
 export function urlCell(label: string, url: string): RichCell {
   if (!URL.canParse(url) || new URL(url).protocol !== "https:") {
@@ -110,6 +119,9 @@ export function createRichDocument(): RichDocument {
         if (cell.kind === "disabled") return disabled(cell.label);
         if (cell.kind === "url") {
           return `<tg-button type="url" url="${richEscape(cell.url)}">${richEscape(cell.label)}</tg-button>`;
+        }
+        if (cell.kind === "copy") {
+          return `<tg-button type="copy_text" text="${richEscape(cell.text)}">${richEscape(cell.label)}</tg-button>`;
         }
         const index = actions.length;
         actions.push(cell.button);

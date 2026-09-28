@@ -1,12 +1,12 @@
 import type { ActionButtonSpec } from "../buttonSpec";
-import type { Instant, Interval, Slot, Task } from "../../domain";
+import type { Instant, BusyEvent, Interval, Slot, Task } from "../../domain";
 import { addMinutes, fromZoned, parseInstant, toZonedParts } from "../../domain";
 import { actionButton } from "../buttons";
 import { fill, fillPlain } from "../catalog";
 import { formatSlotRange, slotHtml } from "../format";
 import { link, lines, text } from "../html";
 import { keyboard, row } from "../keyboard";
-import { createRichDocument, disabledCell, richEscape, type RichCell } from "../rich";
+import { copyCell, createRichDocument, disabledCell, richEscape, type RichCell } from "../rich";
 import type { RenderedMessage, RenderedRichHtmlMessage } from "../rendered";
 import { renderMessage } from "../renderMessage";
 import type { ViewContext } from "./context";
@@ -233,6 +233,213 @@ export function meetingRescheduleView(
 
   // The free-text alternative stays available on this very message.
   doc.line(ctx.catalog.task.meetingTimePrompt);
+  const built = doc.build();
+  return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
+}
+
+// --- Conflict scenario (the approved preview: shared timeline + three actions) ---
+
+const TICK_MINUTES = 30;
+
+/**
+ * A validated callback button for a rich row; the callback registry
+ * re-validates the action/payload pair at runtime.
+ */
+function pick(
+  label: string,
+  action: "meeting.conflict.accept" | "meeting.conflict.slots" | "meeting.conflict.keep" | "meeting.conflict.move" | "meeting.conflict.move.confirm" | "meeting.reschedule.day" | "meeting.reschedule.hour" | "meeting.reschedule.month",
+  payload: Record<string, unknown>,
+  style?: "primary" | "success" | "danger",
+): RichCell {
+  return {
+    kind: "action",
+    button: actionButton(label, action as never, payload as never, style) as ActionButtonSpec,
+  };
+}
+
+function clockOf(instant: string, ctx: ViewContext): string {
+  const parts = toZonedParts(instant, ctx.timezone);
+  return `${parts.hour}:${String(parts.minute).padStart(2, "0")}`;
+}
+
+function rangeOf(start: string, end: string, ctx: ViewContext): string {
+  return `${clockOf(start, ctx)}–${clockOf(end, ctx)}`;
+}
+
+export type MeetingConflictInput = {
+  readonly task: Task;
+  /** The requested (busy) slot of the forwarded meeting. */
+  readonly requested: Interval;
+  /** The events the requested slot collided with, as the calendar returned them. */
+  readonly busy: readonly BusyEvent[];
+  /** The fresh proposal to offer instead; the first slot is the headline suggestion. */
+  readonly proposalSlots: readonly Slot[];
+};
+
+/**
+ * The conflict card: the requested slot and the colliding events on one
+ * timeline (an officially supported `<table>` with `colspan` bars), then the
+ * three actions. The existing event's name appears only when the calendar
+ * actually returned one — otherwise the bar reads "Занято".
+ */
+export function meetingConflictRichView(input: MeetingConflictInput, ctx: ViewContext): RenderedRichHtmlMessage {
+  const copy = ctx.catalog.task;
+  const time = ctx.catalog.time;
+  const doc = createRichDocument();
+
+  const requestedLabel = fillPlain(copy.meetingConflictWhen, {
+    day: time.weekdaysShort[toZonedParts(input.requested.start, ctx.timezone).isoWeekday - 1] ?? "",
+    range: rangeOf(input.requested.start, input.requested.end, ctx),
+  });
+  doc.line(requestedLabel);
+  doc.heading(copy.meetingConflictTitle);
+  doc.line(copy.meetingConflictTimeline);
+
+  // Timeline window: the colliding events only (the proposed alternative is
+  // described in text, as in the mock), aligned to whole hours. 15-minute
+  // columns; ticks label every half hour, including the right edge.
+  const HOUR = 60 * 60_000;
+  const marks = [input.requested, ...input.busy.map((event) => ({ start: event.start, end: event.end }))];
+  const windowStart = Math.floor(Math.min(...marks.map((m) => parseInstant(m.start))) / HOUR) * HOUR;
+  const windowEnd = Math.ceil(Math.max(...marks.map((m) => parseInstant(m.end))) / HOUR) * HOUR;
+  const columns = Math.min(20, Math.max(1, Math.round((windowEnd - windowStart) / (TICK_MINUTES * 60_000))));
+
+  const bar = (start: number, end: number, label: string): string => {
+    const lead = Math.max(0, Math.round((start - windowStart) / (TICK_MINUTES * 60_000)));
+    const span = Math.max(1, Math.round((end - start) / (TICK_MINUTES * 60_000)));
+    const tail = Math.max(0, columns - lead - span);
+    return `${lead > 0 ? `<td colspan="${lead}"></td>` : ""}<td colspan="${span}">${richEscape(label)}</td>${tail > 0 ? `<td colspan="${tail}"></td>` : ""}`;
+  };
+
+  const rows: string[] = [];
+  const proposed = input.proposalSlots[0];
+  for (const event of [...input.busy].sort((a, b) => parseInstant(a.start) - parseInstant(b.start))) {
+    const name = event.title ?? copy.meetingBusyFallback;
+    rows.push(`<tr>${bar(parseInstant(event.start), parseInstant(event.end), `${name} · ${rangeOf(event.start, event.end, ctx)}`)}</tr>`);
+  }
+  if (proposed === undefined) throw new Error("meetingConflict: a conflict card needs a proposed slot");
+  const tickCount = Math.floor(columns / 2) + 1;
+  const ticks = Array.from({ length: tickCount }, (_, i) => {
+    const tick = windowStart + i * 2 * TICK_MINUTES * 60_000;
+    return `<td colspan="2">${richEscape(clockOf(new Date(tick).toISOString(), ctx))}</td>`;
+  }).join("");
+  doc.raw(`<table>${rows.join("")}<tr>${ticks}</tr></table>`);
+
+  doc.line(`${copy.meetingConflictNew}: ${input.task.title} · ${rangeOf(input.requested.start, input.requested.end, ctx)}`);
+  for (const event of input.busy) {
+    const name = event.title ?? copy.meetingBusyFallback;
+    doc.line(`${copy.meetingConflictExisting}: ${name} · ${rangeOf(event.start, event.end, ctx)}`);
+  }
+  doc.line(fillPlain(copy.meetingConflictFree, { slot: rangeOf(proposed.start, proposed.end, ctx) }));
+  doc.line(copy.meetingConflictHow);
+
+  doc.buttonRow([
+    pick(
+      fillPlain(copy.meetingConflictAccept, { slot: rangeOf(proposed.start, proposed.end, ctx) }),
+      "meeting.conflict.accept",
+      {
+        taskId: input.task.id,
+        slotIndex: input.proposalSlots.indexOf(proposed),
+        slotStart: proposed.start,
+        slotEnd: proposed.end,
+        requestedStart: input.requested.start,
+        requestedEnd: input.requested.end,
+      },
+      "primary",
+    ),
+  ]);
+  doc.buttonRow([pick(copy.meetingConflictOther, "meeting.conflict.slots", { taskId: input.task.id })]);
+  doc.buttonRow([
+    pick(copy.meetingConflictKeep, "meeting.conflict.keep", {
+      taskId: input.task.id,
+      requestedStart: input.requested.start,
+      requestedEnd: input.requested.end,
+    }),
+  ]);
+  // Moving the user's own meeting is offered only when the calendar knows it.
+  const ownEvent = input.busy.find((event) => event.taskId !== undefined);
+  if (ownEvent !== undefined && ownEvent.taskId !== undefined) {
+    doc.buttonRow([
+      pick(
+        fillPlain(copy.meetingMoveAsk, {
+          task: ownEvent.title ?? copy.meetingBusyFallback,
+          new: rangeOf(proposed.start, proposed.end, ctx),
+        }),
+        "meeting.conflict.move",
+        { taskId: input.task.id, existingTaskId: ownEvent.taskId, proposedStart: proposed.start },
+      ),
+    ]);
+  }
+  doc.raw(`<footer>${richEscape(copy.meetingConflictQuiet)}</footer>`);
+  const built = doc.build();
+  return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
+}
+
+export type MeetingNegotiationInput = {
+  /** "Встреча добавлена на 18:00." or the keep-note. */
+  readonly headline: string;
+  readonly requested: Interval;
+  /** The suggested alternative slot, when one was offered. */
+  readonly suggested: Slot | null;
+  readonly username: string | null;
+};
+
+/**
+ * What to tell the counterpart: the suggested phrase (the user sends it
+ * themselves) with native copy and, when the forward carried a username, a
+ * deep link to that chat. Nothing is sent by the bot.
+ */
+export function meetingNegotiationRichView(input: MeetingNegotiationInput, ctx: ViewContext): RenderedRichHtmlMessage {
+  const copy = ctx.catalog.task;
+  const doc = createRichDocument();
+  doc.heading(input.headline);
+  doc.line(copy.meetingNegotiateIntro);
+  const when = rangeOf(input.requested.start, input.requested.end, ctx);
+  const phrase =
+    input.suggested === null
+      ? fillPlain(copy.meetingSuggestKept, { when })
+      : fillPlain(copy.meetingSuggestFree, { when, slot: rangeOf(input.suggested.start, input.suggested.end, ctx) });
+  doc.line(phrase);
+  doc.buttonRow([copyCell(copy.meetingCopyButton, phrase)]);
+  if (input.username !== null) {
+    doc.buttonRow([
+      { kind: "url", label: fillPlain(copy.meetingOpenChat, { username: `@${input.username}` }), url: `https://t.me/${input.username}` },
+    ]);
+  }
+  const built = doc.build();
+  return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
+}
+
+export type MeetingMoveConfirmInput = {
+  readonly existingTitle: string;
+  readonly existingTaskId: string;
+  readonly existingSlot: Slot;
+  readonly proposed: Slot;
+  /** The new (conflicting) meeting the user is trying to book. */
+  readonly taskId: string;
+};
+
+/** The separate confirmation before an existing meeting is moved. */
+export function meetingMoveConfirmRichView(input: MeetingMoveConfirmInput, ctx: ViewContext): RenderedRichHtmlMessage {
+  const copy = ctx.catalog.task;
+  const doc = createRichDocument();
+  doc.line(copy.meetingRescheduleTitle);
+  doc.line(
+    fillPlain(copy.meetingMoveAsk, {
+      task: input.existingTitle,
+      old: rangeOf(input.existingSlot.start, input.existingSlot.end, ctx),
+      new: rangeOf(input.proposed.start, input.proposed.end, ctx),
+    }),
+  );
+  doc.buttonRow([
+    pick(
+      fillPlain(copy.meetingMoveYes, { task: input.existingTitle }),
+      "meeting.conflict.move.confirm",
+      { taskId: input.taskId, existingTaskId: input.existingTaskId, proposedStart: input.proposed.start },
+      "primary",
+    ),
+  ]);
+  doc.buttonRow([pick(ctx.catalog.calendar.back, "meeting.conflict.slots", { taskId: input.taskId })]);
   const built = doc.build();
   return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
 }

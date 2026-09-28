@@ -1,24 +1,35 @@
 import type { Composer } from "grammy";
+import type { Slot, Task } from "../../domain";
 import { addMinutes, fromZoned, toZonedParts, PENDING_INPUT_TTL_MINUTES } from "../../domain";
 import type { BotContext } from "../../bot";
 import { answerCallback, describeError, editCard, ownerOf, sendCard, targetOfCallback } from "../../bot";
 import {
+  initialCalendarMonth,
   meetingBookedRichView,
   meetingCancelledRichView,
+  meetingMoveConfirmRichView,
+  meetingNegotiationRichView,
   meetingRescheduleView,
   noticeForKind,
   renderMessage,
+  richCalendarMonthView,
   text,
 } from "../../render";
+import { fillPlain } from "../../render/catalog";
+import { createBookMeeting } from "../../domain/useCases";
+import { NotFoundError } from "../../domain";
 import type { ViewContext } from "../../render";
 import { peekCallbackAction } from "./callbackRouting";
+import { sendProposalCard } from "./outcomes";
 
 export function registerMeetingCallbacks(composer: Composer<BotContext>): void {
   composer.on("callback_query:data", async (ctx, next) => {
     const action = peekCallbackAction(ctx.callbackQuery.data);
     if (
       action !== "meeting.cancel" && action !== "meeting.reminder" && action !== "meeting.details" && action !== "meeting.time" &&
-      action !== "meeting.reschedule.month" && action !== "meeting.reschedule.day" && action !== "meeting.reschedule.hour"
+      action !== "meeting.reschedule.month" && action !== "meeting.reschedule.day" && action !== "meeting.reschedule.hour" &&
+      action !== "meeting.conflict.accept" && action !== "meeting.conflict.slots" && action !== "meeting.conflict.keep" &&
+      action !== "meeting.conflict.move" && action !== "meeting.conflict.move.confirm"
     ) {
       await next();
       return;
@@ -27,6 +38,14 @@ export function registerMeetingCallbacks(composer: Composer<BotContext>): void {
     const resolved = await ctx.services.callbacks.resolve(ctx.callbackQuery.data, owner);
     const target = targetOfCallback(ctx);
     const viewCtx = ctx.viewContext(await ctx.loadSettings());
+
+    if (
+      resolved.action === "meeting.conflict.accept" || resolved.action === "meeting.conflict.slots" ||
+      resolved.action === "meeting.conflict.keep" || resolved.action === "meeting.conflict.move" ||
+      resolved.action === "meeting.conflict.move.confirm"
+    ) {
+      return void (await handleConflict(ctx, owner.userId, resolved.action, resolved.payload, target, viewCtx));
+    }
 
     if (
       resolved.action === "meeting.reschedule.month" || resolved.action === "meeting.reschedule.day" ||
@@ -235,4 +254,216 @@ async function handleReschedule(
   if (target.kind === "chat" && target.messageId !== payload.cardMessageId) {
     await editCard(ctx, { kind: "chat", chatId: target.chatId, messageId: payload.cardMessageId }, booked);
   }
+}
+
+type ConflictPayload = {
+  readonly taskId: string;
+  readonly existingTaskId?: string;
+  readonly slotIndex?: number;
+  readonly slotStart?: string;
+  readonly slotEnd?: string;
+  readonly requestedStart?: string;
+  readonly requestedEnd?: string;
+  readonly proposedStart?: string;
+};
+
+/** The conflict-card actions: book the proposed slot, browse others, keep both, or move the existing meeting. */
+async function handleConflict(
+  ctx: BotContext,
+  userId: string,
+  action: "meeting.conflict.accept" | "meeting.conflict.slots" | "meeting.conflict.keep" | "meeting.conflict.move" | "meeting.conflict.move.confirm",
+  payload: ConflictPayload,
+  target: ReturnType<typeof targetOfCallback>,
+  viewCtx: ViewContext,
+): Promise<void> {
+  const copy = viewCtx.catalog.task;
+  const task = await ctx.services.tasks.get(userId, payload.taskId);
+  if (task === null) {
+    await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+    return;
+  }
+  const username = task.source.sourceAuthorUsername ?? null;
+
+  if (action === "meeting.conflict.accept") {
+    // Book the proposed slot (same race-safe path as the proposal flow) and
+    // hand the user the phrase to send to the counterpart.
+    if (payload.slotIndex === undefined || payload.slotStart === undefined || payload.slotEnd === undefined ||
+        payload.requestedStart === undefined || payload.requestedEnd === undefined) {
+      throw new Error("meeting.conflict.accept requires the slot and requested times");
+    }
+    const result = await ctx.services.personalFlow.confirmSlot({
+      userId, taskId: payload.taskId, slotIndex: payload.slotIndex, slotStart: payload.slotStart, slotEnd: payload.slotEnd,
+    });
+    if (result.kind === "booked" || result.kind === "already_booked" || result.kind === "already_booked_other_slot") {
+      const booking = result.booking;
+      await answerCallback(ctx);
+      await editCard(
+        ctx,
+        target,
+        meetingNegotiationRichView(
+          {
+            headline: fillPlain(copy.meetingNegotiateBooked, { slot: shortRange(booking.slot, viewCtx.timezone) }),
+            requested: { start: payload.requestedStart, end: payload.requestedEnd },
+            suggested: booking.slot,
+            username,
+          },
+          viewCtx,
+        ),
+      );
+      return;
+    }
+    // The slot was taken or vanished meanwhile: the fresh proposal is the honest answer.
+    await answerCallback(ctx);
+    if (result.kind === "slot_taken") {
+      const bookedTask = await ctx.services.tasks.get(userId, result.proposal.taskId);
+      if (bookedTask === null) throw new NotFoundError(`Task ${result.proposal.taskId} does not exist`);
+      const outcome = result.proposal.slots.length === 0
+        ? { kind: "no_slots" as const, task: bookedTask, search: result.search }
+        : { kind: "proposed" as const, task: bookedTask, proposal: result.proposal };
+      await sendProposalCard(ctx, outcome, viewCtx);
+      return;
+    }
+    await answerCallback(ctx, copy.meetingNoDetails, { alert: true });
+    return;
+  }
+
+  if (action === "meeting.conflict.keep") {
+    if (payload.requestedStart === undefined || payload.requestedEnd === undefined) {
+      throw new Error("meeting.conflict.keep requires the requested times");
+    }
+    await answerCallback(ctx);
+    await editCard(
+      ctx,
+      target,
+      meetingNegotiationRichView(
+        {
+          headline: copy.meetingConflictKeepNote,
+          requested: { start: payload.requestedStart, end: payload.requestedEnd },
+          suggested: null,
+          username,
+        },
+        viewCtx,
+      ),
+    );
+    return;
+  }
+
+  if (action === "meeting.conflict.slots") {
+    await answerCallback(ctx);
+    const proposal = await ctx.services.proposals.get(userId, payload.taskId);
+    if (proposal === null || proposal.slots.length === 0) {
+      await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+      return;
+    }
+    await editCard(
+      ctx,
+      target,
+      meetingConflictSlotsView(task, proposal.slots, viewCtx),
+    );
+    return;
+  }
+
+  // Move the existing meeting: first the separate confirmation with the new time.
+  if (action === "meeting.conflict.move") {
+    if (payload.existingTaskId === undefined || payload.proposedStart === undefined) {
+      throw new Error("meeting.conflict.move requires the existing task and the proposed start");
+    }
+    await answerCallback(ctx);
+    const existing = await ctx.services.tasks.get(userId, payload.existingTaskId);
+    if (existing === null || existing.bookingId === null) {
+      await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+      return;
+    }
+    const booking = await ctx.services.calendar.getBlock(userId, existing.bookingId);
+    if (booking === null) {
+      await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+      return;
+    }
+    const duration = existing.durationMinutes ?? (await requireSettingsOrThrow(ctx, userId)).defaultBlockMinutes;
+    const proposed = { start: payload.proposedStart, end: addMinutes(payload.proposedStart, duration) };
+    await editCard(
+      ctx,
+      target,
+      meetingMoveConfirmRichView(
+        { existingTitle: existing.title, existingTaskId: existing.id, existingSlot: booking.slot, proposed, taskId: payload.taskId },
+        viewCtx,
+      ),
+    );
+    return;
+  }
+
+  // The confirmed move: the existing meeting goes to the proposed time, the
+  // new one takes the freed requested slot.
+  await answerCallback(ctx);
+  if (payload.existingTaskId === undefined || payload.proposedStart === undefined) {
+    throw new Error("meeting.conflict.move.confirm requires the existing task and the proposed start");
+  }
+  const existing = await ctx.services.tasks.get(userId, payload.existingTaskId);
+  if (existing === null || existing.bookingId === null) {
+    await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+    return;
+  }
+  const currentBooking = await ctx.services.calendar.getBlock(userId, existing.bookingId);
+  if (currentBooking === null) {
+    await editCard(ctx, target, noticeForKind("expired", viewCtx).message);
+    return;
+  }
+  const freedSlot = currentBooking.slot;
+  const move = await ctx.services.personalFlow.rescheduleMeeting({ userId, taskId: existing.id, start: payload.proposedStart });
+  if (move.kind === "time_conflict") {
+    await answerCallback(ctx, copy.meetingTimeConflict, { alert: true });
+    return;
+  }
+  if (move.kind === "time_missing") {
+    await answerCallback(ctx, copy.meetingTimeMissing, { alert: true });
+    return;
+  }
+  const booking = await createBookMeeting(ctx.services)({
+    userId,
+    intent: {
+      kind: "meeting", title: task.title, deadline: null, durationMinutes: task.durationMinutes,
+      scheduledStartAt: freedSlot.start, priority: task.priority, participants: [], confidence: 1,
+    },
+    source: task.source,
+  });
+  if (booking.kind !== "meeting_booked") {
+    // The requested time is still busy by something else: keep the move and
+    // offer the fresh proposal path.
+    await sendProposalCard(ctx, { kind: "proposed", task: booking.task, proposal: booking.proposal }, viewCtx);
+    return;
+  }
+  await editCard(ctx, target, meetingBookedRichView({ task: booking.task, slot: booking.booking.slot }, viewCtx));
+  await sendCard(
+    ctx,
+    meetingNegotiationRichView(
+      {
+        headline: fillPlain(copy.meetingMovedBoth, {
+          slot: shortRange(booking.booking.slot, viewCtx.timezone),
+          existing: existing.title,
+          movedSlot: shortRange(move.booking.slot, viewCtx.timezone),
+        }),
+        requested: freedSlot,
+        suggested: null,
+        username,
+      },
+      viewCtx,
+    ),
+  );
+}
+
+function shortRange(slot: Slot, timezone: string): string {
+  const start = toZonedParts(slot.start, timezone);
+  const end = toZonedParts(slot.end, timezone);
+  return `${start.hour}:${String(start.minute).padStart(2, "0")}–${end.hour}:${String(end.minute).padStart(2, "0")}`;
+}
+
+async function requireSettingsOrThrow(ctx: BotContext, userId: string) {
+  const settings = await ctx.services.settings.get(userId);
+  if (settings === null) throw new NotFoundError(`User ${userId} has no settings`);
+  return settings;
+}
+
+/** The "other slots" state: the proposal's own interactive month grid. */
+function meetingConflictSlotsView(task: Task, slots: readonly Slot[], viewCtx: ViewContext) {
+  return richCalendarMonthView({ task, slots }, initialCalendarMonth(slots, viewCtx.timezone), viewCtx);
 }

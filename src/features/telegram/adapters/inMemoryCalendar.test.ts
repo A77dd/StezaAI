@@ -37,7 +37,10 @@ describe("inMemoryCalendar", () => {
     calendar.addBusyInterval("user_1", external);
     await calendar.createBlock({ userId: "user_1", taskId: "task_1", title: "Задача", slot });
 
-    await expect(calendar.getBusyIntervals("user_1", day)).resolves.toEqual([external, slot]);
+    await expect(calendar.getBusyIntervals("user_1", day)).resolves.toEqual([
+      expect.objectContaining({ ...external }),
+      expect.objectContaining({ ...slot, title: "Подготовить презентацию" }),
+    ]);
     await expect(calendar.getBusyIntervals("user_2", day)).resolves.toEqual([]);
   });
 

@@ -8,6 +8,7 @@ import {
   parseClockTime,
   parseInstant,
   startOfDayInZone,
+  startOfWeek,
   toZonedParts,
 } from "./time";
 
@@ -300,5 +301,23 @@ describe("startOfDayInZone", () => {
     expect(startOfDayInZone("2026-11-01T15:00:00.000Z", "America/New_York")).toBe(
       "2026-11-01T04:00:00.000Z",
     );
+  });
+});
+
+describe("startOfWeek", () => {
+  it("returns Monday 00:00 of the user's week", () => {
+    // 2026-09-25 is a Friday (Moscow); the week started Monday 2026-09-21.
+    expect(startOfWeek("2026-09-25T12:00:00.000Z", "Europe/Moscow")).toBe("2026-09-20T21:00:00.000Z");
+  });
+
+  it("maps a Sunday back to the same week's Monday", () => {
+    // 2026-09-27 15:00 is a Sunday afternoon in Moscow; the ISO week still
+    // started Monday 2026-09-21.
+    expect(startOfWeek("2026-09-27T12:00:00.000Z", "Europe/Moscow")).toBe("2026-09-20T21:00:00.000Z");
+  });
+
+  it("keeps the week boundary in the user's timezone", () => {
+    // Monday 2026-09-21 00:00 Moscow = Sunday 20:00 UTC of the previous date.
+    expect(startOfWeek("2026-09-21T05:00:00.000Z", "Europe/Moscow")).toBe("2026-09-20T21:00:00.000Z");
   });
 });

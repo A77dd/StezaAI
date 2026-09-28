@@ -1,5 +1,5 @@
 import type { Slot, Task } from "../../domain";
-import { toZonedParts } from "../../domain";
+import { startOfWeek, toZonedParts } from "../../domain";
 import { actionButton } from "../buttons";
 import { formatSlotRange } from "../format";
 import { createRichDocument, disabledCell, type RichCell } from "../rich";
@@ -27,6 +27,8 @@ export type CalendarInput = {
 
 const MONTHS_PER_YEAR = 12;
 const DAYS_PER_WEEK = 7;
+/** Slot buttons per row in the day view (research: rows carry 1-8, four stays readable). */
+const SLOTS_PER_ROW = 4;
 
 /**
  * A validated callback button for a rich row. The generic action/payload
@@ -100,6 +102,23 @@ function appendCalendar(
   const byDay = slotIndexesByDay(input, ctx.timezone, view);
   const firstWeekday = new Date(Date.UTC(view.year, view.month - 1, 1)).getUTCDay() || DAYS_PER_WEEK;
   const daysInMonth = new Date(Date.UTC(view.year, view.month, 0)).getUTCDate();
+  // The calendar never plans into the past: the grid starts at the user's
+  // current week (Monday, their timezone); the days of the current week that
+  // already passed stay visible but inactive.
+  const weekStart = startOfWeek(ctx.now, ctx.timezone);
+  const weekStartDay = toZonedParts(weekStart, ctx.timezone);
+  const todayParts = toZonedParts(ctx.now, ctx.timezone);
+  const isPastDay = (day: number): boolean => {
+    if (view.year !== todayParts.year || view.month !== todayParts.month) {
+      return view.year * 12 + view.month < todayParts.year * 12 + todayParts.month;
+    }
+    const weekStartedThisMonth =
+      weekStartDay.year === todayParts.year && weekStartDay.month === todayParts.month;
+    if (weekStartedThisMonth && weekStartDay.day <= day) {
+      return day < todayParts.day;
+    }
+    return false;
+  };
 
   for (let rowStart = 1 - (firstWeekday - 1); rowStart <= daysInMonth; rowStart += DAYS_PER_WEEK) {
     const cells: RichCell[] = [];
@@ -107,6 +126,10 @@ function appendCalendar(
       const day = rowStart + cell;
       if (day < 1 || day > daysInMonth) {
         cells.push(disabledCell("·"));
+        continue;
+      }
+      if (isPastDay(day)) {
+        cells.push(disabledCell(String(day)));
         continue;
       }
       const indexes = byDay.get(day);
@@ -127,13 +150,15 @@ function appendCalendar(
     doc.buttonRow(cells);
   }
 
-  // Month navigation stays within the months the slots actually span.
+  // Month navigation stays within the months the slots actually span, and
+  // never goes before the user's current month (the calendar plans forward).
   const months = input.slots.map((slot) => {
     const day = slotDay(slot, ctx.timezone);
     return monthKey({ year: day.year, month: day.month });
   });
-  const min = Math.min(...months);
-  const max = Math.max(...months);
+  const nowMonth = monthKey({ year: todayParts.year, month: todayParts.month });
+  const min = Math.max(Math.min(...months), nowMonth);
+  const max = Math.max(...months, nowMonth);
   const current = monthKey(view);
   const nav: RichCell[] = [];
   if (current - 1 >= min) {
@@ -184,15 +209,21 @@ export function richCalendarDayView(
       const day = slotDay(slot, ctx.timezone);
       return day.year === view.year && day.month === view.month && day.day === view.day;
     });
-  for (const { slot, index } of daySlots) {
-    doc.buttonRow([
-      pick(
-        formatSlotRange(slot, ctx.timezone, time),
-        "slot.pick",
-        { taskId: input.task.id, slotIndex: index as 0 | 1 | 2, slotStart: slot.start, slotEnd: slot.end },
-        "success",
-      ),
-    ]);
+  // At most four slot buttons per row; the rest wrap to the next rows in the
+  // same order. The payload carries the slot's index in the stored proposal
+  // (validated against it by the use-case), so lists of any length stay selectable.
+  for (let start = 0; start < daySlots.length; start += SLOTS_PER_ROW) {
+    doc.buttonRow(
+      daySlots.slice(start, start + SLOTS_PER_ROW).map(({ slot, index }) => ({
+        kind: "action" as const,
+        button: actionButton(
+          formatSlotRange(slot, ctx.timezone, time),
+          "slot.pick",
+          { taskId: input.task.id, slotIndex: index, slotStart: slot.start, slotEnd: slot.end },
+          "success",
+        ) as never,
+      })),
+    );
   }
   doc.buttonRow([
     pick(ctx.catalog.calendar.back, "calendar.month", {
