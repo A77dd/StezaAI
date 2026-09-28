@@ -124,6 +124,7 @@ export const ru: Catalog = {
     meetingConflictKeep: "Оставить оба события как есть",
     meetingConflictKeepNote: "Встречу не ставлю: время осталось за существующим событием.",
     meetingConflictQuiet: "Существующую встречу не переношу без отдельного выбора.",
+    meetingConflictDemo: "Демо: календарь не изменится.",
     meetingNegotiateIntro: "Чтобы согласовать время, можно написать собеседнику:",
     meetingNegotiateBooked: "Встреча добавлена на {slot}.",
     meetingSuggestFree: "В {when} у меня уже занято. Вам подойдёт {slot}?",

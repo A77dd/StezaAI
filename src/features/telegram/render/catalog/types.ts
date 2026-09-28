@@ -124,6 +124,7 @@ export type Catalog = {
     readonly meetingConflictKeep: string;
     readonly meetingConflictKeepNote: string;
     readonly meetingConflictQuiet: string;
+    readonly meetingConflictDemo: string;
     readonly meetingNegotiateIntro: string;
     readonly meetingNegotiateBooked: string;
     readonly meetingSuggestFree: string;

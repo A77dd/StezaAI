@@ -147,6 +147,8 @@ function hourIsBusy(input: MeetingRescheduleInput, year: number, month: number, 
   return input.busy.some((interval) => parseInstant(interval.end) > parseInstant(start) && parseInstant(interval.start) < parseInstant(end));
 }
 
+const MEETING_TIME_BUTTONS_PER_ROW = 4;
+
 export function meetingRescheduleView(
   input: MeetingRescheduleInput,
   view: MeetingRescheduleView,
@@ -223,7 +225,7 @@ export function meetingRescheduleView(
             } as never, "success") as never,
           };
       row.push(cell);
-      if (row.length === 7) {
+      if (row.length === MEETING_TIME_BUTTONS_PER_ROW) {
         doc.buttonRow(row);
         row = [];
       }
@@ -274,6 +276,8 @@ export type MeetingConflictInput = {
   readonly busy: readonly BusyEvent[];
   /** The fresh proposal to offer instead; the first slot is the headline suggestion. */
   readonly proposalSlots: readonly Slot[];
+  /** Render inert controls for `/demo_conflict`; no callback may mutate user data. */
+  readonly demo?: boolean;
 };
 
 /**
@@ -295,9 +299,8 @@ export function meetingConflictRichView(input: MeetingConflictInput, ctx: ViewCo
   doc.heading(copy.meetingConflictTitle);
   doc.line(copy.meetingConflictTimeline);
 
-  // Timeline window: the colliding events only (the proposed alternative is
-  // described in text, as in the mock), aligned to whole hours. 15-minute
-  // columns; ticks label every half hour, including the right edge.
+  // The requested meeting and colliding events share one timeline, aligned to
+  // whole hours. 15-minute columns; ticks label every half hour.
   const HOUR = 60 * 60_000;
   const marks = [input.requested, ...input.busy.map((event) => ({ start: event.start, end: event.end }))];
   const windowStart = Math.floor(Math.min(...marks.map((m) => parseInstant(m.start))) / HOUR) * HOUR;
@@ -313,11 +316,14 @@ export function meetingConflictRichView(input: MeetingConflictInput, ctx: ViewCo
 
   const rows: string[] = [];
   const proposed = input.proposalSlots[0];
+  if (proposed === undefined) throw new Error("meetingConflict: a conflict card needs a proposed slot");
+  rows.push(
+    `<tr>${bar(parseInstant(input.requested.start), parseInstant(input.requested.end), `${copy.meetingConflictNew} · ${rangeOf(input.requested.start, input.requested.end, ctx)}`)}</tr>`,
+  );
   for (const event of [...input.busy].sort((a, b) => parseInstant(a.start) - parseInstant(b.start))) {
     const name = event.title ?? copy.meetingBusyFallback;
     rows.push(`<tr>${bar(parseInstant(event.start), parseInstant(event.end), `${name} · ${rangeOf(event.start, event.end, ctx)}`)}</tr>`);
   }
-  if (proposed === undefined) throw new Error("meetingConflict: a conflict card needs a proposed slot");
   const tickCount = Math.floor(columns / 2) + 1;
   const ticks = Array.from({ length: tickCount }, (_, i) => {
     const tick = windowStart + i * 2 * TICK_MINUTES * 60_000;
@@ -333,44 +339,57 @@ export function meetingConflictRichView(input: MeetingConflictInput, ctx: ViewCo
   doc.line(fillPlain(copy.meetingConflictFree, { slot: rangeOf(proposed.start, proposed.end, ctx) }));
   doc.line(copy.meetingConflictHow);
 
-  doc.buttonRow([
-    pick(
-      fillPlain(copy.meetingConflictAccept, { slot: rangeOf(proposed.start, proposed.end, ctx) }),
-      "meeting.conflict.accept",
-      {
+  const acceptLabel = fillPlain(copy.meetingConflictAccept, { slot: rangeOf(proposed.start, proposed.end, ctx) });
+  if (input.demo) {
+    doc.buttonRow([disabledCell(acceptLabel)]);
+    doc.buttonRow([disabledCell(copy.meetingConflictOther)]);
+    doc.buttonRow([disabledCell(copy.meetingConflictKeep)]);
+  } else {
+    doc.buttonRow([
+      pick(
+        acceptLabel,
+        "meeting.conflict.accept",
+        {
+          taskId: input.task.id,
+          slotIndex: input.proposalSlots.indexOf(proposed),
+          slotStart: proposed.start,
+          slotEnd: proposed.end,
+          requestedStart: input.requested.start,
+          requestedEnd: input.requested.end,
+        },
+        "primary",
+      ),
+    ]);
+    doc.buttonRow([pick(copy.meetingConflictOther, "meeting.conflict.slots", { taskId: input.task.id })]);
+    doc.buttonRow([
+      pick(copy.meetingConflictKeep, "meeting.conflict.keep", {
         taskId: input.task.id,
-        slotIndex: input.proposalSlots.indexOf(proposed),
-        slotStart: proposed.start,
-        slotEnd: proposed.end,
         requestedStart: input.requested.start,
         requestedEnd: input.requested.end,
-      },
-      "primary",
-    ),
-  ]);
-  doc.buttonRow([pick(copy.meetingConflictOther, "meeting.conflict.slots", { taskId: input.task.id })]);
-  doc.buttonRow([
-    pick(copy.meetingConflictKeep, "meeting.conflict.keep", {
-      taskId: input.task.id,
-      requestedStart: input.requested.start,
-      requestedEnd: input.requested.end,
-    }),
-  ]);
+      }),
+    ]);
+  }
   // Moving the user's own meeting is offered only when the calendar knows it.
   const ownEvent = input.busy.find((event) => event.taskId !== undefined);
   if (ownEvent !== undefined && ownEvent.taskId !== undefined) {
-    doc.buttonRow([
-      pick(
-        fillPlain(copy.meetingMoveAsk, {
-          task: ownEvent.title ?? copy.meetingBusyFallback,
-          new: rangeOf(proposed.start, proposed.end, ctx),
-        }),
-        "meeting.conflict.move",
-        { taskId: input.task.id, existingTaskId: ownEvent.taskId, proposedStart: proposed.start },
-      ),
-    ]);
+    const moveLabel = fillPlain(copy.meetingMoveAsk, {
+      task: ownEvent.title ?? copy.meetingBusyFallback,
+      new: rangeOf(proposed.start, proposed.end, ctx),
+    });
+    if (input.demo) {
+      doc.buttonRow([disabledCell(moveLabel)]);
+    } else {
+      doc.buttonRow([
+        pick(
+          moveLabel,
+          "meeting.conflict.move",
+          { taskId: input.task.id, existingTaskId: ownEvent.taskId, proposedStart: proposed.start },
+        ),
+      ]);
+    }
   }
   doc.raw(`<footer>${richEscape(copy.meetingConflictQuiet)}</footer>`);
+  if (input.demo) doc.line(copy.meetingConflictDemo);
   const built = doc.build();
   return { kind: "rich_html", html: built.html, actions: built.actions, keyboard: null };
 }

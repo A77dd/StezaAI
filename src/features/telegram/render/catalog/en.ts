@@ -132,6 +132,7 @@ export const en: Catalog = {
     meetingConflictKeep: "Keep both events as they are",
     meetingConflictKeepNote: "I am not booking the meeting: the time stays with the existing event.",
     meetingConflictQuiet: "I will not move the existing event without a separate choice.",
+    meetingConflictDemo: "Demo: your calendar will not change.",
     meetingNegotiateIntro: "To agree on the time, you can send your counterpart:",
     meetingNegotiateBooked: "The meeting is booked at {slot}.",
     meetingSuggestFree: "I am busy at {when}. Would {slot} work for you?",

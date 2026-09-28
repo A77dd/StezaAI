@@ -8,6 +8,7 @@ import {
   demoDoneView,
   helpRichView,
   helpView,
+  meetingConflictRichView,
   settingsView,
   welcomeRichView,
   welcomeView,
@@ -218,6 +219,45 @@ export function registerCommands(composer: Composer<BotContext>): void {
     }
     const viewCtx = ctx.viewContext(settings);
     await sendMeetingBookedOutcome(ctx, userId, result.task, result.booking.slot, viewCtx);
+  });
+
+  // A safe, read-only rendering of the forwarded-meeting conflict flow.
+  composer.command("demo_conflict", async (ctx) => {
+    if (ctx.from === undefined || ctx.chat === undefined) return;
+    const userId = String(ctx.from.id);
+    await ctx.services.personalFlow.startUser({ userId, locale: ctx.locale });
+    const settings = await ctx.services.settings.get(userId);
+    if (settings === null) throw new Error("demo_conflict: settings disappeared after startUser");
+
+    const hourMs = 60 * 60_000;
+    const nowMs = Date.parse(ctx.services.clock.now());
+    const requestedStartMs = Math.ceil((nowMs + hourMs) / hourMs) * hourMs;
+    const instant = (ms: number): string => new Date(ms).toISOString();
+    const requested = { start: instant(requestedStartMs), end: instant(requestedStartMs + hourMs) };
+    const busy = [{
+      start: instant(requestedStartMs - 30 * 60_000),
+      end: instant(requestedStartMs + 30 * 60_000),
+      title: "Обзор плана",
+      taskId: ctx.services.ids.next("task"),
+    }];
+    const proposed = { start: requested.end, end: instant(requestedStartMs + 2 * hourMs) };
+    const task: Task = {
+      id: ctx.services.ids.next("task"),
+      userId,
+      title: "Демо: встреча с командой",
+      kind: "meeting",
+      deadline: null,
+      durationMinutes: 60,
+      priority: "normal",
+      source: demoSource(ctx),
+      status: "proposed",
+      createdAt: ctx.services.clock.now(),
+      bookingId: null,
+    };
+    await sendCard(
+      ctx,
+      meetingConflictRichView({ task, requested, busy, proposalSlots: [proposed], demo: true }, ctx.viewContext(settings)),
+    );
   });
 
   composer.command("demo", (ctx) => {

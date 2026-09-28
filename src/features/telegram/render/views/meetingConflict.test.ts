@@ -14,19 +14,18 @@ function conflictView(busy: readonly { start: string; end: string; title?: strin
 }
 
 describe("meetingConflictRichView: the shared timeline", () => {
-  it("renders both events as table bars over the same window with ticks", () => {
+  it("renders the proposed and existing events as bars over the same window with ticks", () => {
     const view = conflictView([{ ...EXISTING, title: "Обзор плана" }]);
     const html = view.html;
 
     expect(view.kind).toBe("rich_html");
     expect(html).toContain("<table>");
-    // The colliding window 16:00–18:00: the existing bar is offset by one
-    // half-hour column and spans two, with the row sums equal to the ticks'.
+    // The colliding window is shared: the requested meeting spans 17:00–18:00
+    // and the existing event spans 16:30–17:30.
+    expect(html).toContain('<td colspan="2">Новая встреча · 17:00–18:00</td>');
     expect(html).toContain('<td colspan="1"></td><td colspan="2">Обзор плана · 16:30–17:30</td><td colspan="1"></td>');
     expect(html).toContain(">16:00<");
     expect(html).toContain(">18:00<");
-    // The proposed alternative is described in text, not on the timeline.
-    expect(html).not.toContain("Встреча с Марией · 18:00–19:00");
   });
 
   it("labels the colliding event 'Занято' when the calendar returned no name", () => {

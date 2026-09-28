@@ -90,6 +90,26 @@ describe("personal flow: commands", () => {
     expect(tasks.every((t) => t.status === "scheduled")).toBe(true);
   });
 
+  it("/demo_conflict shows the conflict card without changing the user's calendar", async () => {
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+
+    await h.deliver(h.kit.updates.command("demo_conflict", undefined, { from: ALEX }));
+
+    const sent = expectCall(h.kit, "sendRichMessage", { chat_id: CHAT_ID });
+    const html = (sent.payload.rich_message as { html: string }).html;
+    expect(html).toContain("В это время уже есть событие");
+    expect(html).toContain("Новая встреча");
+    expect(html).toContain("Обзор плана");
+    expect(html).toContain("Демо: календарь не изменится");
+    expect(html).toContain('type="disabled"');
+    expect(html).not.toContain('type="callback_data"');
+    expect(await h.services.tasks.listByUser(USER_ID)).toHaveLength(0);
+    expect(await h.services.calendar.getBusyIntervals(USER_ID, {
+      start: "2026-09-23T00:00:00.000Z",
+      end: "2026-09-24T00:00:00.000Z",
+    })).toHaveLength(0);
+  });
+
   it("/start with a deep-link payload still starts the user (ctx.match is accepted, not required)", async () => {
     const h = makeHarness();
 
