@@ -1,5 +1,5 @@
 import { addMinutes, NotFoundError, SlotConflictError } from "../index";
-import type { BlockBooking, Slot, Task, TaskId, UserId } from "../index";
+import type { BlockBooking, Instant, Slot, Task, TaskId, UserId } from "../index";
 import type { PersonalFlowPorts } from "./ports";
 
 export type RescheduleMeetingResult =
@@ -7,25 +7,36 @@ export type RescheduleMeetingResult =
   | { readonly kind: "time_missing" }
   | { readonly kind: "time_conflict" };
 
-/** Updates an existing meeting only after parsing an explicit free future time. */
+export type RescheduleMeetingInput =
+  | { readonly userId: UserId; readonly taskId: TaskId; readonly text: string }
+  /** A time picked on the calendar: the parser is not involved. */
+  | { readonly userId: UserId; readonly taskId: TaskId; readonly start: Instant };
+
+/** Updates an existing meeting: either after parsing an explicit free future time, or straight to a picked start. */
 export function createRescheduleMeeting(
   ports: Pick<PersonalFlowPorts, "tasks" | "settings" | "calendar" | "reminders" | "intentParser" | "clock" | "ids">,
 ) {
-  return async function rescheduleMeeting(input: { readonly userId: UserId; readonly taskId: TaskId; readonly text: string }): Promise<RescheduleMeetingResult> {
+  return async function rescheduleMeeting(input: RescheduleMeetingInput): Promise<RescheduleMeetingResult> {
     const task = await ports.tasks.get(input.userId, input.taskId);
     if (task === null || task.kind !== "meeting" || task.bookingId === null) throw new NotFoundError(`Booked meeting ${input.taskId} does not exist`);
     const settings = await ports.settings.get(input.userId);
     if (settings === null) throw new NotFoundError(`User ${input.userId} has no settings`);
-    const intent = await ports.intentParser.parse({
-      text: `Встреча ${input.text}`,
-      now: ports.clock.now(),
-      timezone: settings.timezone,
-      source: task.source,
-      dateTimeHints: [],
-    });
-    if (intent.scheduledStartAt == null || Date.parse(intent.scheduledStartAt) <= Date.parse(ports.clock.now())) return { kind: "time_missing" };
+    let pickedStart: Instant | null;
+    if ("start" in input) {
+      pickedStart = input.start;
+    } else {
+      const intent = await ports.intentParser.parse({
+        text: `Встреча ${input.text}`,
+        now: ports.clock.now(),
+        timezone: settings.timezone,
+        source: task.source,
+        dateTimeHints: [],
+      });
+      pickedStart = intent.scheduledStartAt ?? null;
+    }
+    if (pickedStart === null || Date.parse(pickedStart) <= Date.parse(ports.clock.now())) return { kind: "time_missing" };
     const duration = task.durationMinutes ?? settings.defaultBlockMinutes;
-    const slot: Slot = { start: intent.scheduledStartAt, end: addMinutes(intent.scheduledStartAt, duration) };
+    const slot: Slot = { start: pickedStart, end: addMinutes(pickedStart, duration) };
     const current = await ports.calendar.getBlock(input.userId, task.bookingId);
     if (current === null) throw new NotFoundError(`Booking ${task.bookingId} does not exist`);
     if (slot.start === current.slot.start && slot.end === current.slot.end) return { kind: "moved", task, booking: current };

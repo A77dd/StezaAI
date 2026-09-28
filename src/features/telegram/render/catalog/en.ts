@@ -117,6 +117,8 @@ export const en: Catalog = {
     meetingFromUsername: "Forwarded from {username}",
     meetingConflict: "This time overlaps with something already in your calendar. Nothing was changed. Choose an available time below.",
     meetingTimePrompt: "Send a new date and time, for example: “tomorrow at 3:00 PM”. The current event stays on your calendar until the new time is free.",
+    meetingRescheduleTitle: "When should the meeting take place?",
+    meetingRescheduleCurrent: "Currently: {slot}",
     meetingTimeMissing: "I could not find a date and time. Send one, for example: “tomorrow at 3:00 PM”.",
     meetingTimeConflict: "That time is busy. Your current meeting remains on the calendar. Send another time.",
     meetingTimeChanged: "The meeting time has been updated.",

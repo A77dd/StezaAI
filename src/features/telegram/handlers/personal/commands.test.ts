@@ -3,6 +3,7 @@ import { ALEX } from "../../testing/participants";
 import { createPipelineHarness } from "../../testing/pipelineHarness";
 import type { RecordedCall } from "../../testing/fakeBotApi";
 import { expectCall, expectRenderedText } from "../../testing/assertions";
+import { pressRich } from "../../testing/richPress";
 import { registerPersonalFlow } from "./index";
 
 const USER_ID = String(ALEX.id);
@@ -36,6 +37,57 @@ describe("personal flow: commands", () => {
 
     const settings = await h.services.settings.get(USER_ID);
     expect(settings?.timezoneConfirmed).toBe(false);
+  });
+
+  it("/demo_calendar opens the interactive rich calendar with bookable sample slots", async () => {
+    // The demos ARE the rich scenarios: a plain harness, no rich-failure injection.
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+
+    await h.deliver(h.kit.updates.command("demo_calendar", undefined, { from: ALEX }));
+
+    const sent = expectCall(h.kit, "sendRichMessage", { chat_id: CHAT_ID });
+    const html = (sent.payload.rich_message as { html: string }).html;
+    expect(html).toContain("Демо: подготовить отчёт");
+    // A day button opens the day view with the sample slot.
+    await pressRich(h, CHAT_ID, /^\d+/);
+    const day = expectCall(h.kit, "editMessageText", { chat_id: CHAT_ID });
+    expect((day.payload.rich_message as { html: string }).html).toContain(":00");
+    // Booking the slot lands the task as scheduled.
+    await pressRich(h, CHAT_ID, /–/);
+    const task = (await h.services.tasks.listByUser(USER_ID))[0];
+    expect(task?.status).toBe("scheduled");
+  });
+
+  it("/demo_meeting books a sample meeting with the interactive rich card", async () => {
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+
+    await h.deliver(h.kit.updates.command("demo_meeting", undefined, { from: ALEX }));
+
+    const sent = expectCall(h.kit, "sendRichMessage", { chat_id: CHAT_ID });
+    const html = (sent.payload.rich_message as { html: string }).html;
+    expect(html).toContain("Демо: встреча с командой");
+    expect(html).toContain(">☑ Напомнить за час</tg-button>");
+    expect(html).toContain(">Изменить время</tg-button>");
+    const task = (await h.services.tasks.listByUser(USER_ID))[0];
+    expect(task).toMatchObject({ status: "scheduled", kind: "meeting" });
+
+    // "Изменить время" opens the busy-aware reschedule calendar.
+    await pressRich(h, CHAT_ID, "Изменить время");
+    const calendarCall = h.kit.fake.callsTo("sendRichMessage").at(-1);
+    if (calendarCall === undefined) throw new Error("the reschedule calendar was not sent");
+    const calendarHtml = (calendarCall.payload.rich_message as { html: string }).html;
+    expect(calendarHtml).toContain("Когда провести встречу?");
+    expect(calendarHtml).toContain("Напишите новую дату и время встречи");
+  });
+
+  it("/demo_meeting is idempotent enough: a second run books a different hour, not a conflict failure", async () => {
+    const h = createPipelineHarness({ composers: [registerPersonalFlow()] });
+    await h.deliver(h.kit.updates.command("demo_meeting", undefined, { from: ALEX }));
+    await h.deliver(h.kit.updates.command("demo_meeting", undefined, { from: ALEX }));
+
+    const tasks = await h.services.tasks.listByUser(USER_ID);
+    expect(tasks).toHaveLength(2);
+    expect(tasks.every((t) => t.status === "scheduled")).toBe(true);
   });
 
   it("/start with a deep-link payload still starts the user (ctx.match is accepted, not required)", async () => {

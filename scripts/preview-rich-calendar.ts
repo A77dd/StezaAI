@@ -6,6 +6,7 @@ import { getCatalog } from "../src/features/telegram/render";
 import { makeViewContext } from "../src/features/telegram/testing/viewFixtures";
 import { richCalendarDayView, richCalendarMonthView } from "../src/features/telegram/render/views/richCalendar";
 import { welcomeRichView } from "../src/features/telegram/render/views/welcome";
+import { meetingBookedRichView, meetingRescheduleView } from "../src/features/telegram/render/views/meeting";
 
 /**
  * Renders the real rich calendar views into a standalone HTML page styled
@@ -45,6 +46,27 @@ booked.heading(task.title);
 booked.line("чт, 11:00–12:00");
 booked.buttonRow([{ kind: "disabled", label: "Забронировано ✓" }]);
 const bookedHtml = bound(booked.build());
+
+const meetingTask = {
+  id: "meeting_1",
+  userId: "user_1",
+  title: "Встреча с Марией",
+  kind: "meeting",
+  deadline: null,
+  durationMinutes: 60,
+  priority: "normal",
+  source: { sourceType: "forwarded_message", sourceChatId: 1001, sourceMessageId: 1, relatedMessageIds: [], sourceText: "", sourceAuthor: "Мария", sourceTimestamp: null, hiddenOrigin: false, sourceAuthorUsername: "maria" },
+  status: "scheduled",
+  createdAt: "2026-09-23T08:30:00.000Z",
+  bookingId: "booking_1",
+} as unknown as Parameters<typeof meetingBookedRichView>[0]["task"];
+const meetingSlot = { start: "2026-09-25T14:00:00.000Z", end: "2026-09-25T15:00:00.000Z" };
+const meetingCard = meetingBookedRichView({ task: meetingTask, slot: meetingSlot }, ctx);
+const rescheduleCard = meetingRescheduleView(
+  { task: meetingTask, slot: meetingSlot, busy: [{ start: "2026-09-26T10:00:00.000Z", end: "2026-09-26T14:00:00.000Z" }], cardMessageId: 42, now: "2026-09-23T08:30:00.000Z" },
+  { year: 2026, month: 9 },
+  ctx,
+);
 
 const welcome = welcomeRichView({ firstName: "Arttur", calendarConnected: false }, ctx);
 const welcomeHtml = bound(welcome);
@@ -90,6 +112,10 @@ const page = `<!doctype html>
   ${bound(day as unknown as { html: string })}</div>
   <div class="bubble"><div class="label">3. После выбора слота — забронировано (правка того же сообщения)</div>
   ${bookedHtml}</div>
+  <div class="bubble"><div class="label">4. /demo_meeting — карточка встречи с кнопками внутри</div>
+  ${bound(meetingCard as unknown as { html: string })}</div>
+  <div class="bubble"><div class="label">5. «Изменить время» — календарь занятости пользователя</div>
+  ${bound(rescheduleCard as unknown as { html: string })}</div>
 </div>
 <p class="note">Кнопки в превью стилизованы CSS под Telegram и не нажимаются: настоящий интерактив —
 в @stezabot (напиши задачу текстом). Колбэки кнопок идут через тот же 64-байтный кодек v1:&lt;action&gt;:&lt;token&gt;.</p>

@@ -109,6 +109,8 @@ export type Catalog = {
     readonly meetingFromUsername: string;
     readonly meetingConflict: string;
     readonly meetingTimePrompt: string;
+    readonly meetingRescheduleTitle: string;
+    readonly meetingRescheduleCurrent: string;
     readonly meetingTimeMissing: string;
     readonly meetingTimeConflict: string;
     readonly meetingTimeChanged: string;

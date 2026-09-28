@@ -8,6 +8,7 @@ import {
   personalInfoOnlyView,
   richCalendarMonthView,
   taskProposalView,
+  meetingBookedRichView,
   meetingBookedView,
   renderMessage,
   text,
@@ -95,10 +96,17 @@ export async function sendMeetingBookedOutcome(
   let promptMessageId: number;
   if (target !== undefined) {
     if (target.kind !== "chat") throw new Error("Meeting details need a private chat card");
-    await editCard(ctx, target, meetingBookedView({ task, slot }, viewCtx));
+    await editCard(ctx, target, meetingBookedRichView({ task, slot }, viewCtx));
     promptMessageId = target.messageId;
   } else {
-    promptMessageId = (await sendCard(ctx, meetingBookedView({ task, slot }, viewCtx))).message_id;
+    // Rich card first (the approved interactive design); the HTML card is the
+    // fallback when the rich send fails — nothing has been sent by then.
+    try {
+      promptMessageId = (await sendCard(ctx, meetingBookedRichView({ task, slot }, viewCtx))).message_id;
+    } catch (error) {
+      ctx.log.warn("meeting.rich_fallback", describeError(error));
+      promptMessageId = (await sendCard(ctx, meetingBookedView({ task, slot }, viewCtx))).message_id;
+    }
   }
   const expiresAt = addMinutes(ctx.services.clock.now(), PENDING_INPUT_TTL_MINUTES);
   await ctx.services.pendingInputs.save({
@@ -114,7 +122,7 @@ export async function sendMeetingBookedOutcome(
         await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, promptMessageId);
         return;
       }
-      const nudge = await sendCard(ctx, meetingBookedView({ task, slot, quietFollowUp: true }, viewCtx), { chatId, silent: true });
+      const nudge = await sendCard(ctx, meetingBookedRichView({ task, slot, quietFollowUp: true }, viewCtx), { chatId, silent: true });
       await ctx.services.pendingInputs.consumeByPrompt(userId, chatId, promptMessageId);
       await ctx.services.pendingInputs.save({ userId, chatId, promptMessageId: nudge.message_id, purpose: "meeting_details", refId: task.id, expiresAt });
       ctx.services.promptTracker.remember(userId, chatId, { promptMessageId: nudge.message_id, purpose: "meeting_details", cardMessageId: promptMessageId });

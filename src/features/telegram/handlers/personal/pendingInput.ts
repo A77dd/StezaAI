@@ -1,7 +1,7 @@
 import { addMinutes, PENDING_INPUT_TTL_MINUTES } from "../../domain";
 import type { BotContext } from "../../bot";
 import { editCard, sendCard } from "../../bot";
-import { fill, meetingBookedView, noticeForKind, renderMessage, settingsView, text, lines } from "../../render";
+import { fill, meetingBookedRichView, noticeForKind, renderMessage, settingsView, text, lines } from "../../render";
 import type { RenderedMessage, ViewContext } from "../../render";
 import { proposalCard, sendSubmitOutcome } from "./outcomes";
 
@@ -63,7 +63,7 @@ export async function tryApplyPendingInput(
         await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingDetailsAdded) }));
         return true;
       }
-      await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task, slot: booking.slot }, viewCtx));
+      await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedRichView({ task, slot: booking.slot }, viewCtx));
       return true;
     }
     case "meeting_time": {
@@ -73,7 +73,7 @@ export async function tryApplyPendingInput(
       if (result.kind === "moved") {
         await sendCard(ctx, renderMessage({ body: text(viewCtx.catalog.task.meetingTimeChanged) }));
         if (remembered.cardMessageId !== undefined) {
-          await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task: result.task, slot: result.booking.slot }, viewCtx));
+          await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedRichView({ task: result.task, slot: result.booking.slot }, viewCtx));
         }
         return true;
       }
@@ -89,7 +89,7 @@ export async function tryApplyPendingInput(
         promptMessageId: prompt.message_id, purpose: "meeting_time", cardMessageId: remembered.cardMessageId,
       });
       if (task !== null && booking !== null && remembered.cardMessageId !== undefined) {
-        await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedView({ task, slot: booking.slot }, viewCtx));
+        await editCard(ctx, { kind: "chat", chatId, messageId: remembered.cardMessageId }, meetingBookedRichView({ task, slot: booking.slot }, viewCtx));
       }
       return true;
     }

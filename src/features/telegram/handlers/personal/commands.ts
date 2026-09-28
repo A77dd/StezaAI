@@ -1,10 +1,20 @@
 import type { Composer } from "grammy";
+import type { Intent, Slot, SourceRef, Task } from "../../domain";
+import { createBookMeeting } from "../../domain/useCases";
 import type { BotContext } from "../../bot";
 import { createDraftStream, createEditStream, describeError, sendCard, sendDocument } from "../../bot";
 import type { DraftStreamDeps, EditStreamDeps } from "../../bot";
-import { demoDoneView, helpRichView, helpView, settingsView, welcomeRichView, welcomeView } from "../../render";
+import {
+  demoDoneView,
+  helpRichView,
+  helpView,
+  settingsView,
+  welcomeRichView,
+  welcomeView,
+} from "../../render";
 import type { HelpCommand, ViewContext } from "../../render";
 import { renderDeleteConfirmation } from "./dataCallbacks";
+import { sendMeetingBookedOutcome, sendProposalCard } from "./outcomes";
 
 /** Commands implemented by this task; `/help` must never advertise more than this. */
 const AVAILABLE_COMMANDS: readonly HelpCommand[] = ["start", "help", "settings", "export", "deleteme"];
@@ -133,6 +143,83 @@ export function registerCommands(composer: Composer<BotContext>): void {
     await sendCard(ctx, renderDeleteConfirmation(viewCtx));
   });
 
+  // A sample interactive rich calendar with real slots: a day press opens the
+  // day view, a slot press books it — the whole proposal scenario in one command.
+  composer.command("demo_calendar", async (ctx) => {
+    if (ctx.from === undefined || ctx.chat === undefined) return;
+    const userId = String(ctx.from.id);
+    await ctx.services.personalFlow.startUser({ userId, locale: ctx.locale });
+    const settings = await ctx.services.settings.get(userId);
+    if (settings === null) throw new Error("demo_calendar: settings disappeared after startUser");
+
+    const now = Date.parse(ctx.services.clock.now());
+    const slotAt = (dayOffset: number, hourUtc: number): Slot => {
+      const start = new Date(now + dayOffset * 24 * 60 * 60 * 1000);
+      start.setUTCHours(hourUtc, 0, 0, 0);
+      return { start: start.toISOString(), end: new Date(start.getTime() + 60 * 60 * 1000).toISOString() };
+    };
+    const task: Task = {
+      id: ctx.services.ids.next("task"),
+      userId,
+      title: "Демо: подготовить отчёт",
+      kind: "task",
+      deadline: null,
+      durationMinutes: 60,
+      priority: "normal",
+      source: demoSource(ctx),
+      status: "proposed",
+      createdAt: ctx.services.clock.now(),
+      bookingId: null,
+    };
+    await ctx.services.tasks.create(task);
+    const proposal = await ctx.services.proposals.save(userId, {
+      taskId: task.id,
+      slots: [slotAt(1, 10), slotAt(1, 14), slotAt(3, 11)],
+      createdAt: ctx.services.clock.now(),
+      expiresAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+    });
+    const viewCtx = ctx.viewContext(settings);
+    await sendProposalCard(ctx, { kind: "proposed", task, proposal }, viewCtx);
+  });
+
+  // A sample meeting booking with the interactive card: reminder toggle,
+  // time change through the busy-aware calendar, delete, details capture.
+  composer.command("demo_meeting", async (ctx) => {
+    if (ctx.from === undefined || ctx.chat === undefined) return;
+    const userId = String(ctx.from.id);
+    await ctx.services.personalFlow.startUser({ userId, locale: ctx.locale });
+    const settings = await ctx.services.settings.get(userId);
+    if (settings === null) throw new Error("demo_meeting: settings disappeared after startUser");
+
+    const intent: Intent = {
+      kind: "meeting",
+      title: "Демо: встреча с командой",
+      deadline: null,
+      durationMinutes: 60,
+      scheduledStartAt: new Date(Date.parse(ctx.services.clock.now()) + 2 * 60 * 60 * 1000).toISOString(),
+      priority: "normal",
+      participants: [],
+      confidence: 1,
+    };
+    // A previously booked demo may occupy the slot: shift the start until the
+    // hour is free BEFORE booking, so no doomed proposal tasks are left behind.
+    let startMs = Date.parse(intent.scheduledStartAt!);
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const candidate: Slot = { start: new Date(startMs).toISOString(), end: new Date(startMs + 60 * 60 * 1000).toISOString() };
+      if ((await ctx.services.calendar.getBusyIntervals(userId, candidate)).length === 0) break;
+      startMs += 60 * 60 * 1000;
+    }
+    const book = createBookMeeting(ctx.services);
+    const result = await book({ userId, intent: { ...intent, scheduledStartAt: new Date(startMs).toISOString() }, source: demoSource(ctx) });
+    if (result.kind !== "meeting_booked") {
+      const viewCtx = ctx.viewContext(settings);
+      await sendCard(ctx, demoDoneView(viewCtx));
+      return;
+    }
+    const viewCtx = ctx.viewContext(settings);
+    await sendMeetingBookedOutcome(ctx, userId, result.task, result.booking.slot, viewCtx);
+  });
+
   composer.command("demo", (ctx) => {
     if (ctx.chat?.type !== "private") return;
     const started = (async () => ctx.viewContext(await ctx.loadSettings()))();
@@ -144,4 +231,20 @@ export function registerCommands(composer: Composer<BotContext>): void {
         ctx.log.error("stream.failed", describeError(error));
       });
   });
+}
+
+/** A source ref for demo-created tasks: private chat provenance, like a typed message. */
+function demoSource(ctx: BotContext): SourceRef {
+  const message = ctx.message;
+  if (message === undefined) throw new Error("demo: the command update has no message");
+  return {
+    sourceType: "direct_message",
+    sourceChatId: message.chat.id,
+    sourceMessageId: message.message_id,
+    relatedMessageIds: [],
+    sourceText: "/demo",
+    sourceAuthor: null,
+    sourceTimestamp: new Date(message.date * 1000).toISOString(),
+    hiddenOrigin: false,
+  };
 }

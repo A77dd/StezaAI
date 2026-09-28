@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPipelineHarness } from "../../testing/pipelineHarness";
 import { ALEX, createGroupChat } from "../../testing/participants";
-import { expectCallbackAnsweredOnce } from "../../testing/assertions";
+import { pressRich, richText } from "../../testing/richPress";
 import { registerPersonalFlow } from "./index";
 import type { Intent } from "../../domain";
-import type { Message } from "grammy/types";
 
 afterEach(() => vi.useRealTimers());
 
@@ -34,12 +33,12 @@ describe("forwarded messages", () => {
 
     const task = (await h.services.tasks.listByUser(String(ALEX.id)))[0];
     expect(task).toMatchObject({ status: "scheduled", title: "Встреча с Марией", meetingUrl: "https://meet.example.test/room" });
-    expect(h.kit.fake.callsTo("sendMessage")[0]?.payload.text).toContain("Добавила встречу в календарь");
+    expect(richText(h.kit.fake.callsTo("sendRichMessage")[0]!)).toContain("Если хотите добавить контекст");
+    // The meeting link is a url button inside the rich body.
+    expect((h.kit.fake.callsTo("sendRichMessage")[0]!.payload.rich_message as { html: string }).html).toContain('type="url"');
     expect(h.services.promptTracker.peek(String(ALEX.id), ALEX.id)).toMatchObject({ purpose: "meeting_details" });
 
-    const meetingCard = h.kit.fake.callsTo("sendMessage")[0]?.outcome;
-    if (meetingCard?.kind !== "ok") throw new Error("meeting card was not sent");
-    await h.kit.press(h.bot, meetingCard.result as Message, { text: "☑ Напомнить за час" });
+    await pressRich(h, ALEX.id, "☑ Напомнить за час");
     await expect(h.services.tasks.get(String(ALEX.id), task!.id)).resolves.toMatchObject({ meetingReminderEnabled: false });
     await expect(h.services.reminders.exportForUser(String(ALEX.id))).resolves.toMatchObject([{ status: "cancelled" }]);
 
@@ -66,11 +65,11 @@ describe("forwarded messages", () => {
 
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
 
-    const messages = h.kit.fake.callsTo("sendMessage");
-    expect(messages).toHaveLength(2);
-    expect(messages[1]?.payload.disable_notification).toBe(true);
-    expect(messages[1]?.payload.text).toContain("Не получила дополнительных данных");
-    expect(messages[1]?.payload.text).toContain("Не удалось получить @username отправителя");
+    const cards = h.kit.fake.callsTo("sendRichMessage");
+    expect(cards).toHaveLength(2);
+    expect(cards[1]?.payload.disable_notification).toBe(true);
+    expect((cards[1]?.payload.rich_message as { html: string }).html).toContain("Не получила дополнительных данных");
+    expect((cards[1]?.payload.rich_message as { html: string }).html).toContain("Не удалось получить @username отправителя");
   });
   it("re-arms details capture when the button on the follow-up card is pressed", async () => {
     vi.useFakeTimers();
@@ -90,8 +89,8 @@ describe("forwarded messages", () => {
 
     // The quiet follow-up card carries the "Добавить информацию" button.
     const nudgeCard = h.kit.fake.messages.last(ALEX.id)!.message;
-    const press = await h.kit.press(h.bot, nudgeCard, { text: "Добавить информацию" });
-    expectCallbackAnsweredOnce(h.kit, press.callback_query.id);
+    await pressRich(h, ALEX.id, "Добавить информацию");
+    expect(h.kit.fake.callsTo("answerCallbackQuery").at(-1)?.payload.text).toContain("отправьте следующим сообщением");
     expect(h.services.promptTracker.peek(String(ALEX.id), ALEX.id)).toMatchObject({
       purpose: "meeting_details", promptMessageId: nudgeCard.message_id,
     });

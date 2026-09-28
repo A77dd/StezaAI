@@ -32,6 +32,9 @@ export type CallbackPayloads = {
   "slot.other": { readonly taskId: string };
   "calendar.month": { readonly taskId: string; readonly year: number; readonly month: number };
   "calendar.day": { readonly taskId: string; readonly year: number; readonly month: number; readonly day: number };
+  "meeting.reschedule.month": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number };
+  "meeting.reschedule.day": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number; readonly day: number };
+  "meeting.reschedule.hour": { readonly taskId: string; readonly cardMessageId: number; readonly year: number; readonly month: number; readonly day: number; readonly hour: number };
   "welcome.providers": Record<string, never>;
   "welcome.providers.back": Record<string, never>;
   "welcome.main": Record<string, never>;
@@ -196,6 +199,56 @@ function isEmptyPayload(payload: unknown): payload is Record<string, never> {
 
 const PROVIDER_PATTERN = /^[a-z0-9_-]{1,32}$/;
 
+const MAX_MESSAGE_ID = 2 ** 31;
+
+function isRescheduleBase(payload: unknown, keys: readonly string[]): boolean {
+  return (
+    isId((payload as { taskId?: unknown })?.taskId) &&
+    typeof (payload as { cardMessageId?: unknown }).cardMessageId === "number" &&
+    Number.isInteger((payload as { cardMessageId: number }).cardMessageId) &&
+    (payload as { cardMessageId: number }).cardMessageId > 0 &&
+    (payload as { cardMessageId: number }).cardMessageId <= MAX_MESSAGE_ID &&
+    typeof (payload as { year?: unknown }).year === "number" &&
+    Number.isInteger((payload as { year: number }).year) &&
+    (payload as { year: number }).year >= MIN_YEAR &&
+    (payload as { year: number }).year <= MAX_YEAR &&
+    typeof (payload as { month?: unknown }).month === "number" &&
+    Number.isInteger((payload as { month: number }).month) &&
+    (payload as { month: number }).month >= 1 &&
+    (payload as { month: number }).month <= MONTHS_PER_YEAR
+  ) && hasOnlyKeys(payload as unknown as PlainRecord, keys);
+}
+
+function isRescheduleMonth(payload: unknown): payload is CallbackPayloads["meeting.reschedule.month"] {
+  return isPlainRecord(payload) && isRescheduleBase(payload, ["taskId", "cardMessageId", "year", "month"]);
+}
+
+function isRescheduleDay(payload: unknown): payload is CallbackPayloads["meeting.reschedule.day"] {
+  return (
+    isPlainRecord(payload) &&
+    isRescheduleBase(payload, ["taskId", "cardMessageId", "year", "month", "day"]) &&
+    typeof payload.day === "number" &&
+    Number.isInteger(payload.day) &&
+    payload.day >= 1 &&
+    payload.day <= 31
+  );
+}
+
+function isRescheduleHour(payload: unknown): payload is CallbackPayloads["meeting.reschedule.hour"] {
+  return (
+    isPlainRecord(payload) &&
+    isRescheduleBase(payload, ["taskId", "cardMessageId", "year", "month", "day", "hour"]) &&
+    typeof payload.day === "number" &&
+    Number.isInteger(payload.day) &&
+    payload.day >= 1 &&
+    payload.day <= 31 &&
+    typeof payload.hour === "number" &&
+    Number.isInteger(payload.hour) &&
+    payload.hour >= 0 &&
+    payload.hour <= 23
+  );
+}
+
 function isWelcomeConnect(payload: unknown): payload is CallbackPayloads["welcome.connect"] {
   return (
     isPlainRecord(payload) &&
@@ -250,6 +303,9 @@ export const CALLBACK_ACTIONS = Object.freeze({
   "slot.other": { singleUse: true, ttlMs: DAY_MS, scope: "user", validate: isTaskPayload },
   "calendar.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarMonth },
   "calendar.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isCalendarDay },
+  "meeting.reschedule.month": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleMonth },
+  "meeting.reschedule.day": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleDay },
+  "meeting.reschedule.hour": { singleUse: false, ttlMs: DAY_MS, scope: "user", validate: isRescheduleHour },
   "welcome.providers": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
   "welcome.providers.back": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },
   "welcome.main": { singleUse: false, ttlMs: 30 * DAY_MS, scope: "user", validate: isEmptyPayload },

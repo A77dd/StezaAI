@@ -28,6 +28,42 @@ async function bookedMeeting(ports: ReturnType<typeof createTestPersonalFlowPort
 }
 
 describe("rescheduleMeeting", () => {
+  it("moves the block to an explicit start without calling the parser", async () => {
+    const ports = createTestPersonalFlowPorts(
+      { intentParser: { parse: async () => { throw new Error("parser must not be used for an explicit start"); } } },
+      NOW,
+    );
+    const task = await bookedMeeting(ports);
+
+    const result = await createRescheduleMeeting(ports)({ userId: "user_1", taskId: task.id, start: NEW_START });
+
+    expect(result.kind).toBe("moved");
+    if (result.kind !== "moved") throw new Error("expected moved");
+    expect(result.booking.slot).toEqual({ start: NEW_START, end: "2026-09-24T17:00:00.000Z" });
+    await expect(ports.tasks.get("user_1", task.id)).resolves.toMatchObject({ status: "scheduled" });
+  });
+
+  it("reports a conflict for an explicit busy start and keeps the booking", async () => {
+    const ports = createTestPersonalFlowPorts({}, NOW);
+    const task = await bookedMeeting(ports);
+    (ports.calendar as InMemoryCalendar).addBusyInterval("user_1", { start: NEW_START, end: "2026-09-24T17:00:00.000Z" });
+
+    const result = await createRescheduleMeeting(ports)({ userId: "user_1", taskId: task.id, start: NEW_START });
+
+    expect(result).toEqual({ kind: "time_conflict" });
+    await expect(ports.tasks.get("user_1", task.id)).resolves.toMatchObject({ status: "scheduled", bookingId: "booking_1" });
+  });
+
+  it("refuses an explicit start in the past", async () => {
+    const ports = createTestPersonalFlowPorts({}, NOW);
+    const task = await bookedMeeting(ports);
+
+    const result = await createRescheduleMeeting(ports)({ userId: "user_1", taskId: task.id, start: "2026-09-23T07:00:00.000Z" });
+
+    expect(result).toEqual({ kind: "time_missing" });
+  });
+
+
   it("moves the existing block and updates its reminder when the requested time is free", async () => {
     const ports = createTestPersonalFlowPorts({ intentParser: parser(NEW_START) }, NOW);
     const task = await bookedMeeting(ports);

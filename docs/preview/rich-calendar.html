@@ -1,240 +1,88 @@
 <!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
+<html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Steza — встреча из пересланного сообщения</title>
+<title>Превью: Rich-календарь предложения</title>
 <style>
-  :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 28px 18px 44px; background: #e8edf2; color: #18212b; }
-  h1 { max-width: 980px; margin: 0 auto 7px; font-size: 20px; font-weight: 650; }
-  .intro { max-width: 980px; margin: 0 auto 18px; color: #66717c; font-size: 14px; line-height: 1.5; }
-  .tabs { max-width: 980px; margin: 0 auto 20px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .tab { border: 1px solid #d2dbe4; border-radius: 999px; padding: 9px 14px; background: #f8fafc; color: #44505c; font: inherit; cursor: pointer; }
-  .tab.active { color: #fff; border-color: #2488d1; background: #2488d1; }
-  .layout { max-width: 980px; margin: auto; display: grid; grid-template-columns: minmax(290px, 420px) minmax(280px, 1fr); align-items: start; gap: 22px; }
-  .phone { min-height: 590px; padding: 15px 13px 22px; border: 8px solid #1d2630; border-radius: 34px; background: #f4f6f8; box-shadow: 0 15px 38px #17202b26; }
-  .status { display: flex; justify-content: space-between; margin: 0 11px 13px; color: #3e4852; font-size: 12px; font-weight: 650; }
-  .chathead { display: flex; align-items: center; gap: 10px; padding: 3px 7px 12px; border-bottom: 1px solid #e2e6ea; }
-  .avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #3388cb; color: white; font-weight: 700; }
-  .chatname { font-weight: 650; font-size: 15px; }
-  .chatmeta { margin-top: 2px; color: #77818a; font-size: 12px; }
-  .bubble { margin: 13px 1px 0; padding: 11px 12px; border-radius: 13px 13px 13px 4px; background: white; box-shadow: 0 1px 2px #00000012; font-size: 14px; line-height: 1.45; }
-  .bubble.outgoing { margin-left: 32px; border-radius: 13px 13px 4px 13px; background: #e2ffc7; }
-  .label { margin: 0 0 7px; color: #74808b; font-size: 11px; }
-  .forward { color: #1883c2; font-size: 12px; font-weight: 600; }
-  .bubble p { margin: 6px 0; }
-  .bubble h2 { margin: 2px 0 7px; font-size: 16px; line-height: 1.3; }
-  .event { margin: 10px 0 7px; padding: 10px; border: 1px solid #dfe6eb; border-radius: 10px; background: #fbfcfd; }
-  .eventline { display: flex; align-items: flex-start; gap: 9px; }
-  .eventicon { font-size: 18px; }
-  .eventtitle { font-weight: 650; }
-  .eventtime { margin-top: 3px; color: #354454; }
-  .subtle { color: #697582; font-size: 12px; }
-  .link { color: #168acd; text-decoration: none; }
-  .notice { margin-top: 9px; padding: 8px 9px; border-radius: 8px; background: #fff7df; color: #715820; font-size: 12px; }
-  .reminder { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 9px; border: 1px solid #dfe5ea; border-radius: 9px; background: #fff; font-size: 13px; }
-  .check { display: grid; place-items: center; flex: 0 0 21px; width: 21px; height: 21px; border: 1px solid #9aa6b1; border-radius: 6px; color: white; cursor: pointer; }
-  .check.on { border-color: #36a853; background: #36a853; }
-  .reminder small { display: block; margin-top: 2px; color: #75808a; font-size: 11px; }
-  .buttons { display: flex; gap: 6px; margin-top: 9px; }
-  tg-button { display: inline-flex; justify-content: center; align-items: center; flex: 1; min-height: 34px; padding: 7px 6px; border-radius: 8px; background: #e8f1fb; color: #168acd; text-align: center; font-size: 12px; line-height: 1.2; cursor: pointer; }
-  tg-button.primary { color: white; background: #3390ec; font-weight: 600; }
-  tg-button.success { color: white; background: #36a853; font-weight: 600; }
-  tg-button.danger { color: white; background: #df5d55; }
-  tg-button.neutral { color: #42505d; background: #eef1f4; }
-  .timeline { margin: 10px 0; padding: 9px 10px; border-radius: 9px; background: #f6f8fa; }
-  .track { position: relative; height: 29px; margin: 8px 0; border-left: 1px solid #d5dce2; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), #e4e8ec calc(25% - 1px), #e4e8ec 25%); }
-  .block { position: absolute; top: 2px; height: 25px; display: flex; align-items: center; overflow: hidden; border-radius: 5px; padding: 0 6px; white-space: nowrap; font-size: 10px; }
-  .block.new { left: 50%; width: 43%; background: #d7edff; color: #17659c; border: 1px solid #85c6ef; }
-  .block.old { left: 36%; width: 43%; background: #ffe2b8; color: #805109; border: 1px solid #efbd6a; }
-  .ticklabels { display: flex; justify-content: space-between; color: #7b8792; font-size: 10px; }
-  .option { margin-top: 8px; padding: 8px 9px; border: 1px solid #e2e7eb; border-radius: 9px; background: #fff; font-size: 12px; }
-  .option b { display: block; margin-bottom: 3px; }
-  .contact-hidden { padding: 8px; border: 1px dashed #c7ced5; border-radius: 8px; background: #fafbfc; color: #606c78; font-size: 12px; }
-  .replybubble { margin: 10px 28px 0 1px; padding: 8px 10px; border-radius: 12px 12px 12px 4px; background: #fff; box-shadow: 0 1px 2px #00000012; font-size: 13px; line-height: 1.4; }
-  .quiet { margin-top: 12px; color: #87919b; font-size: 11px; }
-  .composerhint { margin: 10px 2px 0; padding: 9px 10px; border: 1px solid #e1e6eb; border-radius: 18px; background: #fff; color: #9aa3ac; font-size: 12px; }
-  .stepbar { display: flex; gap: 6px; margin: 0 0 9px; }
-  .stepbar .tab { padding: 6px 9px; font-size: 11px; }
-  .mini-actions { margin-top: 8px; }
-  .panel { padding: 4px 2px; }
-  .panel h2 { margin: 0 0 8px; font-size: 18px; }
-  .panel p { margin: 8px 0; color: #4a5662; font-size: 14px; line-height: 1.55; }
-  .callout { margin: 13px 0; padding: 12px 13px; border-left: 3px solid #3390ec; border-radius: 4px 10px 10px 4px; background: #fff; color: #37434e; font-size: 13px; line-height: 1.5; }
-  .approach { margin-top: 18px; padding-top: 14px; border-top: 1px solid #d3dbe3; }
-  .approach h3 { margin: 0 0 10px; font-size: 14px; }
-  .choice { margin: 7px 0; padding: 10px 11px; border: 1px solid #d6dee6; border-radius: 10px; background: #ffffffa8; font-size: 12px; line-height: 1.4; }
-  .choice.recommended { border-color: #61b477; background: #f3fff5; }
-  .choice strong { display: block; margin-bottom: 3px; font-size: 13px; }
-  .footnote { margin-top: 14px; color: #77828c; font-size: 11px; line-height: 1.5; }
-  .hidden { display: none; }
-  @media (max-width: 760px) { body { padding: 20px 12px; } .layout { grid-template-columns: 1fr; max-width: 440px; } .panel { padding: 0 4px; } }
-</style>
-</head>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 24px; background: #e7ebf0; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  h1 { font-size: 16px; color: #707579; font-weight: 500; }
+  .phone { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+  .bubble { background: #effdde; border-radius: 12px 12px 4px 12px; padding: 10px 12px; margin: 12px 0; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .bubble + .label { font-size: 12px; color: #707579; margin: 14px 0 2px 4px; }
+  .bubble b { font-size: 15px; }
+  .bubble, .bubble tg-button-row { line-height: 1.45; }
+  tg-button-row { display: flex; gap: 4px; margin: 4px 0; }
+  tg-button { flex: 1; text-align: center; font-size: 14px; padding: 8px 4px; border-radius: 8px;
+    background: #f4f4f5; color: #000; cursor: default; white-space: nowrap; overflow: hidden; }
+  tg-button[type="callback_data"] { background: #e8f1fb; color: #168acd; font-weight: 500; }
+  tg-button[type="callback_data"][style="primary"] { background: #3390ec; color: #fff; }
+  tg-button[type="callback_data"][style="success"] { background: #4fae4e; color: #fff; }
+  tg-button[type="disabled"] { color: #a2acb4; background: #f4f4f5; }
+  h3 { font-size: 15px; margin: 6px 0 2px; }
+  p { margin: 4px 0; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  footer { font-size: 12px; color: #707579; margin-top: 8px; }
+  footer a { color: #168acd; }
+  tg-slideshow img { width: 100%; border-radius: 10px; display: block; margin: 6px 0; }
+  .note { font-size: 13px; color: #707579; margin-top: 16px; }
+</style></head>
 <body>
-<h1>Переслал сообщение → встреча в календаре</h1>
-<p class="intro">Макет диалога после пересылки приглашения. Переключайте состояния и шаги диалога: ответ пользователя, тишина 5 минут, конфликт в календаре, скрытый автор.</p>
-<nav class="tabs" aria-label="Сценарий">
-  <button class="tab active" data-show="free">Слот свободен</button>
-  <button class="tab" data-show="conflict">Есть пересечение</button>
-  <button class="tab" data-show="hidden">Автор скрыт</button>
-</nav>
-<main class="layout">
-  <section class="phone" aria-label="Предпросмотр чата Telegram">
-    <div class="status"><span>9:41</span><span>●●● ▰</span></div>
-    <div class="chathead"><div class="avatar">S</div><div><div class="chatname">Steza</div><div class="chatmeta">бот</div></div></div>
-    <div class="bubble outgoing"><div class="forward"><span id="source-known">↪ Переслано от Марии · @maria</span><span id="source-hidden" class="hidden">↪ Пересланное сообщение</span></div><p>Давайте согласуем с вами встречу.<br>В пятницу в 17:00.<br><a class="link" href="#">Ссылка на встречу</a></p></div>
-
-    <div class="scenario" id="free">
-      <div class="bubble">
-        <div class="label">STEZA · календарь · пятница, 2 октября · Europe/Istanbul</div>
-        <h2>Добавил встречу в календарь ✓</h2>
-        <div class="event"><div class="eventline"><div class="eventicon">📅</div><div><div class="eventtitle">Встреча с Марией</div><div class="eventtime">Пт, 2 октября · 17:00–18:00</div><div class="subtle">Длительность — 1 час по настройке календаря</div><div class="subtle">🔗 <a class="link" href="#">Открыть ссылку встречи</a></div></div></div></div>
-        <div class="notice">В исходном сообщении предлагают согласовать время. Я внёс встречу; подтверждения Марии пока нет.</div>
-        <div class="reminder"><span class="check on" id="reminderCheck" role="checkbox" aria-checked="true" tabindex="0">✓</span><span>Напомнить за 1 час <small id="reminderText">включено · нажмите, чтобы отключить</small></span></div>
-        <p style="margin-top:10px">Что важно учесть? Напишите следующим сообщением — я добавлю это в детали встречи.</p>
-        <div class="buttons"><tg-button class="neutral" data-action="edit">Изменить время</tg-button><tg-button class="danger" data-action="cancel">Удалить</tg-button></div>
-        <div class="quiet">Напоминание можно переключить выше.</div>
-      </div>
-      <div class="stepbar" aria-label="Продолжение диалога"><button class="tab active" data-step="reply">Пользователь ответил</button><button class="tab" data-step="silence">Нет ответа 5 минут</button></div>
-      <div id="reply-step">
-        <div class="bubble outgoing">Обсудим бюджет проекта и варианты запуска. Я подготовлю цифры.</div>
-        <div class="replybubble"><b>Добавил в детали встречи:</b><br>Обсудить бюджет проекта и варианты запуска. Подготовить цифры. ✓</div>
-      </div>
-      <div id="silence-step" class="hidden">
-        <div class="quiet">Через 5 минут без ответа · тихое сообщение</div>
-        <div class="bubble"><p>Не получила дополнительных данных. Но вы всегда можете добавить их к встрече.</p><div class="buttons"><tg-button class="primary" data-action="add-info">Добавить информацию</tg-button></div><div class="subtle" id="silentFeedback" style="margin-top:7px"></div></div>
-      </div>
-      <div class="composerhint">Сообщение…</div>
-    </div>
-
-    <div class="scenario hidden" id="conflict">
-      <div class="bubble">
-        <div class="label">КОНФЛИКТ · Пт, 2 октября · 17:00–18:00</div>
-        <h2>В пятницу в 17:00 уже запланирован «Обзор плана»</h2>
-        <div class="timeline"><div class="subtle">Наложение в календаре</div><div class="track"><span class="block old">16:30 · Обзор плана</span><span class="block new">17:00 · Встреча с Марией</span></div><div class="ticklabels"><span>16:00</span><span>16:30</span><span>17:00</span><span>17:30</span><span>18:00</span></div></div>
-        <div class="option"><b>Новая встреча</b>Мария предлагает пятницу в 17:00 · ссылка приложена</div>
-        <div class="option"><b>Уже в календаре</b>Обзор плана · 16:30–17:30</div>
-        <p>Свободно в тот же день: <b>18:00–19:00</b>. Я бы перенёс новую встречу на это время, чтобы не менять ваш план.</p>
-        <div class="buttons"><tg-button class="primary" data-action="move-new">Встреча с Марией · 18:00</tg-button></div>
-        <div class="buttons"><tg-button class="neutral" data-action="move-old">Перенести «Обзор плана»</tg-button><tg-button class="neutral" data-action="leave-conflict">Оставить 17:00</tg-button></div>
-        <div class="subtle" id="conflictFeedback" style="margin-top:7px"></div>
-        <div id="after-conflict" class="hidden">
-          <div class="replybubble"><b>Перенёс встречу с Марией на 18:00.</b><br>Чтобы согласовать новое время, можно отправить Марии:<br>«В пятницу в 17:00 у меня уже занято. Вам подойдёт 18:00?»
-            <div class="buttons mini-actions"><tg-button class="primary" data-action="copy-message">Скопировать текст</tg-button><tg-button class="neutral" data-action="open-chat">Открыть чат</tg-button></div>
-          </div>
-        </div>
-        <div id="move-old-step" class="hidden">
-          <div class="notice">Могу перенести «Обзор плана» на 18:00–19:00. Перенести это событие?</div>
-          <div class="buttons"><tg-button class="primary" data-action="confirm-old">Да, перенести</tg-button><tg-button class="neutral" data-action="back">Назад</tg-button></div>
-        </div>
-        <div class="quiet">Без вашего выбора календарь не меняю.</div>
-      </div>
-    </div>
-
-    <div class="scenario hidden" id="hidden">
-      <div class="bubble">
-        <div class="label">STEZA · календарь · пятница, 2 октября · Europe/Istanbul</div>
-        <h2>Добавил встречу в календарь ✓</h2>
-        <div class="event"><div class="eventtitle">Встреча · Пт, 2 октября · 17:00–18:00</div><div class="subtle">Ссылка сохранена в событии</div></div>
-        <div class="notice">В исходном сообщении предлагают согласовать время. Я внёс встречу; подтверждения собеседника пока нет.</div>
-        <div class="reminder"><span class="check on">✓</span><span>Напомнить за 1 час <small>включено</small></span></div>
-        <p>Что важно учесть? Напишите следующим сообщением — я добавлю это в детали встречи.</p>
-        <div class="buttons"><tg-button class="neutral" data-action="edit">Изменить время</tg-button><tg-button class="danger" data-action="cancel">Удалить</tg-button></div>
-        <div class="quiet">Не удалось получить @username отправителя. Можете добавить его вручную.</div>
-      </div>
-    </div>
-  </section>
-
-  <aside class="panel">
-    <div id="panel-free">
-      <h2>1. Время свободно</h2>
-      <p>Пересланное приглашение трактуем как поручение занести встречу. LLM извлекает дату, время, ссылку, тему и собеседника; календарный сервис проверяет слот, а затем создаёт предварительное событие.</p>
-      <div class="callout"><b>Почему «предварительная»:</b> пользователь попросил организовать встречу, но фраза «давайте согласуем» сама по себе ещё не означает, что собеседник подтвердил это время. В календаре событие уже есть; в карточке понятно, что внешнего подтверждения пока нет.</div>
-      <p>Бот сразу просит дополнить встречу обычным сообщением в чате. LLM понимает ответ по контексту этой карточки, извлекает полезные детали и добавляет их в описание; бот коротко сообщает, что именно сохранил. Если ответ относится к другой теме, он отвечает на него отдельно и не записывает как детали встречи.</p>
-      <div class="callout"><b>Если пользователь молчит 5 минут:</b> бот отправляет тихое сообщение «Не получила дополнительных данных. Но вы всегда можете добавить их к встрече» с кнопкой «Добавить информацию». Telegram Bot API позволяет отправить сообщение без звукового уведомления через <code>disable_notification=true</code>. Если пользователь прислал детали до таймера, тихое напоминание отменяется.</div>
-      <p>В первой карточке оставлены действия над событием: «Изменить время» и «Удалить». Детали пользователь сообщает сообщением; отдельная кнопка появляется в тихом напоминании.</p>
-      <div class="approach"><h3>Название события — варианты</h3>
-        <div class="choice recommended"><strong>А. «Встреча с Марией» (рекомендую)</strong>Коротко и понятно в календаре; исходная цитата, ссылка и формулировка про предварительное время остаются в описании.</div>
-        <div class="choice"><strong>Б. «Согласовать встречу с Марией»</strong>Явно показывает, что нужно получить подтверждение, но хуже выглядит как название календарного события.</div>
-        <div class="choice"><strong>В. Дословная тема из пересылки</strong>Хорошо, когда тема явно названа; при отсутствии темы оставляем нейтральное название.</div>
-      </div>
-    </div>
-    <div id="panel-conflict" class="hidden">
-      <h2>2. Есть пересечение</h2>
-      <p>Сразу объясняем конфликт, показываем одно конкретное свободное время и рекомендуем перенести новую встречу, чтобы не трогать существующий план. Кнопки называют результат нажатия, а не абстрактное действие.</p>
-      <div class="callout"><b>Если выбрали 18:00:</b> бот вносит новую встречу и показывает точный текст, который пользователь может отправить Марии: «В пятницу в 17:00 у меня уже занято. Вам подойдёт 18:00?» Дальше понятно, что можно сделать: скопировать текст или открыть чат, если Telegram дал ссылку на автора. Бот ничего не отправляет от имени пользователя.</div>
-      <p>Если пользователь выбирает перенести «Обзор плана», сначала показываем конкретное время и просим отдельное подтверждение. Если оставляет встречу в 17:00, создаём событие с видимым конфликтом.</p>
-      <div class="approach"><h3>Варианты обработки конфликта</h3>
-        <div class="choice recommended"><strong>А. Выбор пользователя (рекомендую)</strong>Новая встреча / старое событие / оставить конфликт. Без неожиданного изменения календаря.</div>
-        <div class="choice"><strong>Б. Автоматически найти другое время новой встрече</strong>Меньше действий, но бот сам меняет предложенное собеседником время. Подходит только если пользователь выбрал такую степень автономности.</div>
-        <div class="choice"><strong>В. Всегда спрашивать до любой записи</strong>Максимальный контроль, но делает пересылку медленнее и уменьшает ценность быстрого capture.</div>
-      </div>
-    </div>
-    <div id="panel-hidden" class="hidden">
-      <h2>3. Автор скрыт</h2>
-      <p>Bot API может сообщить либо исходного пользователя, либо только строку с его именем (скрытый автор), а также источник-пересланный чат/канал. Username может отсутствовать даже у известного пользователя.</p>
-      <div class="callout"><b>Сценарий остаётся тем же:</b> встреча и напоминание сохраняются, бот задаёт обычный вопрос о деталях. Внизу карточки мелкая серая подпись: «Не удалось получить @username отправителя. Можете добавить его вручную». Если пользователь пришлёт контакт или username следующим сообщением, LLM привяжет его к встрече.</div>
-      <p>Не показываем отдельный экран ошибки и не заставляем пересылать сообщение заново. Отсутствие username не мешает добавить встречу в календарь.</p>
-      <div class="approach"><h3>Данные отправителя из пересылки</h3>
-        <div class="choice"><strong>Есть sender_user</strong>Привязать карточку к Telegram ID; username показывать, только если он присутствует.</div>
-        <div class="choice"><strong>Есть только sender_user_name</strong>Сохранить отображаемое имя как неподтверждённую подпись без автоматической привязки к человеку.</div>
-        <div class="choice"><strong>Автор — чат или канал</strong>Показать название источника, не представлять его как персонального собеседника.</div>
-      </div>
-    </div>
-    <p class="footnote">Это локальный HTML-макет интерфейса, а не изменение бота. В настоящем чате элементы будут Rich Message-кнопками и callback-действиями Telegram; эту страницу удобно открыть в браузере для обсуждения текста и компоновки.</p>
-  </aside>
-</main>
-<script>
-  const tabButtons = [...document.querySelectorAll('.tab')];
-  const names = ['free', 'conflict', 'hidden'];
-  function showScenario(name) {
-    for (const item of names) {
-      document.getElementById(item).classList.toggle('hidden', item !== name);
-      document.getElementById(`panel-${item}`).classList.toggle('hidden', item !== name);
-    }
-    tabButtons.forEach(button => button.classList.toggle('active', button.dataset.show === name));
-    document.getElementById('source-known').classList.toggle('hidden', name === 'hidden');
-    document.getElementById('source-hidden').classList.toggle('hidden', name !== 'hidden');
-  }
-  tabButtons.forEach(button => button.addEventListener('click', () => showScenario(button.dataset.show)));
-  const check = document.getElementById('reminderCheck');
-  function toggleReminder() {
-    const on = check.getAttribute('aria-checked') !== 'true';
-    check.setAttribute('aria-checked', String(on));
-    check.textContent = on ? '✓' : '';
-    check.classList.toggle('on', on);
-    document.getElementById('reminderText').textContent = on ? 'За 1 час · включено' : 'Выключено';
-  }
-  check.addEventListener('click', toggleReminder);
-  check.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleReminder(); } });
-  document.querySelectorAll('[data-step]').forEach(button => button.addEventListener('click', () => {
-    const silence = button.dataset.step === 'silence';
-    document.getElementById('reply-step').classList.toggle('hidden', silence);
-    document.getElementById('silence-step').classList.toggle('hidden', !silence);
-    document.querySelectorAll('[data-step]').forEach(item => item.classList.toggle('active', item === button));
-  }));
-  document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => {
-    const target = button.closest('#conflict') ? document.getElementById('conflictFeedback') : document.getElementById('silentFeedback');
-    const responses = {
-      edit: 'Здесь откроется выбор новой даты и времени.',
-      cancel: 'Следующий шаг: «Удалить встречу?» — Удалить / Оставить.',
-      'move-new': 'Встреча добавлена на пятницу в 18:00.',
-      'move-old': 'Показываю подтверждение переноса существующего события.',
-      'leave-conflict': 'Встреча остаётся в 17:00; календарь показывает пересечение.',
-      'add-info': 'Напишите детали следующим сообщением — добавлю их в описание этой встречи.',
-      'copy-message': 'Текст предложения скопирован: «В пятницу в 17:00 у меня уже занято. Вам подойдёт 18:00?»',
-      'open-chat': 'Откроется Telegram-чат с Марией, если ссылка на автора доступна.',
-      'confirm-old': 'Перенёс «Обзор плана» на 18:00–19:00.',
-      back: 'Оставил календарь без изменений.'
-    };
-    if (button.dataset.action === 'move-new') document.getElementById('after-conflict').classList.remove('hidden');
-    if (button.dataset.action === 'move-old') document.getElementById('move-old-step').classList.remove('hidden');
-    if (button.dataset.action === 'back') document.getElementById('move-old-step').classList.add('hidden');
-    if (target && responses[button.dataset.action]) target.textContent = responses[button.dataset.action];
-  }));
-</script>
-</body>
-</html>
+<h1>Превью Rich-сообщения с календарём (Bot API 10.3, &lt;tg-button&gt;)</h1>
+<div class="phone">
+  <div class="bubble"><div class="label">0. /start — приветствие (Rich) с кнопками быстрых действий</div>
+  <tg-slideshow><img src="https://placehold.co/600x340/3390ec/ffffff.png?text=Steza+1"/><img src="https://placehold.co/600x340/4fae4e/ffffff.png?text=Steza+2"/><img src="https://placehold.co/600x340/707579/ffffff.png?text=Steza+3"/></tg-slideshow>
+<h3>Привет, Arttur!</h3>
+<p>Я помогу найти время для задач и поставить его в календарь.</p>
+<ul><li>Напиши задачу, например «подготовить презентацию до пятницы, часа на два»</li><li>Перешли сообщение — предложу, что с ним сделать</li><li>В группе ответь на сообщение и упомяни меня — время подберу только тебе</li></ul>
+<tg-button-row><tg-button type="callback_data" style="primary" data="#">📅 Подключить календарь</tg-button></tg-button-row>
+<tg-button-row><tg-button type="url" url="https://t.me/steza_test_bot">⚙️ Настроить профиль</tg-button></tg-button-row>
+<footer>Продолжая пользоваться ботом, вы соглашаетесь с <a href="https://t.me/steza_test_bot">документ 1</a> и <a href="https://t.me/steza_test_bot">документ 2</a>.</footer></div>
+  <div class="bubble"><div class="label">1. Карточка предложения — месяц с днями-кнопками</div>
+  <h3>Подготовить презентацию</h3>
+<p>сент. 2026</p>
+<tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">14</tg-button><tg-button type="disabled">15</tg-button><tg-button type="disabled">16</tg-button><tg-button type="disabled">17</tg-button><tg-button type="disabled">18</tg-button><tg-button type="disabled">19</tg-button><tg-button type="disabled">20</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">21</tg-button><tg-button type="disabled">22</tg-button><tg-button type="disabled">23</tg-button><tg-button type="callback_data" style="primary" data="#">24 (2)</tg-button><tg-button type="disabled">25</tg-button><tg-button type="disabled">26</tg-button><tg-button type="callback_data" style="primary" data="#">27</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">28</tg-button><tg-button type="disabled">29</tg-button><tg-button type="disabled">30</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">‹</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">›</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" data="#">Изменить</tg-button><tg-button type="callback_data" data="#">Другое время</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">2. После нажатия на день — слоты дня кнопками</div>
+  <h3>Подготовить презентацию</h3>
+<p>сент. 2026</p>
+<tg-button-row><tg-button type="disabled">пн</tg-button><tg-button type="disabled">вт</tg-button><tg-button type="disabled">ср</tg-button><tg-button type="disabled">чт</tg-button><tg-button type="disabled">пт</tg-button><tg-button type="disabled">сб</tg-button><tg-button type="disabled">вс</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">1</tg-button><tg-button type="disabled">2</tg-button><tg-button type="disabled">3</tg-button><tg-button type="disabled">4</tg-button><tg-button type="disabled">5</tg-button><tg-button type="disabled">6</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">7</tg-button><tg-button type="disabled">8</tg-button><tg-button type="disabled">9</tg-button><tg-button type="disabled">10</tg-button><tg-button type="disabled">11</tg-button><tg-button type="disabled">12</tg-button><tg-button type="disabled">13</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">14</tg-button><tg-button type="disabled">15</tg-button><tg-button type="disabled">16</tg-button><tg-button type="disabled">17</tg-button><tg-button type="disabled">18</tg-button><tg-button type="disabled">19</tg-button><tg-button type="disabled">20</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">21</tg-button><tg-button type="disabled">22</tg-button><tg-button type="disabled">23</tg-button><tg-button type="callback_data" style="success" data="#">24 (2)</tg-button><tg-button type="disabled">25</tg-button><tg-button type="disabled">26</tg-button><tg-button type="callback_data" style="primary" data="#">27</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">28</tg-button><tg-button type="disabled">29</tg-button><tg-button type="disabled">30</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">‹</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">›</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" style="success" data="#">чт, 13:00–14:00</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" style="success" data="#">чт, 16:00–17:00</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" data="#">‹ К календарю</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">3. После выбора слота — забронировано (правка того же сообщения)</div>
+  <h3>Подготовить презентацию</h3>
+<p>чт, 11:00–12:00</p>
+<tg-button-row><tg-button type="disabled">Забронировано ✓</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">4. /demo_meeting — карточка встречи с кнопками внутри</div>
+  <h3>Встреча с Марией</h3>
+<p>Когда: пт, 17:00–18:00</p>
+<p>Если хотите добавить контекст, отправьте следующим сообщением — внесу его в детали встречи.</p>
+<footer>Переслано от @maria</footer>
+<tg-button-row><tg-button type="callback_data" data="#">☑ Напомнить за час</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" data="#">Изменить время</tg-button><tg-button type="callback_data" style="danger" data="#">Удалить встречу</tg-button></tg-button-row></div>
+  <div class="bubble"><div class="label">5. «Изменить время» — календарь занятости пользователя</div>
+  <h3>Когда провести встречу?</h3>
+<p>Сейчас: пт, 17:00–18:00</p>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="callback_data" style="primary" data="#">23</tg-button><tg-button type="callback_data" style="primary" data="#">24</tg-button><tg-button type="callback_data" style="primary" data="#">25</tg-button><tg-button type="callback_data" style="primary" data="#">26</tg-button><tg-button type="callback_data" style="primary" data="#">27</tg-button></tg-button-row>
+<tg-button-row><tg-button type="callback_data" style="primary" data="#">28</tg-button><tg-button type="callback_data" style="primary" data="#">29</tg-button><tg-button type="callback_data" style="primary" data="#">30</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button><tg-button type="disabled">·</tg-button></tg-button-row>
+<tg-button-row><tg-button type="disabled">сент. 2026</tg-button><tg-button type="callback_data" data="#">›</tg-button></tg-button-row>
+<p>Напишите новую дату и время встречи, например: «завтра в 15:00». Текущая запись останется в календаре, пока новое время не будет свободно.</p></div>
+</div>
+<p class="note">Кнопки в превью стилизованы CSS под Telegram и не нажимаются: настоящий интерактив —
+в @stezabot (напиши задачу текстом). Колбэки кнопок идут через тот же 64-байтный кодек v1:&lt;action&gt;:&lt;token&gt;.</p>
+</body></html>
