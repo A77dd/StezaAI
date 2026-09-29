@@ -1,8 +1,32 @@
 // src/components/Navigation/Navigation.tsx
+import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { ThinkingOrb } from 'thinking-orbs';
 import { PATHS } from '@/app/routes/paths';
 import { hapticSelection } from '@/shared/library/telegram';
+import displacementMap from './displacement-map.txt?raw';
 import './Navigation.css';
+
+// ============================
+// Liquid glass фильтр (референс: Den Dionigi)
+// ============================
+
+const GlassFilters = () => (
+    <div className="navigation__filter" aria-hidden="true">
+        <svg width="0" height="0" focusable="false">
+            <filter id="nav-switcher" primitiveUnits="objectBoundingBox">
+                <feImage result="map" width="100%" height="100%" x="0" y="0" href={displacementMap} />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.04" result="blur" />
+                <feDisplacementMap in="blur" in2="map" scale="0.5" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+            <filter id="nav-toggle" primitiveUnits="objectBoundingBox">
+                <feImage result="map" width="100%" height="100%" x="0" y="0" href={displacementMap} />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.01" result="blur" />
+                <feDisplacementMap in="blur" in2="map" scale="0.5" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+        </svg>
+    </div>
+);
 
 // ============================
 // Иконки
@@ -32,41 +56,36 @@ const IconProfile = ({ active }: { active: boolean }) => (
     </svg>
 );
 
-const IconChat = ({ active }: { active: boolean }) => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth={active ? 2.5 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-);
-
-const IconPlus = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19" />
-        <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-);
-
 // ============================
 // Компонент
 // ============================
 
 export const Navigation = () => {
     const location = useLocation();
-
-    // Основные табы (в левой панели)
     const mainItems = [
         { to: PATHS.PROFILE, icon: IconProfile, label: 'Профиль' },
         { to: PATHS.TASKS, icon: IconTasks, label: 'Задачи' },
         { to: PATHS.HOME, icon: IconHome, label: 'Главная' }
     ];
 
-    const isMainRoute =
-        mainItems.some(
-            (item) =>
-                location.pathname === item.to ||
-                location.pathname.startsWith(item.to + '/')
-        ) || location.pathname === PATHS.CHAT;
+    const activeIndex = mainItems.findIndex(
+        (item) => location.pathname === item.to || location.pathname.startsWith(item.to + '/')
+    );
+    const isMainRoute = activeIndex >= 0 || location.pathname === PATHS.CHAT;
+
+    // Скользящий «пальчик»: позиция, счётчик перемещений (перезапуск пружины)
+    // и сторона-якорь (origin) по направлению движения — как в референсе
+    const [thumb, setThumb] = useState(() => ({
+        index: Math.max(activeIndex, 0),
+        move: 0,
+        origin: 'center'
+    }));
+
+    useEffect(() => {
+        if (activeIndex < 0 || activeIndex === thumb.index) return;
+        const origin = activeIndex > thumb.index ? 'left' : 'right';
+        setThumb((current) => ({ index: activeIndex, move: current.move + 1, origin }));
+    }, [activeIndex, thumb.index]);
 
     if (!isMainRoute) return null;
 
@@ -74,10 +93,21 @@ export const Navigation = () => {
         hapticSelection();
     };
 
+    const thumbStyle = {
+        translate: `${thumb.index * 100}% 0`,
+        transformOrigin: thumb.origin,
+        animationName: thumb.move % 2 === 0 ? 'navigation-scale-a' : 'navigation-scale-b',
+        opacity: activeIndex >= 0 ? 1 : 0
+    } as CSSProperties;
+
     return (
         <nav className="navigation">
-            {/* Левая панель — табы + кнопка + */}
+            <GlassFilters />
+
+            {/* Панель — три таба, «пальчик» под активным */}
             <div className="navigation__panel navigation__panel--main">
+                <span className="navigation__thumb" style={thumbStyle} aria-hidden="true" />
+
                 {mainItems.map(({ to, icon: Icon, label }) => (
                     <NavLink
                         key={to}
@@ -91,21 +121,9 @@ export const Navigation = () => {
                         {({ isActive }) => <Icon active={isActive} />}
                     </NavLink>
                 ))}
-
-                <button
-                    type="button"
-                    className="navigation__item navigation__item--plus"
-                    onClick={() => {
-                        hapticSelection();
-                        // TODO: открыть быстрое создание задачи / чат
-                    }}
-                    aria-label="Создать"
-                >
-                    <IconPlus />
-                </button>
             </div>
 
-            {/* Правая панель — чат */}
+            {/* Правая панель — чат: орб «composing» по центру стекла */}
             <NavLink
                 to={PATHS.CHAT}
                 onClick={handleClick}
@@ -116,7 +134,7 @@ export const Navigation = () => {
                 }
                 aria-label="Чат со Steza"
             >
-                {({ isActive }) => <IconChat active={isActive} />}
+                <ThinkingOrb state="composing" size={32} aria-hidden="true" />
             </NavLink>
         </nav>
     );

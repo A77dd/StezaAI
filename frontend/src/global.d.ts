@@ -73,6 +73,7 @@ declare module '*.webm' {
 // Vite env
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
+  readonly VITE_LOCAL_PREVIEW_AUTH_BYPASS?: string;
   readonly MODE: string;
   readonly DEV: boolean;
   readonly PROD: boolean;
@@ -80,4 +81,10 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv;
+}
+
+// Vite ?raw импорты
+declare module '*?raw' {
+  const content: string;
+  export default content;
 }

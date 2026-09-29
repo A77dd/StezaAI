@@ -1,5 +1,4 @@
 // src/shared/utils/permissions.ts
-import { User } from '@/entities/user/User';
 
 export const ROLES = {
   USER: 'user',
@@ -25,9 +24,13 @@ export const PERMISSIONS = {
 
 export type Permission = keyof typeof PERMISSIONS;
 
-// Проверка прав
+// Проверка прав. Пользователь структурно: достаточно наличия роли.
+interface UserWithRole {
+  role: Role;
+}
+
 export const hasPermission = (
-  user: User | null,
+  user: UserWithRole | null,
   permission: Permission
 ): boolean => {
   if (!user) return false;

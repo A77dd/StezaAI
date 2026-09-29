@@ -14,6 +14,16 @@ interface AuthProviderProps {
     children: ReactNode;
 }
 
+const localPreviewUser: User = {
+    id: 0,
+    telegram_id: 'local-preview',
+    username: 'preview',
+    first_name: 'Гость',
+    last_name: null,
+    photo_url: null,
+    onboarding_completed: true
+};
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
     const { initData, isReady: telegramReady } = useTelegram();
 
@@ -23,6 +33,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     useEffect(() => {
         if (!telegramReady) return;
+
+        if (import.meta.env.DEV && import.meta.env.VITE_LOCAL_PREVIEW_AUTH_BYPASS === 'true') {
+            setUser(localPreviewUser);
+            setStatus('authenticated');
+            setIsReady(true);
+            return;
+        }
 
         const init = async () => {
             const token = getToken();
@@ -43,9 +60,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // 2. Токена нет, но есть initData — логинимся автоматически
             if (initData) {
                 try {
-                    console.log('🔍 initData length:', initData.length);
-                    console.log('🔍 initData preview:', initData.substring(0, 200));
-
                     const { token: newToken, user: newUser } = await authTelegram(initData);
                     setToken(newToken);
                     setUser(newUser);

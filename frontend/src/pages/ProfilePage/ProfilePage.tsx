@@ -4,12 +4,7 @@ import { hapticImpact } from '@/shared/library/telegram';
 import './ProfilePage.css';
 
 export const ProfilePage = () => {
-    const { user, logout } = useAuth();
-
-    const handleLogout = async () => {
-        hapticImpact('medium');
-        await logout();
-    };
+    const { user } = useAuth();
 
     if (!user) {
         return (
@@ -18,9 +13,6 @@ export const ProfilePage = () => {
             </div>
         );
     }
-
-    const fullName =
-        [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Без имени';
 
     // TODO: заменить на реальные данные с бэка
     const efficiency = {
@@ -57,7 +49,7 @@ export const ProfilePage = () => {
         // TODO: navigate to task creation
     };
 
-    const handleTaskClick = (id: number) => {
+    const handleTaskClick = (_id: number) => {
         hapticImpact('light');
         // TODO: navigate to task detail
     };
