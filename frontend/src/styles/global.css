@@ -1,5 +1,6 @@
 @import './variables.css';
 @import './fonts.css';
+@import './ui.css';
 
 * {
     margin: 0;

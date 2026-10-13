@@ -1,0 +1,25 @@
+.planning-settings form,
+.planning-settings label,
+.planning-settings__hours {
+    min-width: 0;
+    max-width: 100%;
+}
+.planning-settings input[type='time'] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 46px;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+}
+.planning-settings input[type='time']::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+}
+@media (max-width: 380px) {
+    .planning-settings__hours {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

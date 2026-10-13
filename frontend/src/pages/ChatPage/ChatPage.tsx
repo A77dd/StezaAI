@@ -1,224 +1,227 @@
-// src/pages/ChatPage/ChatPage.tsx
-import { useEffect, useRef, useState } from 'react';
-import { hapticImpact, hapticNotification } from '@/shared/library/telegram';
+import { clearChat } from '@/shared/api/manage';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { askSteza, chatHistory } from '@/shared/api/steza';
+import { apiError } from '@/shared/api/client';
+import type { ChatHistory, ChatReply } from '@/shared/api/contracts';
+import { ModelAccess } from '@/components/ModelAccess';
+import { TaskPlanner } from '@/components/TaskPlanner';
+import { RichMessage, ThinkingMessage } from './components/ChatMessage';
+import { ChatToolbar } from './components/ChatToolbar';
+import { BlackBoxSphere } from './BlackBoxSphere';
 import './ChatPage.css';
 
-interface Message {
-    id: string;
-    role: 'user' | 'assistant';
-    text: string;
-    time: string;
-}
-
-const MOCK_MESSAGES: Message[] = [
-    {
-        id: '1',
-        role: 'assistant',
-        text: 'Привет! Я Steza. Расскажи, что у тебя на уме — помогу разобраться.',
-        time: 'сейчас'
-    }
-];
-
-const IconSend = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13" />
-        <polygon points="22 2 15 22 11 13 2 9 22 2" />
-    </svg>
-);
-
-const IconMic = () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" />
-    </svg>
-);
-
+type Message = ChatHistory['items'][number] & {
+    basis?: ChatReply['basis'];
+    suggestedTasks?: string[];
+};
 export const ChatPage = () => {
-    const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
     const [input, setInput] = useState('');
-    const [isRecording, setIsRecording] = useState(false);
-    const recordingTimer = useRef<number | null>(null);
-
-    // ============================
-    // Отправка текста
-    // ============================
-
-    const handleSend = () => {
-        const text = input.trim();
-        if (!text) return;
-
-        hapticImpact('light');
-
-        const userMsg: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            text,
-            time: 'сейчас'
-        };
-
-        setMessages((prev) => [...prev, userMsg]);
-        setInput('');
-
-        // TODO: POST /api/chat/message
-        setTimeout(() => {
-            const reply: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                text: 'Понял тебя. Дай подумать...',
-                time: 'сейчас'
-            };
-            setMessages((prev) => [...prev, reply]);
-            hapticNotification('success');
-        }, 600);
-    };
-
-    // ============================
-    // Запись голоса
-    // ============================
-
-    const startRecording = () => {
-        if (isRecording) return;
-        hapticImpact('medium');
-        setIsRecording(true);
-
-        recordingTimer.current = window.setTimeout(() => {
-            stopRecording();
-        }, 30000);
-    };
-
-    const stopRecording = () => {
-        if (!isRecording) return;
-        hapticNotification('success');
-        setIsRecording(false);
-
-        if (recordingTimer.current) {
-            clearTimeout(recordingTimer.current);
-            recordingTimer.current = null;
-        }
-
-        // TODO: отправить голосовое на бэк
-        const voiceMsg: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            text: '🎤 Голосовое сообщение',
-            time: 'сейчас'
-        };
-        setMessages((prev) => [...prev, voiceMsg]);
-    };
-
-    // Глобальный pointerup — закрывает запись, даже если палец ушёл с кнопки
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [busy, setBusy] = useState(false);
+    const [pendingText, setPendingText] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [cursor, setCursor] = useState<string | null>(null);
+    const [suggestion, setSuggestion] = useState<string | null>(null);
+    const [retry, setRetry] = useState(0);
+    const live = useRef(true);
+    const bottom = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        if (!isRecording) return;
-
-        const handleGlobalPointerUp = () => {
-            stopRecording();
-        };
-
-        document.addEventListener('pointerup', handleGlobalPointerUp);
-        document.addEventListener('pointercancel', handleGlobalPointerUp);
-
+        live.current = true;
         return () => {
-            document.removeEventListener('pointerup', handleGlobalPointerUp);
-            document.removeEventListener('pointercancel', handleGlobalPointerUp);
-        };
-    }, [isRecording]);
-
-    // Очистка таймера при размонтировании
-    useEffect(() => {
-        return () => {
-            if (recordingTimer.current) clearTimeout(recordingTimer.current);
+            live.current = false;
         };
     }, []);
-
-    // ============================
-    // Скролл вниз
-    // ============================
-
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
+        let mounted = true;
+        setLoading(true);
+        setError('');
+        chatHistory()
+            .then((data) => {
+                if (mounted) {
+                    setMessages(data.items);
+                    setCursor(data.nextCursor);
+                }
+            })
+            .catch((e) => {
+                if (mounted) setError(apiError(e));
+            })
+            .finally(() => {
+                if (mounted) setLoading(false);
+            });
+        return () => {
+            mounted = false;
+        };
+    }, [retry]);
+    useEffect(() => {
+        if (pendingText) bottom.current?.scrollIntoView({ block: 'nearest' });
+    }, [pendingText]);
+    const submit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (busy || loading || !input.trim()) return;
+        const text = input.trim();
+        setPendingText(text);
+        setBusy(true);
+        setError('');
+        try {
+            const reply = await askSteza(text);
+            if (!live.current) return;
+            const createdAt = new Date().toISOString();
+            setMessages((current) => [
+                ...current,
+                { role: 'user', text, createdAt, usedFactIds: [] },
+                {
+                    role: 'assistant',
+                    text: reply.reply,
+                    createdAt,
+                    usedFactIds: reply.basis.map((f) => f.factId),
+                    basis: reply.basis,
+                    suggestedTasks: reply.suggestedTasks,
+                },
+            ]);
+            setInput('');
+            requestAnimationFrame(() => bottom.current?.scrollIntoView({ block: 'nearest' }));
+        } catch (e) {
+            if (live.current) setError(apiError(e));
+        } finally {
+            if (live.current) {
+                setBusy(false);
+                setPendingText(null);
+            }
+        }
+    };
+    const earlier = async () => {
+        if (!cursor || busy) return;
+        setBusy(true);
+        setError('');
+        try {
+            const data = await chatHistory(cursor);
+            if (live.current) {
+                setMessages((current) => [...data.items, ...current]);
+                setCursor(data.nextCursor);
+            }
+        } catch (e) {
+            if (live.current) setError(apiError(e));
+        } finally {
+            if (live.current) setBusy(false);
+        }
+    };
     return (
-        <div className="chat-page">
-            {/* Сообщения */}
-            <div className="chat-page__messages">
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`chat-bubble chat-bubble--${msg.role}`}
-                    >
-                        <p className="chat-bubble__text">{msg.text}</p>
-                        <span className="chat-bubble__time">{msg.time}</span>
-                    </div>
-                ))}
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Ввод */}
-            <div className="chat-page__input">
-                <div className="chat-page__input-wrap">
-                    <textarea
-                        className="chat-page__textarea"
-                        placeholder="Написать сообщение..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        rows={1}
+        <div className="chat-page chat-page--connected">
+            {messages.length === 0 && !loading && !pendingText && (
+                <section className="blackbox-stage">
+                    <h1 className="blackbox-stage__prompt">Над чем сейчас работаешь?</h1>
+                    <BlackBoxSphere
+                        phase={busy ? 'processing' : 'idle'}
+                        onPlusClick={() => document.getElementById('chat-input')?.focus()}
                     />
-                </div>
-
-                {input.trim() ? (
-                    <button
-                        type="button"
-                        className="chat-page__send"
-                        onClick={handleSend}
-                        aria-label="Отправить"
-                    >
-                        <IconSend />
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        className={`chat-page__mic ${
-                            isRecording ? 'chat-page__mic--recording' : ''
-                        }`}
-                        onPointerDown={startRecording}
-                        onContextMenu={(e) => e.preventDefault()}
-                        aria-label="Голосовое сообщение"
-                    >
-                        <IconMic />
+                </section>
+            )}
+            {!!messages.length && (
+                <ChatToolbar
+                    disabled={busy || loading}
+                    onClear={async () => {
+                        if (busy || loading) return false;
+                        setBusy(true);
+                        setError('');
+                        try {
+                            await clearChat();
+                            setMessages([]);
+                            setCursor(null);
+                            setSuggestion(null);
+                            return true;
+                        } catch (e) {
+                            setError(apiError(e));
+                            return false;
+                        } finally {
+                            setBusy(false);
+                        }
+                    }}
+                />
+            )}
+            <div className="chat-history" aria-label="Переписка">
+                {loading && <p role="status">Загружаем переписку…</p>}
+                {cursor && (
+                    <button disabled={busy} onClick={() => void earlier()}>
+                        Ранние сообщения
                     </button>
                 )}
+                {messages.map((message, index) => (
+                    <article
+                        key={`${message.createdAt}-${index}`}
+                        className={`chat-message chat-message--${message.role}`}
+                    >
+                        <strong>{message.role === 'user' ? 'Вы' : 'Steza'}</strong>
+                        {message.role === 'assistant' ? (
+                            <RichMessage text={message.text} />
+                        ) : (
+                            <p className="ui-preserve">{message.text}</p>
+                        )}
+                        {!!message.basis?.length && (
+                            <details>
+                                <summary>Основание</summary>
+                                {message.basis.map((fact) => (
+                                    <p key={fact.factId}>{fact.statement}</p>
+                                ))}
+                            </details>
+                        )}
+                        {message.suggestedTasks?.map((text, i) => (
+                            <button key={i} onClick={() => setSuggestion(text)}>
+                                Запланировать: {text}
+                            </button>
+                        ))}
+                    </article>
+                ))}
+                {pendingText && (
+                    <>
+                        <article className="chat-message chat-message--user">
+                            <strong>Вы</strong>
+                            <p className="ui-preserve">{pendingText}</p>
+                        </article>
+                        <ThinkingMessage />
+                    </>
+                )}
+                <div ref={bottom} className="chat-history__end" />
             </div>
-
-            {/* Оверлей записи */}
-            {isRecording && (
-                <div className="chat-page__recording-overlay">
-                    <div className="chat-page__recording-orb">
-                        <span className="chat-page__recording-ring" />
-                        <span className="chat-page__recording-ring chat-page__recording-ring--delay" />
-                        <span className="chat-page__recording-ring chat-page__recording-ring--delay-2" />
-                        <IconMic />
-                    </div>
-
-                    <div className="chat-page__recording-eq">
-                        <span className="chat-page__recording-bar" />
-                        <span className="chat-page__recording-bar" />
-                        <span className="chat-page__recording-bar" />
-                        <span className="chat-page__recording-bar" />
-                        <span className="chat-page__recording-bar" />
-                    </div>
-
-                    <p className="chat-page__recording-text">Слушаю...</p>
-                    <p className="chat-page__recording-hint">
-                        Отпусти, чтобы отправить
-                    </p>
+            {error && (
+                <div className="ui-panel" role="alert">
+                    <p>{error}</p>
+                    <button onClick={() => setRetry((v) => v + 1)} disabled={busy}>
+                        Обновить историю
+                    </button>
                 </div>
             )}
+            {suggestion && (
+                <>
+                    <button onClick={() => setSuggestion(null)}>Закрыть планирование</button>
+                    <TaskPlanner key={suggestion} initialText={suggestion} />
+                </>
+            )}
+            <ModelAccess>
+                <form className="chat-page__input" onSubmit={submit}>
+                    <div className="chat-page__input-wrap">
+                        <textarea
+                            id="chat-input"
+                            className="chat-page__textarea"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            maxLength={2000}
+                            placeholder="Написать сообщение…"
+                            aria-label="Сообщение Steza"
+                            rows={2}
+                            disabled={busy}
+                        />
+                    </div>
+                    <button
+                        className="chat-page__send"
+                        type="submit"
+                        disabled={busy || loading || !input.trim()}
+                        aria-label="Отправить сообщение"
+                    >
+                        {busy ? '…' : '↑'}
+                    </button>
+                </form>
+            </ModelAccess>
         </div>
     );
 };

@@ -7,7 +7,7 @@ import './MainLayout.css';
 export const MainLayout = () => {
     return (
         <div className="main-layout">
-            <Header title="Профиль" showNotifications onNotificationClick={() => {}} />
+            <Header showNotifications onNotificationClick={() => {}} />
             <main className="main-layout__content">
                 <Outlet />
             </main>

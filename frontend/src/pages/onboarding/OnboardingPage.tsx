@@ -1,142 +1,91 @@
-// src/pages/onboarding/OnboardingPage.tsx
-import { useMemo, useState } from 'react';
+import { TimezoneSelect } from '@/components/TimezoneSelect';
+import { deviceTimezone } from '@/shared/library/timezone';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/hooks/useAuth';
 import { PATHS } from '@/app/routes/paths';
-import { saveOnboardingStep, completeOnboarding } from '@/entities/onboarding';
+import { completeOnboarding, type OnboardingPayload } from '@/entities/onboarding';
+import { apiError, errorCode } from '@/shared/api/client';
+import { getMe } from '@/entities/user/user';
 import { StepProgress } from './components/StepProgress';
 import { StepFooter } from './components/StepFooter';
 import { RoleStep } from './steps/RoleStep';
 import { TakeOnStep } from './steps/TakeOnStep';
 import { FinishStep } from './steps/FinishStep';
 import './OnboardingPage.css';
-
-export interface OnboardingData {
-    role_type: string;
-    take_on: string[];
-}
-
-const INITIAL_DATA: OnboardingData = {
-    role_type: '',
-    take_on: []
-};
-
-const TOTAL_STEPS = 3;
-
 export const OnboardingPage = () => {
     const navigate = useNavigate();
     const { user, refresh } = useAuth();
     const [step, setStep] = useState(0);
-    const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
+    const [role, setRole] = useState('');
+    const [takeOn, setTakeOn] = useState<string[]>([]);
+    const [timezone, setTimezone] = useState(deviceTimezone);
     const [saving, setSaving] = useState(false);
-
-    const updateData = (patch: Partial<OnboardingData>) => {
-        setData((prev) => ({ ...prev, ...patch }));
-    };
-
-    const stepConfig = useMemo(
-        () => [
-            {
-                key: 'role',
-                canContinue: true,
-                onNext: async () => {
-                    if (data.role_type) {
-                        await saveOnboardingStep({ role_type: data.role_type });
-                    }
-                }
-            },
-            {
-                key: 'take_on',
-                canContinue: true,
-                onNext: async () => {
-                    if (data.take_on.length) {
-                        await saveOnboardingStep({ goals: data.take_on });
-                    }
-                }
-            },
-            {
-                key: 'finish',
-                canContinue: true,
-                onNext: async () => {
-                    await completeOnboarding();
-                    await refresh();
-                    navigate(PATHS.HOME, { replace: true });
-                }
+    const [error, setError] = useState('');
+    const next = async () => {
+        if (saving) return;
+        if (step < 2) {
+            setStep(step + 1);
+            return;
+        }
+        setSaving(true);
+        setError('');
+        const mapping: Record<string, OnboardingPayload['takeOn'][number]> = {
+            'Задачи и дедлайны': 'tasks',
+            'Встречи и созвоны': 'tasks',
+            'Договорённости из переписок': 'agreements',
+            'Личные цели': 'growth',
+            Напоминания: 'tasks',
+            'Планирование дня': 'tasks',
+        };
+        try {
+            try {
+                await completeOnboarding({
+                    role: role.trim(),
+                    takeOn: [...new Set(takeOn.map((value) => mapping[value]))],
+                    timezone,
+                });
+            } catch (e) {
+                if (errorCode(e) !== 'conflict' || !(await getMe()).onboardingCompleted) throw e;
             }
-        ],
-        [data, refresh, navigate]
-    );
-
-    const handleNext = async () => {
-        if (saving) return;
-        setSaving(true);
-        try {
-            await stepConfig[step].onNext();
-            if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
-        } catch (err) {
-            console.error('Onboarding step error:', err);
+            await refresh();
+            navigate(PATHS.HOME, { replace: true });
+        } catch (e) {
+            setError(apiError(e));
         } finally {
             setSaving(false);
         }
     };
-
-    const handleSkip = async () => {
-        if (saving) return;
-        setSaving(true);
-        try {
-            if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleBack = () => {
-        if (step > 0) setStep((s) => s - 1);
-    };
-
-    const renderStep = () => {
-        switch (step) {
-            case 0:
-                return (
-                    <RoleStep
-                        value={data.role_type}
-                        onChange={(v) => updateData({ role_type: v })}
-                    />
-                );
-            case 1:
-                return (
-                    <TakeOnStep
-                        value={data.take_on}
-                        onChange={(v) => updateData({ take_on: v })}
-                    />
-                );
-            case 2:
-                return <FinishStep user={user} />;
-            default:
-                return null;
-        }
-    };
-
-    const isFirst = step === 0;
-    const isFinish = step === TOTAL_STEPS - 1;
-    const canContinue = stepConfig[step].canContinue;
-
     return (
         <div className="onboarding">
-            {!isFinish && (
-                <StepProgress current={step} total={TOTAL_STEPS - 1} />
-            )}
-
-            <div className="onboarding__content">{renderStep()}</div>
-
+            {step < 2 && <StepProgress current={step} total={2} />}
+            <div className="onboarding__content">
+                {step === 0 && <RoleStep value={role} onChange={setRole} />}
+                {step === 1 && <TakeOnStep value={takeOn} onChange={setTakeOn} />}
+                {step === 2 && (
+                    <>
+                        <FinishStep user={user} />
+                        <TimezoneSelect
+                            title="Часовой пояс для планирования"
+                            value={timezone}
+                            onChange={setTimezone}
+                            disabled={saving}
+                        />
+                        <p>Нажимая «Начать», вы подтверждаете этот часовой пояс.</p>
+                    </>
+                )}
+                {error && <p role="alert">{error}</p>}
+            </div>
             <StepFooter
-                onBack={isFirst || isFinish ? undefined : handleBack}
-                onSkip={!isFinish ? handleSkip : undefined}
-                onNext={handleNext}
-                canContinue={canContinue}
-                nextLabel={isFinish ? 'Начать' : 'Продолжить'}
+                onBack={step > 0 ? () => setStep(step - 1) : undefined}
+                onSkip={step === 1 ? () => setStep(2) : undefined}
+                onNext={() => void next()}
+                canContinue={
+                    step === 0 ? !!role.trim() && role.trim().length <= 200 : !!timezone.trim()
+                }
+                nextLabel={step === 2 ? 'Начать' : 'Продолжить'}
                 saving={saving}
-                showSkip={!isFinish}
+                showSkip={step === 1}
             />
         </div>
     );

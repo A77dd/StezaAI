@@ -1,4 +1,72 @@
+/* src/components/Navigation/Navigation.css */
+
+/* ============================
+   Liquid glass — общие переменные стиля (референс: Den Dionigi).
+   Используются всеми стеклянными элементами приложения.
+   ============================ */
+
+:root {
+    --c-glass: #bbbbbc;
+    --c-light: #fff;
+    --c-dark: #000;
+    --glass-reflex-light: 1;
+    --glass-reflex-dark: 1;
+    --saturation: 150%;
+
+    /* Пилюля-панель: тон 12% + рефлексы кромки */
+    --glass-panel-shadow:
+        inset 0 0 0 1px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+        inset 1.8px 3px 0px -2px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent),
+        inset -2px -2px 0px -2px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+        inset -3px -8px 1px -6px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 60%), transparent),
+        inset -0.3px -1px 4px 0px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent),
+        inset -1.5px 2.5px 0px -2px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        inset 0px 3px 4px -2px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        inset 2px -6.5px 1px -4px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+        0px 1px 5px 0px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+        0px 6px 16px 0px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+
+    /* Стеклянная кнопка: тон 36% + более плотные рефлексы */
+    --glass-button-shadow:
+        inset 0 0 0 1px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+        inset 2px 1px 0px -1px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent),
+        inset -1.5px -1px 0px -1px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+        inset -2px -6px 1px -5px
+            color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 60%), transparent),
+        inset -1px 2px 3px -1px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        inset 0px -4px 1px -2px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+        0px 3px 6px 0px
+            color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+}
+
+[data-theme='dark'] {
+    --glass-reflex-light: 0.3;
+    --glass-reflex-dark: 2;
+}
+
+/* ============================
+   Нижняя навигация
+   ============================ */
+
 .navigation {
+    --c-content: var(--white, #111111);
+    --c-action: var(--primary, #2eeb67);
+
     position: fixed;
     left: 0;
     right: 0;
@@ -6,40 +74,59 @@
     padding: 0 16px calc(12px + env(safe-area-inset-bottom));
     display: flex;
     align-items: center;
-    justify-content: center;   /* ← было space-between */
-    gap: 10px;                 /* ← расстояние между панелями */
+    justify-content: center;
+    gap: 10px;
     z-index: 100;
     pointer-events: none;
 }
 
-/* Панели — «пилюли» */
+.navigation__filter {
+    position: absolute;
+    width: 0;
+    height: 0;
+    z-index: -1;
+}
+
+/* Стеклянная пилюля: жидкое преломление фона + рефлексы по кромке */
 .navigation__panel {
     display: flex;
     align-items: center;
-    gap: 4px;
     padding: 6px;
-    background-color: var(--surface);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 999px;
-    border: 1px solid var(--border-color);
-    pointer-events: auto; /* клики работают только по панелям */
+    border: none;
+    border-radius: 99em;
+    background-color: color-mix(in srgb, var(--c-glass) 12%, transparent);
+    backdrop-filter: blur(8px) saturate(var(--saturation));
+    backdrop-filter: blur(8px) url(#nav-switcher) saturate(var(--saturation));
+    -webkit-backdrop-filter: blur(8px) saturate(var(--saturation));
+    box-shadow: var(--glass-panel-shadow);
+    transition: background-color 400ms cubic-bezier(1, 0, 0.4, 1),
+        box-shadow 400ms cubic-bezier(1, 0, 0.4, 1);
+    pointer-events: auto;
+    position: relative;
+    isolation: isolate;
 }
 
-/* Основная панель — растягивается */
 .navigation__panel--main {
-    flex: 1;
-    justify-content: space-around;
+    flex: 1 1 auto;
     max-width: 320px;
+    justify-content: space-around;
 }
 
-/* Правая панель — квадратная */
 .navigation__panel--chat {
     width: 56px;
     height: 56px;
     justify-content: center;
     flex-shrink: 0;
-    transition: transform 0.2s ease, background 0.2s ease;
+    user-select: none;
+    -webkit-touch-callout: none;
+    backdrop-filter: blur(8px) saturate(var(--saturation));
+    backdrop-filter: blur(8px) url(#nav-toggle) saturate(var(--saturation));
+    transition: transform 0.2s ease, background-color 400ms cubic-bezier(1, 0, 0.4, 1),
+        box-shadow 400ms cubic-bezier(1, 0, 0.4, 1);
+}
+
+.navigation__panel--chat canvas {
+    display: block;
 }
 
 .navigation__panel--chat:active {
@@ -47,49 +134,101 @@
 }
 
 .navigation__panel--chat.navigation__panel--active {
-    background-color: var(--primary);
-    color: var(--background);
-}
-
-.navigation__panel--chat.navigation__panel--active svg {
-    stroke: var(--background);
+    background-color: color-mix(in srgb, var(--c-glass) 20%, transparent);
 }
 
 /* ============================
-   Кнопки-иконки в основной панели
+   Скользящий «пальчик» — треть ширины пилюли, шаг = 100% своей ширины
    ============================ */
+
+.navigation__thumb {
+    position: absolute;
+    left: 6px;
+    top: 5px;
+    width: calc((100% - 12px) / 3);
+    height: calc(100% - 10px);
+    border-radius: 99em;
+    background-color: color-mix(in srgb, var(--c-glass) 36%, transparent);
+    box-shadow: var(--glass-button-shadow);
+    z-index: 0;
+    pointer-events: none;
+    transition: translate 400ms cubic-bezier(1, 0, 0.4, 1), opacity 300ms ease,
+        background-color 400ms cubic-bezier(1, 0, 0.4, 1),
+        box-shadow 400ms cubic-bezier(1, 0, 0.4, 1);
+    animation-duration: 440ms;
+    animation-timing-function: ease;
+}
+
+@keyframes navigation-scale-a {
+    0% { scale: 1 1; }
+    50% { scale: 1.15 1; }
+    100% { scale: 1 1; }
+}
+
+@keyframes navigation-scale-b {
+    0% { scale: 1 1; }
+    50% { scale: 1.15 1; }
+    100% { scale: 1 1; }
+}
+
+/* ============================
+   Кнопки-иконки
+   ============================ */
+
 .navigation__item {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    color: var(--gray-400);
-    text-decoration: none;
     border: none;
     background: none;
+    color: color-mix(in srgb, var(--c-content) 45%, transparent);
+    text-decoration: none;
     cursor: pointer;
-    transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+    transition: color 160ms ease, scale 200ms cubic-bezier(0.5, 0, 0, 1);
     -webkit-tap-highlight-color: transparent;
 }
 
+.navigation__item svg {
+    display: block;
+    transition: scale 200ms cubic-bezier(0.5, 0, 0, 1);
+}
+
+.navigation__item:hover {
+    color: var(--c-action);
+    cursor: pointer;
+}
+
+.navigation__item:hover svg {
+    scale: 1.15;
+}
+
 .navigation__item:active {
-    transform: scale(0.92);
+    scale: 0.92;
 }
 
 .navigation__item--active {
-    color: var(--primary);
-    background-color: rgba(46, 235, 103, 0.12);
+    color: var(--c-content);
+    cursor: auto;
 }
 
-/* Кнопка "+" — акцентная */
-.navigation__item--plus {
-    background-color: var(--primary);
-    color: var(--background);
-}
+/* ============================
+   Доступность
+   ============================ */
 
-.navigation__item--plus:active {
-    transform: scale(0.92);
-    background-color: var(--primary-hover);
+@media (prefers-reduced-motion: reduce) {
+    .navigation__thumb {
+        transition: none;
+        animation: none !important;
+    }
+
+    .navigation__item,
+    .navigation__item svg,
+    .navigation__panel--chat {
+        transition: none;
+    }
 }

@@ -1,0 +1,98 @@
+.chat-thinking__body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    color: var(--gray-600);
+    font-size: 13px;
+}
+.chat-thinking__dots {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 5px;
+}
+.chat-thinking__dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: steza-thinking 1.2s ease-in-out infinite;
+}
+.chat-thinking__dots i:nth-child(2) {
+    animation-delay: 0.16s;
+}
+.chat-thinking__dots i:nth-child(3) {
+    animation-delay: 0.32s;
+}
+@keyframes steza-thinking {
+    0%,
+    60%,
+    100% {
+        opacity: 0.35;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-4px);
+    }
+}
+.chat-rich-message {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+.chat-rich-message > * + * {
+    margin-top: 12px;
+}
+.chat-rich-message > :first-child {
+    margin-top: 0;
+}
+.chat-rich-message :is(h1, h2, h3, h4, h5, h6) {
+    font-size: 16px;
+    line-height: 1.4;
+}
+.chat-message .chat-rich-message strong {
+    font-size: inherit;
+}
+.chat-rich-message :is(ul, ol) {
+    padding-left: 22px;
+}
+.chat-rich-message li + li {
+    margin-top: 6px;
+}
+.chat-rich-message blockquote {
+    border-left: 3px solid var(--primary);
+    padding-left: 12px;
+    color: var(--gray-600);
+}
+.chat-rich-message pre {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--background);
+}
+.chat-rich-message code {
+    font-size: 0.9em;
+    background: var(--background);
+    border-radius: 4px;
+    padding: 2px 4px;
+}
+.chat-rich-message pre code {
+    padding: 0;
+}
+.chat-rich-message a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.chat-rich-message hr {
+    border: 0;
+    border-top: 1px solid var(--gray-400);
+}
+@media (prefers-reduced-motion: reduce) {
+    .chat-thinking__dots i {
+        animation: none;
+        opacity: 0.7;
+    }
+}
